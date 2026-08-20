@@ -9,7 +9,7 @@ on:
         type: string
 
 env:
-  PLUGIN_NAME: obsidian-mcp-plugin
+  PLUGIN_NAME: scoped-vault-mcp
 
 permissions:
   contents: write
