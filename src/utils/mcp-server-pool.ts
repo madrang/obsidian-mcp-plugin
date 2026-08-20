@@ -15,6 +15,8 @@ import { DataviewTool, isDataviewToolAvailable } from '../tools/dataview-tool';
 import { getVersion } from '../version';
 import type { SessionManager } from './session-manager';
 import type { ConnectionPool } from './connection-pool';
+import type { AuthScope } from '../security/http-auth';
+import { FolderScopedIgnoreManager } from '../security/token-scope';
 
 /** Plugin interface with settings relevant to MCPServerPool.
  * Includes fields from SecurePluginRef and ObsidianAPIPluginRef so the same object
@@ -23,6 +25,10 @@ interface PluginWithSettings {
   settings?: {
     readOnlyMode?: boolean;
     enableWebFetch?: boolean;
+    allowCreateOverwrite?: boolean;
+    // ADR-111: session lifetime policy
+    sessionTimeoutMs?: number;
+    sessionsPerToken?: number;
     // From SecurePluginRef (for SecureObsidianAPI)
     security?: Partial<import('../security/vault-security-manager').SecuritySettings>;
     // From ObsidianAPIPluginRef (for ObsidianAPI)
@@ -41,6 +47,9 @@ interface PooledServer {
   createdAt: number;
   lastActivityAt: number;
   requestCount: number;
+  /** ADR-110: identity of the credential this session was created with.
+   * Undefined for the primary key, no-key mode, and auth-disabled mode. */
+  identity?: string;
 }
 
 export class MCPServerPool extends EventEmitter {
@@ -90,7 +99,8 @@ export class MCPServerPool extends EventEmitter {
     return createSemanticTools(
       this.obsidianAPI,
       this.plugin?.settings?.toolVisibility,
-      this.plugin?.settings?.enableWebFetch === true
+      this.plugin?.settings?.enableWebFetch === true,
+      this.plugin?.settings?.allowCreateOverwrite === true
     );
   }
 
@@ -127,12 +137,24 @@ export class MCPServerPool extends EventEmitter {
   }
 
   /**
+   * ADR-110: does the session's bound credential identity match the one
+   * presented on this request? True when the session is unknown (creation
+   * paths bind it fresh). False means a different credential is trying to
+   * ride a session it did not create — the caller answers 403.
+   */
+  sessionIdentityMatches(sessionId: string, identity: string | undefined): boolean {
+    const pooledServer = this.servers.get(sessionId);
+    if (!pooledServer) return true;
+    return pooledServer.identity === identity;
+  }
+
+  /**
    * Get or create an MCP server for a session
    */
-  getOrCreateServer(sessionId: string): McpServer {
+  getOrCreateServer(sessionId: string, scope?: AuthScope): McpServer {
     // Check if server exists
     let pooledServer = this.servers.get(sessionId);
-    
+
     if (pooledServer) {
       // Update activity
       pooledServer.lastActivityAt = Date.now();
@@ -147,34 +169,76 @@ export class MCPServerPool extends EventEmitter {
       this.evictOldestServer();
     }
 
+    // ADR-111: per-credential session cap, read live from the settings. A new
+    // session for an identity already at the cap invalidates that identity's
+    // OLDEST session — one token is one session unless the user widens it.
+    // The undefined identity (primary key, no-key, auth-disabled) is one
+    // bucket, so the primary key follows the same rule.
+    const limit = this.sessionsPerTokenLimit();
+    const sameIdentity = [...this.servers.entries()]
+      .filter(([, s]) => s.identity === scope?.identity)
+      .sort((a, b) => a[1].lastActivityAt - b[1].lastActivityAt);
+    while (sameIdentity.length >= limit) {
+      const [oldestId] = sameIdentity.shift()!;
+      this.evictServer(oldestId);
+    }
+
     // Create new server
-    const server = this.createNewServer(sessionId);
-    
+    const server = this.createNewServer(sessionId, scope);
+
     pooledServer = {
       server,
       sessionId,
       createdAt: Date.now(),
       lastActivityAt: Date.now(),
-      requestCount: 1
+      requestCount: 1,
+      identity: scope?.identity
     };
-    
+
     this.servers.set(sessionId, pooledServer);
     Debug.log(`🆕 Created new MCP server for session ${sessionId} (Total: ${this.servers.size}/${this.maxServers})`);
-    
+
     return server;
+  }
+
+  /**
+   * ADR-110: the plugin ref seen by a scoped session's SecureObsidianAPI.
+   * The ignore manager becomes the folder-scoped composite, and the settings
+   * getter reports readOnlyMode when the token is read-only — both computed
+   * per access, so the ADR-108 live-settings behavior is preserved. The token
+   * scope itself is fixed at session creation; scope edits apply to new
+   * sessions.
+   */
+  private scopedPluginRef(scope: AuthScope): PluginWithSettings | undefined {
+    const plugin = this.plugin;
+    if (!plugin) return plugin;
+    const tokenReadOnly = scope.readOnly === true;
+    return {
+      get settings() {
+        return {
+          ...plugin.settings,
+          readOnlyMode: plugin.settings?.readOnlyMode === true || tokenReadOnly
+        };
+      },
+      ignoreManager: scope.folder
+        ? new FolderScopedIgnoreManager(this.obsidianAPI.getApp(), plugin.ignoreManager, scope.folder)
+        : plugin.ignoreManager,
+      mcpServer: plugin.mcpServer,
+      manifest: plugin.manifest
+    };
   }
 
   /**
    * Create a new MCP server instance with handlers
    */
-  private createNewServer(sessionId: string): McpServer {
+  private createNewServer(sessionId: string, scope?: AuthScope): McpServer {
       // Construct via McpServer (the non-deprecated class) and register our
       // raw JSON-Schema handlers on its underlying .server — the advanced
       // low-level handle it deliberately exposes — so the deprecated Server
       // symbol never appears in our source. We don't use registerTool/Zod.
       const mcpServer = new McpServer(
       {
-        name: 'Semantic Notes Vault MCP',
+        name: 'Scoped Vault MCP',
         version: getVersion()
       },
       {
@@ -209,11 +273,13 @@ export class MCPServerPool extends EventEmitter {
         );
       }
 
-      // Main API is SecureObsidianAPI - create matching secure instance
+      // Main API is SecureObsidianAPI - create matching secure instance.
+      // ADR-110: a scoped token gets the wrapped plugin ref (folder-scoped
+      // ignore manager, token read-only folded into the live predicate).
       sessionAPI = new SecureObsidianAPI(
         this.obsidianAPI.getApp(),
         undefined,
-        this.plugin,
+        scope ? this.scopedPluginRef(scope) : this.plugin,
         this.obsidianAPI.getSecuritySettings()
       );
       Debug.log(`🔐 Created secure session API for session ${sessionId}`);
@@ -244,7 +310,9 @@ export class MCPServerPool extends EventEmitter {
       return {
         tools: this.buildTools().map(tool => ({
           name: tool.name,
+          title: tool.title,
           description: tool.description,
+          annotations: tool.annotations,
           inputSchema: tool.inputSchema
         }))
       };
@@ -424,7 +492,8 @@ export class MCPServerPool extends EventEmitter {
           } : null,
           sessions: sessionData,
           settings: {
-            sessionTimeout: '1 hour',
+            sessionTimeout: this.sessionTimeoutLabel(),
+            sessionsPerToken: this.sessionsPerTokenLimit(),
             maxConcurrentConnections: this.maxServers
           },
           timestamp: new Date().toISOString()
@@ -470,10 +539,36 @@ export class MCPServerPool extends EventEmitter {
     }
 
     if (oldestSessionId) {
-      this.servers.delete(oldestSessionId);
-      Debug.log(`🗑️ Evicted oldest MCP server: ${oldestSessionId}`);
-      this.emit('server-evicted', { sessionId: oldestSessionId });
+      this.evictServer(oldestSessionId);
     }
+  }
+
+  /**
+   * ADR-111: the per-credential session cap, read live so a settings change
+   * applies to the next session creation. Missing or invalid means 1 — one
+   * credential holds one session. Fails closed by design: a hand-edited
+   * data.json gets the strictest value, not the loosest.
+   */
+  private sessionsPerTokenLimit(): number {
+    const n = this.plugin?.settings?.sessionsPerToken;
+    return typeof n === 'number' && Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+  }
+
+  /** Label for the session-info resource, read live like the setting. */
+  private sessionTimeoutLabel(): string {
+    const ms = this.plugin?.settings?.sessionTimeoutMs;
+    return typeof ms === 'number' && ms > 0 ? `${Math.round(ms / 60000)} minutes` : 'never';
+  }
+
+  /**
+   * Remove a server and announce it. The listener in mcp-server.ts closes the
+   * transport and drops the session-manager entry — without that half the
+   * "evicted" session keeps working through its live transport.
+   */
+  private evictServer(sessionId: string): void {
+    this.servers.delete(sessionId);
+    Debug.log(`🗑️ Evicted MCP server: ${sessionId}`);
+    this.emit('server-evicted', { sessionId });
   }
 
   /**

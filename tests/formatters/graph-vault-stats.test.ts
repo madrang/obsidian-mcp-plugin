@@ -40,7 +40,8 @@ describe('formatGraphStats — vault-wide', () => {
       vaultStatistics: { totalNotes: 200, totalLinks: 40, orphanCount: 150, averageDegree: 0.4 }
     });
 
-    expect(output).toContain('vault.search');
+    // search lives on the view tool now. The hint must name its new home.
+    expect(output).toContain('`view.search`');
   });
 });
 

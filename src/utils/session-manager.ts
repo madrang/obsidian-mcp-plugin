@@ -11,7 +11,8 @@ export interface SessionInfo {
 
 export interface SessionManagerOptions {
   maxSessions: number;
-  sessionTimeout: number; // in milliseconds
+  /** Idle timeout in milliseconds. 0 or less = sessions never expire (ADR-111). */
+  sessionTimeout: number;
   checkInterval: number; // how often to check for expired sessions
 }
 
@@ -24,27 +25,37 @@ export class SessionManager extends EventEmitter {
   private options: SessionManagerOptions;
   private cleanupInterval?: number;
 
-  constructor(options: Partial<SessionManagerOptions> = {}) {
-    super();
-    this.options = {
-      maxSessions: options.maxSessions || 32,
-      sessionTimeout: options.sessionTimeout || 3600000, // 1 hour default
-      checkInterval: options.checkInterval || 60000 // Check every minute
-    };
-  }
+	constructor(options: Partial<SessionManagerOptions> = {}) {
+		super();
+		this.options = {
+			maxSessions: options.maxSessions || 32,
+			// Read THROUGH the caller's options object: when the caller supplied
+			// the timeout as a live accessor (ADR-111), reads here stay live; a
+			// plain number behaves as before. Either way read sites keep plain
+			// property access, and the same pattern can carry another setting
+			// later without touching them.
+			get sessionTimeout() { return options.sessionTimeout ?? 3600000; },
+			checkInterval: options.checkInterval || 60000 // Check every minute
+		};
+	}
 
-  /**
-   * Start the session manager
-   */
-  start(): void {
-    // Background cleanup; not tied to any popout window. The Jest node env
-    // aliases window to globalThis (tests/setup.ts) so window.setInterval works.
-    this.cleanupInterval = window.setInterval(() => {
-      this.cleanupExpiredSessions();
-    }, this.options.checkInterval);
+	/**
+	 * Start the session manager
+	 */
+	start(): void {
+		// Background cleanup; not tied to any popout window. The Jest node env
+		// aliases window to globalThis (tests/setup.ts) so window.setInterval works.
+		//
+		// The interval stays armed even when sessions never expire: the timeout is
+		// read live on every sweep (ADR-111), so toggling the setting applies
+		// without a restart. A "never" sweep just returns immediately.
+		this.cleanupInterval = window.setInterval(() => {
+			this.cleanupExpiredSessions();
+		}, this.options.checkInterval);
 
-    Debug.log(`🔐 Session manager started with ${this.options.maxSessions} max sessions, ${this.options.sessionTimeout}ms timeout`);
-  }
+		const timeout = this.options.sessionTimeout;
+		Debug.log(`🔐 Session manager started with ${this.options.maxSessions} max sessions, ${timeout > 0 ? `${timeout}ms timeout` : 'no idle expiry'}`);
+	}
 
   /**
    * Stop the session manager
@@ -236,20 +247,25 @@ export class SessionManager extends EventEmitter {
     this.removeSession(sessionId);
   }
 
-  /**
-   * Clean up expired sessions
-   */
-  private cleanupExpiredSessions(): void {
-    const now = Date.now();
-    const expiredSessions: string[] = [];
+	/**
+	 * Clean up expired sessions
+	 */
+	private cleanupExpiredSessions(): void {
+		// 0 or less means sessions never idle out (ADR-111); eviction is then
+		// capacity-only (LRU at maxSessions) or by the per-token cap in the pool.
+		const timeout = this.options.sessionTimeout;
+		if (timeout <= 0) return;
 
-    for (const [sessionId, session] of this.sessions) {
-      const idleTime = now - session.lastActivityAt;
-      
-      if (idleTime > this.options.sessionTimeout) {
-        expiredSessions.push(sessionId);
-      }
-    }
+		const now = Date.now();
+		const expiredSessions: string[] = [];
+
+		for (const [sessionId, session] of this.sessions) {
+			const idleTime = now - session.lastActivityAt;
+
+			if (idleTime > timeout) {
+				expiredSessions.push(sessionId);
+			}
+		}
 
     if (expiredSessions.length > 0) {
       Debug.log(`🧹 Cleaning up ${expiredSessions.length} expired sessions`);
@@ -260,14 +276,17 @@ export class SessionManager extends EventEmitter {
     }
   }
 
-  /**
-   * Check if a session is valid (exists and not expired)
-   */
-  isSessionValid(sessionId: string): boolean {
-    const session = this.sessions.get(sessionId);
-    if (!session) return false;
+	/**
+	 * Check if a session is valid (exists and not expired)
+	 */
+	isSessionValid(sessionId: string): boolean {
+		const session = this.sessions.get(sessionId);
+		if (!session) return false;
 
-    const idleTime = Date.now() - session.lastActivityAt;
-    return idleTime <= this.options.sessionTimeout;
-  }
+		const timeout = this.options.sessionTimeout;
+		if (timeout <= 0) return true;
+
+		const idleTime = Date.now() - session.lastActivityAt;
+		return idleTime <= timeout;
+	}
 }

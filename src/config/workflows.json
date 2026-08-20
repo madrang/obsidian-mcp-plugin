@@ -2,136 +2,11 @@
   "$schema": "./workflow-schema.json",
   "version": "1.0.0",
   "description": "Semantic workflow configuration for Obsidian MCP",
-  
+
   "operations": {
-    "vault": {
-      "description": "File and folder operations in the vault",
+    "files": {
+      "description": "File management operations - every files action writes",
       "actions": {
-        "list": {
-          "description": "List files in a directory",
-          "success_hints": {
-            "message": "Listed {count} files in {path}",
-            "suggested_next": [
-              {
-                "condition": "has_markdown_files",
-                "suggestions": [
-                  {
-                    "description": "Read a specific file",
-                    "command": "vault(action='read', path='<filename>')",
-                    "reason": "View file contents",
-                    "requires_tokens": "can_navigate_directory"
-                  },
-                  {
-                    "description": "Search within this directory",
-                    "command": "vault(action='search', query='<term>', path='{path}')",
-                    "reason": "Find specific content"
-                  }
-                ]
-              }
-            ]
-          },
-          "failure_hints": {
-            "message": "Failed to list directory: {directory}",
-            "suggested_next": [
-              {
-                "condition": "always",
-                "suggestions": [
-                  {
-                    "description": "List root directory",
-                    "command": "vault(action='list')",
-                    "reason": "Start from vault root"
-                  },
-                  {
-                    "description": "Try parent directory",
-                    "command": "vault(action='list', directory='{parent_directory}')",
-                    "reason": "Browse parent folder"
-                  },
-                  {
-                    "description": "Search for files instead",
-                    "command": "vault(action='search', query='{directory}')",
-                    "reason": "Find files by name"
-                  },
-                  {
-                    "description": "Check system info",
-                    "command": "system(action='info')",
-                    "reason": "Verify connection to Obsidian"
-                  }
-                ]
-              }
-            ]
-          }
-        },
-        
-        "read": {
-          "description": "Read file contents",
-          "success_hints": {
-            "message": "Read file: {path}",
-            "suggested_next": [
-              {
-                "condition": "has_links",
-                "suggestions": [
-                  {
-                    "description": "Follow linked notes",
-                    "command": "vault(action='read', path='{linked_file}')",
-                    "reason": "Explore connected knowledge",
-                    "requires_tokens": "can_follow_links"
-                  }
-                ]
-              },
-              {
-                "condition": "has_tags",
-                "suggestions": [
-                  {
-                    "description": "Find notes with similar tags",
-                    "command": "vault(action='search', query='{tags}')",
-                    "reason": "Discover related content"
-                  }
-                ]
-              },
-              {
-                "condition": "always",
-                "suggestions": [
-                  {
-                    "description": "Edit this file",
-                    "command": "edit(action='window', path='{path}', ...)",
-                    "reason": "Make changes to content"
-                  },
-                  {
-                    "description": "Open in Obsidian",
-                    "command": "view(action='open_in_obsidian', path='{path}')",
-                    "reason": "Use Obsidian's full features"
-                  }
-                ]
-              }
-            ]
-          },
-          "failure_hints": {
-            "message": "File not found: {path}",
-            "suggested_next": [
-              {
-                "condition": "always",
-                "suggestions": [
-                  {
-                    "description": "Create this file",
-                    "command": "vault(action='create', path='{path}', content='')",
-                    "reason": "Start new document"
-                  },
-                  {
-                    "description": "Search for similar files",
-                    "command": "vault(action='search', query='{filename}')",
-                    "reason": "Find related content"
-                  },
-                  {
-                    "description": "List directory contents",
-                    "command": "vault(action='list', directory='{directory}')",
-                    "reason": "Browse available files"
-                  }
-                ]
-              }
-            ]
-          }
-        },
-        
         "create": {
           "description": "Create a new file",
           "success_hints": {
@@ -147,57 +22,13 @@
                   },
                   {
                     "description": "Open in Obsidian for editing",
-                    "command": "view(action='open_in_obsidian', path='{path}')",
+                    "command": "system(action='open_in_obsidian', path='{path}')",
                     "reason": "Use visual editor"
                   },
                   {
                     "description": "Link from another note",
-                    "command": "edit(action='window', path='<other_note>', newText='[[{filename}]]')",
+                    "command": "edit(action='replace', path='<other_note>', oldText='...', newText='[[{filename}]]')",
                     "reason": "Connect knowledge"
-                  }
-                ]
-              }
-            ]
-          }
-        },
-        
-        "search": {
-          "description": "Search vault contents",
-          "success_hints": {
-            "message": "Found {count} matches for '{query}'",
-            "suggested_next": [
-              {
-                "condition": "has_results",
-                "suggestions": [
-                  {
-                    "description": "Read a specific result",
-                    "command": "vault(action='read', path='{result_path}')",
-                    "reason": "Examine full content"
-                  },
-                  {
-                    "description": "Refine search",
-                    "command": "vault(action='search', query='{query} AND <additional_term>')",
-                    "reason": "Narrow results"
-                  },
-                  {
-                    "description": "Create synthesis note",
-                    "command": "vault(action='create', path='synthesis/{query}-summary.md')",
-                    "reason": "Consolidate findings"
-                  }
-                ]
-              },
-              {
-                "condition": "no_results",
-                "suggestions": [
-                  {
-                    "description": "Try broader search",
-                    "command": "vault(action='search', query='{simplified_query}')",
-                    "reason": "Expand search scope"
-                  },
-                  {
-                    "description": "Create note on this topic",
-                    "command": "vault(action='create', path='{suggested_path}')",
-                    "reason": "Start new knowledge"
                   }
                 ]
               }
@@ -206,11 +37,11 @@
         }
       }
     },
-    
+
     "edit": {
       "description": "Smart editing operations",
       "actions": {
-        "window": {
+        "replace": {
           "description": "Edit with fuzzy matching - make small, incremental changes",
           "success_hints": {
             "message": "Replaced text at line {line}",
@@ -225,12 +56,12 @@
                   },
                   {
                     "description": "Make another small edit",
-                    "command": "edit(action='window', path='{path}', ...)",
+                    "command": "edit(action='replace', path='{path}', ...)",
                     "reason": "Keep edits small and incremental - avoid large replacements"
                   },
                   {
                     "description": "Open in Obsidian to see full context",
-                    "command": "view(action='open_in_obsidian', path='{path}')",
+                    "command": "system(action='open_in_obsidian', path='{path}')",
                     "reason": "Review changes in the full editor"
                   }
                 ]
@@ -262,7 +93,7 @@
                   },
                   {
                     "description": "Try with lower threshold",
-                    "command": "edit(action='window', path='{path}', oldText='{old_text}', fuzzyThreshold=0.5)",
+                    "command": "edit(action='replace', path='{path}', oldText='{old_text}', fuzzyThreshold=0.5)",
                     "reason": "Find approximate matches"
                   }
                 ]
@@ -270,7 +101,7 @@
             ]
           }
         },
-        
+
         "append": {
           "description": "Add content to end of file",
           "success_hints": {
@@ -291,7 +122,7 @@
                 "suggestions": [
                   {
                     "description": "View the updated file",
-                    "command": "view(action='file', path='{path}')",
+                    "command": "view(action='read', path='{path}')",
                     "reason": "See full content"
                   },
                   {
@@ -306,10 +137,179 @@
         }
       }
     },
-    
+
     "view": {
-      "description": "Content viewing and navigation",
+      "description": "Read, search, and navigate content - every view action is a read",
       "actions": {
+        "folder": {
+          "description": "List files in a directory",
+          "success_hints": {
+            "message": "Listed {count} files in {path}",
+            "suggested_next": [
+              {
+                "condition": "has_markdown_files",
+                "suggestions": [
+                  {
+                    "description": "Read a specific file",
+                    "command": "view(action='read', path='<filename>')",
+                    "reason": "View file contents",
+                    "requires_tokens": "can_navigate_directory"
+                  },
+                  {
+                    "description": "Search within this directory",
+                    "command": "view(action='search', query='<term>', path='{path}')",
+                    "reason": "Find specific content"
+                  }
+                ]
+              }
+            ]
+          },
+          "failure_hints": {
+            "message": "Failed to list directory: {directory}",
+            "suggested_next": [
+              {
+                "condition": "always",
+                "suggestions": [
+                  {
+                    "description": "List root directory",
+                    "command": "view(action='folder')",
+                    "reason": "Start from vault root"
+                  },
+                  {
+                    "description": "Try parent directory",
+                    "command": "view(action='folder', directory='{parent_directory}')",
+                    "reason": "Browse parent folder"
+                  },
+                  {
+                    "description": "Search for files instead",
+                    "command": "view(action='search', query='{directory}')",
+                    "reason": "Find files by name"
+                  },
+                  {
+                    "description": "Check system info",
+                    "command": "system(action='info')",
+                    "reason": "Verify connection to Obsidian"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+
+        "read": {
+          "description": "Read file contents",
+          "success_hints": {
+            "message": "Read file: {path}",
+            "suggested_next": [
+              {
+                "condition": "has_links",
+                "suggestions": [
+                  {
+                    "description": "Follow linked notes",
+                    "command": "view(action='read', path='{linked_file}')",
+                    "reason": "Explore connected knowledge",
+                    "requires_tokens": "can_follow_links"
+                  }
+                ]
+              },
+              {
+                "condition": "has_tags",
+                "suggestions": [
+                  {
+                    "description": "Find notes with similar tags",
+                    "command": "view(action='search', query='{tags}')",
+                    "reason": "Discover related content"
+                  }
+                ]
+              },
+              {
+                "condition": "always",
+                "suggestions": [
+                  {
+                    "description": "Edit this file",
+                    "command": "edit(action='replace', path='{path}', ...)",
+                    "reason": "Make changes to content"
+                  },
+                  {
+                    "description": "Open in Obsidian",
+                    "command": "system(action='open_in_obsidian', path='{path}')",
+                    "reason": "Use Obsidian's full features"
+                  }
+                ]
+              }
+            ]
+          },
+          "failure_hints": {
+            "message": "File not found: {path}",
+            "suggested_next": [
+              {
+                "condition": "always",
+                "suggestions": [
+                  {
+                    "description": "Create this file",
+                    "command": "files(action='create', path='{path}', content='')",
+                    "reason": "Start new document"
+                  },
+                  {
+                    "description": "Search for similar files",
+                    "command": "view(action='search', query='{filename}')",
+                    "reason": "Find related content"
+                  },
+                  {
+                    "description": "List directory contents",
+                    "command": "view(action='folder', directory='{directory}')",
+                    "reason": "Browse available files"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+
+        "search": {
+          "description": "Search vault contents",
+          "success_hints": {
+            "message": "Found {count} matches for '{query}'",
+            "suggested_next": [
+              {
+                "condition": "has_results",
+                "suggestions": [
+                  {
+                    "description": "Read a specific result",
+                    "command": "view(action='read', path='{result_path}')",
+                    "reason": "Examine full content"
+                  },
+                  {
+                    "description": "Refine search",
+                    "command": "view(action='search', query='{query} AND <additional_term>')",
+                    "reason": "Narrow results"
+                  },
+                  {
+                    "description": "Create synthesis note",
+                    "command": "files(action='create', path='synthesis/{query}-summary.md')",
+                    "reason": "Consolidate findings"
+                  }
+                ]
+              },
+              {
+                "condition": "no_results",
+                "suggestions": [
+                  {
+                    "description": "Try broader search",
+                    "command": "view(action='search', query='{simplified_query}')",
+                    "reason": "Expand search scope"
+                  },
+                  {
+                    "description": "Create note on this topic",
+                    "command": "files(action='create', path='{suggested_path}')",
+                    "reason": "Start new knowledge"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+
         "window": {
           "description": "View file portion with context",
           "success_hints": {
@@ -320,7 +320,7 @@
                 "suggestions": [
                   {
                     "description": "Edit this section",
-                    "command": "edit(action='window', path='{path}', oldText='...')",
+                    "command": "edit(action='replace', path='{path}', oldText='...')",
                     "reason": "Make changes"
                   },
                   {
@@ -337,41 +337,10 @@
               }
             ]
           }
-        },
-        "open_in_obsidian": {
-          "description": "Open file in Obsidian",
-          "success_hints": {
-            "message": "Opened {path} in Obsidian",
-            "suggested_next": []
-          }
         }
       }
     },
-    
-    "workflow": {
-      "description": "Guided workflow operations",
-      "actions": {
-        "suggest": {
-          "description": "Get workflow suggestions",
-          "success_hints": {
-            "message": "Workflow suggestions based on current context",
-            "suggested_next": [
-              {
-                "condition": "has_active_file",
-                "suggestions": [
-                  {
-                    "description": "Analyze link structure",
-                    "command": "workflow(action='analyze', type='links', path='{active_file}')",
-                    "reason": "Understand connections"
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      }
-    },
-    
+
     "system": {
       "description": "System operations",
       "actions": {
@@ -388,11 +357,36 @@
             "message": "Listed {count} commands",
             "suggested_next": []
           }
+        },
+        "hints": {
+          "description": "Get workflow suggestions",
+          "success_hints": {
+            "message": "Workflow suggestions based on current context",
+            "suggested_next": [
+              {
+                "condition": "has_active_file",
+                "suggestions": [
+                  {
+                    "description": "Analyze link structure",
+                    "command": "graph(action='neighbors', sourcePath='{active_file}')",
+                    "reason": "Understand connections"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "open_in_obsidian": {
+          "description": "Open file in Obsidian",
+          "success_hints": {
+            "message": "Opened {path} in Obsidian",
+            "suggested_next": []
+          }
         }
       }
     }
   },
-  
+
   "efficiency_rules": [
     {
       "pattern": "multiple_edits_same_file",
@@ -401,7 +395,7 @@
     {
       "pattern": "large_edit_attempt",
       "hint": "Break large edits into smaller chunks - edit one paragraph or section at a time",
-      "trigger": "window_edit_over_10_lines"
+      "trigger": "replace_over_10_lines"
     },
     {
       "pattern": "recreate_existing_file",
@@ -416,7 +410,7 @@
       "hint": "New content won't appear in search immediately - index may need updating"
     }
   ],
-  
+
   "context_triggers": {
     "daily_note_pattern": ".*daily.*|.*journal.*|\\d{4}-\\d{2}-\\d{2}",
     "meeting_note_pattern": ".*meeting.*|.*standup.*|.*1-on-1.*",

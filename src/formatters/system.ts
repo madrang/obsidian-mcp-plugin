@@ -161,7 +161,7 @@ export function formatSystemCommands(response: SystemCommandsResponse): string {
 }
 
 /**
- * Format workflow.suggest response
+ * Format system.hints response
  * Actual response: { current_context: {...}, suggestions: [...] }
  */
 export interface WorkflowSuggestion {
@@ -241,7 +241,7 @@ export function formatWorkflowSuggest(response: WorkflowSuggestResponse): string
 export interface EditResponse {
   success?: boolean;
   path?: string;
-  operation?: 'window' | 'append' | 'patch' | 'at_line';
+  operation?: 'replace' | 'append' | 'patch' | 'at_line';
   linesChanged?: number;
   message?: string;
 }
@@ -256,7 +256,7 @@ export function formatEditResult(response: EditResponse): string {
   // Determine verb from operation if available
   let verb = 'Edited';
   if (response.operation) {
-    verb = response.operation === 'window' ? 'Replaced'
+    verb = response.operation === 'replace' ? 'Replaced'
       : response.operation === 'append' ? 'Appended'
       : response.operation === 'patch' ? 'Patched'
       : 'Edited';
@@ -276,7 +276,7 @@ export function formatEditResult(response: EditResponse): string {
   }
 
   lines.push(divider());
-  lines.push(tip('Use `view.file(path)` to verify the changes'));
+  lines.push(tip('Use `view.read(path)` to verify the changes'));
   lines.push(summaryFooter());
 
   return joinLines(lines);

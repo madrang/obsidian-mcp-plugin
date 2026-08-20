@@ -10,7 +10,7 @@ on:
     branches: [ main ]
 
 env:
-  PLUGIN_NAME: obsidian-mcp-plugin
+  PLUGIN_NAME: scoped-vault-mcp
 
 permissions:
   contents: read

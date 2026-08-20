@@ -30,14 +30,12 @@ import {
   FileMoveResponse,
   FileSplitResponse,
   FileCombineResponse
-} from './vault';
+} from './files';
 
 import {
-  formatViewFile,
   formatViewWindow,
   formatViewActive,
   formatOpenInObsidian,
-  ViewFileResponse,
   ViewWindowResponse,
   ViewActiveResponse,
   OpenInObsidianResponse
@@ -140,11 +138,9 @@ export {
   FileSplitResponse,
   FileCombineResponse,
   // View
-  formatViewFile,
   formatViewWindow,
   formatViewActive,
   formatOpenInObsidian,
-  ViewFileResponse,
   ViewWindowResponse,
   ViewActiveResponse,
   OpenInObsidianResponse,
@@ -261,23 +257,22 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
   const resp = (typeof response === 'object' && response !== null ? response : {}) as Record<string, unknown>;
 
   switch (key) {
-    // vault.move/rename: router returns {oldPath, newPath}, formatter expects {source, destination}
-    case 'vault.move':
-    case 'vault.rename': {
+    // files.move: router returns {oldPath, newPath}, formatter expects {source, destination}
+    case 'files.move': {
       const moveResp = resp as MoveRenameResponse;
       if (moveResp.oldPath !== undefined || moveResp.newPath !== undefined) {
         return {
           source: moveResp.oldPath ?? moveResp.sourcePath,
           destination: moveResp.newPath ?? moveResp.destination,
           success: moveResp.success ?? true,
-          operation: key === 'vault.move' ? 'move' : 'rename'
+          operation: 'move'
         };
       }
       return resp;
     }
 
-    // vault.copy: router returns {sourcePath, copiedTo}, formatter expects {source, destination}
-    case 'vault.copy': {
+    // files.copy: router returns {sourcePath, copiedTo}, formatter expects {source, destination}
+    case 'files.copy': {
       const copyResp = resp as CopyResponse;
       if (copyResp.sourcePath !== undefined || copyResp.copiedTo !== undefined) {
         return {
@@ -290,14 +285,14 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
       return resp;
     }
 
-    // vault.list (paginated): router returns
+    // view.folder (paginated): router returns
     //   {files: [{path, name, type: 'file'|'folder', ...}], page, pageSize,
     //    totalFiles, totalPages, directory}
     // Formatter expects FileListResponse with isFolder boolean. Translate
     // shape so the structured branch renders correctly (previously it
     // looked for f.isFolder which was always undefined, lumping every
     // entry into "files" regardless of actual type).
-    case 'vault.list': {
+    case 'view.folder': {
       const listResp = resp as { files?: unknown };
       if (Array.isArray(listResp.files)) {
         const items = listResp.files as Array<Record<string, unknown>>;
@@ -312,9 +307,9 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
       return resp;
     }
 
-    // vault.fragments: router returns {result: [...fragments across files]}
+    // view.fragments: router returns {result: [...fragments across files]}
     // Transform to grouped format for formatter
-    case 'vault.fragments': {
+    case 'view.fragments': {
       const fragResp = resp as FragmentsResponse;
       if (fragResp.result && Array.isArray(fragResp.result)) {
         // Group fragments by file path
@@ -390,15 +385,15 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
       };
     }
 
-    // edit.window: router returns {isError, content}, formatter expects {success, path}
-    case 'edit.window':
+    // edit.replace: router returns {isError, content}, formatter expects {success, path}
+    case 'edit.replace':
     case 'edit.from_buffer': {
       const editResp = resp as EditResponse2;
       if (editResp.isError !== undefined) {
         return {
           success: !editResp.isError,
           path: editResp.path ?? 'file',
-          operation: 'window',
+          operation: 'replace',
           content: editResp.content
         };
       }
@@ -568,39 +563,35 @@ export function formatResponse(
 
   try {
     switch (key) {
-      // Vault operations
-      case 'vault.list':
+      // Files operations
+      case 'view.folder':
         return formatFileList(normalized as FileListResponse);
-      case 'vault.read':
-        return formatFileRead(normalized as FileReadResponse);
-      case 'vault.create':
-        return formatFileWrite(normalized as FileWriteResponse, 'create');
-      case 'vault.update':
-        return formatFileWrite(normalized as FileWriteResponse, 'update');
-      case 'vault.delete':
+      case 'files.delete':
         return formatFileDelete(normalized as FileDeleteResponse);
-      case 'vault.move':
-      case 'vault.rename':
-      case 'vault.copy':
+      case 'files.move':
+      case 'files.copy':
         return formatFileMove(normalized as FileMoveResponse);
-      case 'vault.search':
-        return formatSearchResults(normalized as SearchResponse);
-      case 'vault.fragments':
-        return formatFragmentResults(normalized as FragmentResult);
-      case 'vault.split':
+      case 'files.split':
         return formatFileSplit(normalized as FileSplitResponse);
-      case 'vault.combine':
-      case 'vault.concatenate':
+
+      case 'files.concat':
         return formatFileCombine(normalized as FileCombineResponse);
 
-      // View operations
-      case 'view.file':
-        return formatViewFile(normalized as ViewFileResponse);
+      case 'files.create':
+        return formatFileWrite(normalized as FileWriteResponse, 'create');
+
+      // View operations (read-side cases moved here from vault)
+      case 'view.read':
+        return formatFileRead(normalized as FileReadResponse);
+      case 'view.search':
+        return formatSearchResults(normalized as SearchResponse);
+      case 'view.fragments':
+        return formatFragmentResults(normalized as FragmentResult);
       case 'view.window':
         return formatViewWindow(normalized as ViewWindowResponse);
       case 'view.active':
         return formatViewActive(normalized as ViewActiveResponse);
-      case 'view.open_in_obsidian':
+      case 'system.open_in_obsidian':
         return formatOpenInObsidian(normalized as OpenInObsidianResponse);
 
       // Graph operations
@@ -639,10 +630,7 @@ export function formatResponse(
         return formatBasesList(normalized as BasesListResponse);
       case 'bases.read':
         return formatBasesRead(normalized as BasesReadResponse);
-      case 'bases.create':
-        return formatBasesCreate(normalized as BasesCreateResponse);
       case 'bases.query':
-      case 'bases.view':
         return formatBasesQuery(normalized as BasesQueryResponse);
       case 'bases.export':
         return formatBasesExport(normalized as BasesExportResponse);
@@ -655,12 +643,11 @@ export function formatResponse(
       case 'system.fetch_web':
         return formatWebFetch(normalized as WebFetchResponse);
 
-      // Workflow operations
-      case 'workflow.suggest':
+      case 'system.hints':
         return formatWorkflowSuggest(normalized as WorkflowSuggestResponse);
 
       // Edit operations
-      case 'edit.window':
+      case 'edit.replace':
       case 'edit.from_buffer':
       case 'edit.append':
       case 'edit.patch':

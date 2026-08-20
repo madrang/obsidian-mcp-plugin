@@ -61,7 +61,7 @@ export function formatDataviewQuery(response: DataviewQueryResponse): string {
   }
 
   lines.push(divider());
-  lines.push(tip('Use `vault.read(path)` to examine any result'));
+  lines.push(tip('Use `view.read(path)` to examine any result'));
   lines.push(summaryFooter());
 
   return joinLines(lines);
@@ -383,7 +383,7 @@ export function formatDataviewPages(response: DataviewPagesResponse): string {
   }
 
   lines.push(divider());
-  lines.push(tip('Use `dataview.metadata(path)` for one page, or `vault.read(path)` to open it'));
+  lines.push(tip('Use `dataview.metadata(path)` for one page, or `view.read(path)` to open it'));
   lines.push(summaryFooter());
 
   return joinLines(lines);
@@ -469,7 +469,7 @@ export function formatDataviewMetadata(response: DataviewMetadataResponse): stri
   }
 
   lines.push(divider());
-  lines.push(tip('Use `vault.read(path)` to view the full note'));
+  lines.push(tip('Use `view.read(path)` to view the full note'));
   lines.push(summaryFooter());
 
   return joinLines(lines);

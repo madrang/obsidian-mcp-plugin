@@ -17,6 +17,8 @@ obsidian-mcp-plugin/
 │   ├── semantic/             # Semantic operations
 │   │   └── router.ts         # Operation routing
 │   ├── tools/                # MCP tool implementations
+│   │   ├── tool-registry.ts  # Registration point for the tool surface
+│   │   └── definitions/      # One self-registering module per tool
 │   ├── utils/                # Utility functions
 │   │   ├── obsidian-api.ts   # Vault operations
 │   │   ├── session-manager.ts # Session handling
@@ -73,5 +75,4 @@ Detailed security audit findings ready to be posted as GitHub issues.
 
 ## Development Files
 
-- `CLAUDE.md` - Project-specific instructions for AI assistants
-- `.claude/CLAUDE.md` - User's global AI instructions
+- `AGENTS.md` - Project-specific instructions for AI agents

@@ -1,3 +1,9 @@
+> **Historical snapshot (mid-2025).** This document records the Bases feature as it
+> was being implemented. It is not a status page: the items under "What's Not
+> Working Yet" were resolved long ago, and the tool surface has since been
+> reworked (`bases.create` is now `files` `create` with `format: "base"`). Kept
+> for the design history.
+
 # Obsidian Bases Implementation Status
 
 ## Project Summary

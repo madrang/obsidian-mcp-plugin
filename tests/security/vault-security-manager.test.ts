@@ -47,7 +47,6 @@ describe('VaultSecurityManager', () => {
         { type: OperationType.UPDATE, path: 'existing.md' },
         { type: OperationType.DELETE, path: 'old.md' },
         { type: OperationType.MOVE, path: 'src.md', targetPath: 'dest.md' },
-        { type: OperationType.RENAME, path: 'old-name.md', targetPath: 'new-name.md' },
         { type: OperationType.EXECUTE, path: 'script.md' }
       ];
 
@@ -69,7 +68,6 @@ describe('VaultSecurityManager', () => {
           update: false,
           delete: false,
           move: false,
-          rename: false,
           execute: false
         }
       };
@@ -82,7 +80,6 @@ describe('VaultSecurityManager', () => {
         { type: OperationType.UPDATE, path: 'existing.md' },
         { type: OperationType.DELETE, path: 'old.md' },
         { type: OperationType.MOVE, path: 'src.md', targetPath: 'dest.md' },
-        { type: OperationType.RENAME, path: 'old-name.md', targetPath: 'new-name.md' },
         { type: OperationType.EXECUTE, path: 'script.md' }
       ];
 
@@ -104,7 +101,6 @@ describe('VaultSecurityManager', () => {
           update: true,
           delete: true,
           move: true,
-          rename: true,
           execute: true
         }
       };
@@ -272,7 +268,6 @@ describe('VaultSecurityManager', () => {
         update: false,
         delete: false,
         move: false,
-        rename: false,
         execute: false
       });
     });
@@ -290,7 +285,6 @@ describe('VaultSecurityManager', () => {
         update: true,
         delete: false,
         move: true,
-        rename: true,
         execute: false
       });
     });
@@ -303,7 +297,6 @@ describe('VaultSecurityManager', () => {
         update: true,
         delete: true,
         move: true,
-        rename: true,
         execute: true
       });
     });
@@ -415,7 +408,6 @@ describe('VaultSecurityManager', () => {
           update: true,
           delete: false, // Disable delete for second test
           move: true,
-          rename: true,
           execute: true
         }
       };

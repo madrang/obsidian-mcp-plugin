@@ -60,7 +60,7 @@ jobs:
           ### Installation via BRAT
           1. Install the BRAT plugin if you haven't already
           2. Command palette → \"BRAT: Add a beta plugin for testing\"
-          3. Enter: \`aaronsb/obsidian-mcp-plugin\`
+          3. Enter: \`madrang/obsidian-mcp-plugin\`
           4. Enable the plugin in Community Plugins
 
           ### Changes in this branch

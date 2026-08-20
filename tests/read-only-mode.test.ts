@@ -53,7 +53,6 @@ describe('Read-Only Mode Integration', () => {
       update: false,
       delete: false,
       move: false,
-      rename: false,
       execute: false
     });
   });

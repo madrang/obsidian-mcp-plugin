@@ -1,5 +1,6 @@
 /**
- * Vault operation formatters (list, read, create, update, delete, etc.)
+ * File operation formatters: the files tool writes (create, delete, move,
+ * copy, split, concat) and the view tool reads (folder, read).
  */
 
 import {
@@ -66,7 +67,7 @@ export function formatFileList(response: FileListResponse | string[]): string {
 
     lines.push('');
     lines.push(divider());
-    lines.push(tip('Use `vault.read(path)` to read file contents'));
+    lines.push(tip('Use `view.read(path)` to read file contents'));
     lines.push(summaryFooter());
     return joinLines(lines);
   }
@@ -132,12 +133,12 @@ export function formatFileList(response: FileListResponse | string[]): string {
   if (page !== undefined && totalPages !== undefined && page < totalPages) {
     const dirArg = directory ? `directory='${directory}', ` : '';
     const sizeArg = pageSize ? `, pageSize=${pageSize}` : '';
-    lines.push(tip(`More results available. Call \`vault.list(${dirArg}page=${page + 1}${sizeArg})\` for the next page.`));
+    lines.push(tip(`More results available. Call \`view.folder(${dirArg}page=${page + 1}${sizeArg})\` for the next page.`));
     lines.push('');
   }
 
   lines.push(divider());
-  lines.push(tip('Use `vault.read(path)` to read a file, or `vault.list(directory)` to explore a folder'));
+  lines.push(tip('Use `view.read(path)` to read a file, or `view.folder(directory)` to explore a folder'));
   lines.push(summaryFooter());
 
   return joinLines(lines);
@@ -285,7 +286,7 @@ export function formatFileRead(response: FileReadResponse): string {
   } else {
     // Verbatim string content (ADR-203: content reads are faithful by
     // default — the formatted default path must NOT truncate, or an agent
-    // cannot derive a byte-matching edit.window oldText without raw:true,
+    // cannot derive a byte-matching edit.replace oldText without raw:true,
     // which is the exact #133 friction this ADR retires). The data layer
     // already bounds size to READ_PAGE_CHARS (or it's an explicit
     // returnFullFile override), so emitting the full block is safe. No
@@ -315,7 +316,7 @@ export function formatFileRead(response: FileReadResponse): string {
   }
 
   lines.push(divider());
-  lines.push(tip('Use `view.file(path)` for full content or `view.window(path, lineNumber)` for a section'));
+  lines.push(tip('Use `view.read(path)` for full content or `view.window(path, lineNumber)` for a section'));
   lines.push(summaryFooter());
 
   return joinLines(lines);
@@ -328,13 +329,17 @@ export interface FileWriteResponse {
   path: string;
   success: boolean;
   created?: boolean;
+  overwritten?: boolean;
   size?: number;
 }
 
 export function formatFileWrite(response: FileWriteResponse, action: 'create' | 'update'): string {
   const lines: string[] = [];
 
-  const verb = action === 'create' ? 'Created' : 'Updated';
+  // A create with overwrite=true routes through updateFile internally. Saying
+  // "Created" for it would mislabel a content replacement (same class of
+  // misleading message as the #210 "Updated: undefined").
+  const verb = action === 'update' || response.overwritten === true ? 'Updated' : 'Created';
   const icon = response.success ? '✓' : '✗';
 
   lines.push(header(1, `${icon} ${verb}: ${response.path}`));
@@ -350,7 +355,7 @@ export function formatFileWrite(response: FileWriteResponse, action: 'create' | 
   }
 
   lines.push(divider());
-  lines.push(tip('Use `vault.read(path)` to verify the content'));
+  lines.push(tip('Use `view.read(path)` to verify the content'));
   lines.push(summaryFooter());
 
   return joinLines(lines);
@@ -399,6 +404,7 @@ export function formatFileMove(response: FileMoveResponse): string {
 
   const icon = response.success ? '✓' : '✗';
   const verb = response.operation.charAt(0).toUpperCase() + response.operation.slice(1);
+  const pastTense: Record<string, string> = { move: 'moved', rename: 'renamed', copy: 'copied' };
 
   lines.push(header(1, `${icon} ${verb}: ${response.source}`));
   lines.push('');
@@ -407,7 +413,7 @@ export function formatFileMove(response: FileMoveResponse): string {
     lines.push(property('From', response.source, 0));
     lines.push(property('To', response.destination, 0));
     lines.push('');
-    lines.push(`Successfully ${response.operation}d.`);
+    lines.push(`Successfully ${pastTense[response.operation] ?? response.operation}.`);
   } else {
     lines.push(`Failed to ${response.operation} file.`);
   }
@@ -457,7 +463,7 @@ export function formatFileSplit(response: FileSplitResponse): string {
 
   lines.push('');
   lines.push(divider());
-  lines.push(tip('Use `vault.read(path)` to read any of the created files'));
+  lines.push(tip('Use `view.read(path)` to read any of the created files'));
   lines.push(summaryFooter());
 
   return joinLines(lines);
@@ -469,8 +475,6 @@ export function formatFileSplit(response: FileSplitResponse): string {
 export interface FileCombineResponse {
   success: boolean;
   destination?: string;
-  inline?: boolean;
-  content?: string;
   filesCombined: number;
   totalSize?: number;
   sourceFiles?: string[];
@@ -480,21 +484,6 @@ export function formatFileCombine(response: FileCombineResponse): string {
   const lines: string[] = [];
 
   const icon = response.success ? '✓' : '✗';
-
-  // Inline mode: no file was written — return the combined content directly
-  if (response.inline && response.content !== undefined) {
-    lines.push(header(1, `${icon} Combined ${response.filesCombined} files (inline)`));
-    lines.push('');
-    if (response.totalSize !== undefined) {
-      lines.push(property('Total size', formatFileSize(response.totalSize), 0));
-      lines.push('');
-    }
-    lines.push(response.content);
-    lines.push('');
-    lines.push(divider());
-    lines.push(summaryFooter());
-    return joinLines(lines);
-  }
 
   lines.push(header(1, `${icon} Combined: ${response.destination}`));
   lines.push('');
@@ -523,7 +512,7 @@ export function formatFileCombine(response: FileCombineResponse): string {
 
   lines.push('');
   lines.push(divider());
-  lines.push(tip('Use `vault.read(path)` to view the combined file'));
+  lines.push(tip('Use `view.read(path)` to view the combined file'));
   lines.push(summaryFooter());
 
   return joinLines(lines);

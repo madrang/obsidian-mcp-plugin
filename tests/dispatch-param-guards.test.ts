@@ -1,13 +1,18 @@
 /**
- * Regression tests for #210 — vault.update with missing `content` wrote the
- * literal string "undefined" to files. The fix moved required-param checks
- * to the dispatch boundary so a malformed MCP call cannot reach a vault
- * sink with `String(undefined)`. These tests cover the corruption-class
- * cases (update/append/window) plus the path-only guards.
+ * Regression tests for #210 — a whole-file write with missing `content`
+ * wrote the literal string "undefined" to files. The fix moved required-param
+ * checks to the dispatch boundary so a malformed MCP call cannot reach a
+ * vault sink with `String(undefined)`.
+ *
+ * Under the current surface the corruption class looks different. files.create
+ * treats missing content as a legitimate empty file (a "touch"), so the pin
+ * that matters is that create writes '' and never "undefined". The edit
+ * actions keep strict required-param guards. These tests cover both, plus
+ * the path-only guards.
  *
  * Strategy: a mock API records every mutation. After a malformed call we
- * assert the call threw AND that no mutation was recorded — i.e. the guard
- * runs before any sink, not after.
+ * assert the call threw AND that no mutation was recorded. The guard must
+ * run before any sink, not after.
  */
 import { SemanticRouter } from '../src/semantic/router';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
@@ -70,52 +75,23 @@ describe('dispatch-level param guards (#210)', () => {
     router = new SemanticRouter(api);
   });
 
-  // The exact corruption shape from #210: client omits `content` while
-  // sending `mode`/`search`/`replacement` as if calling vault.patch. Before
-  // the fix this wrote the 9-byte literal "undefined" to existing.md.
-  test('vault.update without content rejects without touching the vault', async () => {
-    const response = await router.route({
-      operation: 'vault',
-      action: 'update',
-      params: {
-        path: 'existing.md',
-        mode: 'replace',
-        search: 'foo',
-        replacement: 'bar',
-      },
-    });
-
-    expect((response as any).error).toBeDefined();
-    expect(api.mutations).toEqual([]);
-    // Source of truth — file is untouched.
-    expect((await api.getFile('existing.md')).content).toBe('original');
-  });
-
-  test('vault.update without path rejects', async () => {
-    const response = await router.route({
-      operation: 'vault',
-      action: 'update',
-      params: { content: 'whatever' },
-    });
-    expect((response as any).error).toBeDefined();
-    expect(api.mutations).toEqual([]);
-  });
-
-  test('vault.update with both path and content succeeds and returns path', async () => {
+  // Whole-file replacement is create with overwrite=true: the write goes
+  // through updateFile, and the overwrite marker drives the "Updated" verb.
+  test('create with overwrite=true replaces content and returns path', async () => {
     const response: any = await router.route({
-      operation: 'vault',
-      action: 'update',
-      params: { path: 'existing.md', content: 'new body' },
+      operation: 'files',
+      action: 'create',
+      params: { path: 'existing.md', content: 'new body', overwrite: true },
     });
-    expect(response.result).toMatchObject({ success: true, path: 'existing.md' });
+    expect(response.result).toMatchObject({ success: true, path: 'existing.md', overwritten: true });
     expect(api.mutations).toEqual([
       { kind: 'update', path: 'existing.md', content: 'new body' },
     ]);
   });
 
-  test('vault.delete without path rejects', async () => {
+  test('files.delete without path rejects', async () => {
     const response = await router.route({
-      operation: 'vault',
+      operation: 'files',
       action: 'delete',
       params: {},
     });
@@ -123,9 +99,24 @@ describe('dispatch-level param guards (#210)', () => {
     expect(api.mutations).toEqual([]);
   });
 
-  test('vault.create without path rejects', async () => {
+  // The #210 corruption class under the current surface: create treats
+  // missing content as a "touch", so it must write an empty file and never
+  // the literal string "undefined".
+  test('create without content writes an empty file, never "undefined"', async () => {
+    const response: any = await router.route({
+      operation: 'files',
+      action: 'create',
+      params: { path: 'touched.md' },
+    });
+    expect(response.error).toBeUndefined();
+    expect(api.mutations).toEqual([
+      { kind: 'create', path: 'touched.md', content: '' },
+    ]);
+  });
+
+  test('create without path rejects', async () => {
     const response = await router.route({
-      operation: 'vault',
+      operation: 'files',
       action: 'create',
       params: { content: 'body' },
     });
@@ -144,10 +135,10 @@ describe('dispatch-level param guards (#210)', () => {
     expect((await api.getFile('existing.md')).content).toBe('original');
   });
 
-  test('edit.window without oldText/newText rejects before reading or writing the file', async () => {
+  test('edit.replace without oldText/newText rejects before reading or writing the file', async () => {
     const response = await router.route({
       operation: 'edit',
-      action: 'window',
+      action: 'replace',
       params: { path: 'existing.md' },
     });
     expect((response as any).error).toBeDefined();

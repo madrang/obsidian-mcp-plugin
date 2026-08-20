@@ -459,27 +459,19 @@ export class ObsidianAPI {
   }
 
   /**
-   * Rename a file via Obsidian's link-preserving rename.
+   * Move or rename a file via Obsidian's link-preserving rename.
    *
    * Exists so callers never reach for app.fileManager.renameFile directly: the
    * raw call skips the security layer entirely, which let a `../` destination
    * relocate files outside the vault. SecureObsidianAPI overrides this to
    * validate both path and targetPath.
    *
-   * Obsidian uses one API for move and rename, but these are kept as separate
-   * methods so the security layer can charge each against its own permission —
-   * a single method would make permissions.rename dead config.
+   * Obsidian uses one primitive for move and rename, and so does this API.
+   * The tool surface merged rename into move. A separate rename method would
+   * charge a permission that no caller can exercise independently, which is
+   * dead config.
    */
-  async renameFile(path: string, newPath: string) {
-    return this.relocateFile(path, newPath);
-  }
-
-  /** Move a file. Same Obsidian primitive as renameFile; distinct permission. */
   async moveFile(path: string, newPath: string) {
-    return this.relocateFile(path, newPath);
-  }
-
-  private async relocateFile(path: string, newPath: string) {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!file) {
       throw new Error(`File not found: ${path}`);
@@ -870,12 +862,12 @@ export class ObsidianAPI {
         },
         {
           description: 'Read file fragments',
-          command: 'vault:fragments',
+          command: 'view:fragments',
           reason: 'To get relevant excerpts from large files'
         },
         {
           description: 'Edit a file',
-          command: 'edit:window',
+          command: 'edit:replace',
           reason: 'To modify content in text files'
         }
       ];
@@ -884,7 +876,7 @@ export class ObsidianAPI {
       if (response.page < response.totalPages && response.page <= 3) {
         suggestions.push({
           description: 'Get next page of results',
-          command: 'vault:search',
+          command: 'view:search',
           reason: `View page ${response.page + 1} of ${response.totalPages} (use page: ${response.page + 1})`
         });
       }

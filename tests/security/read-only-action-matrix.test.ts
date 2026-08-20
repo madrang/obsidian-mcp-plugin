@@ -38,7 +38,7 @@ const OPERATIONS: readonly string[] = ALL_OPERATIONS;
  * getActionsForOperation() without adding it here fails the coverage test.
  *
  * 'execute' is kept as a distinct kind even though no shipped action maps to it
- * today. view.open_in_obsidian used to: it was charged as EXECUTE, which
+ * today. open_in_obsidian used to: it was charged as EXECUTE, which
  * presets.readOnly() denies, so read-only blocked opening a note. Opening mutates
  * nothing, so openFile is now charged as READ and works under read-only. EXECUTE
  * survives for executeCommand — unreachable from any tool, and denied under
@@ -46,34 +46,32 @@ const OPERATIONS: readonly string[] = ALL_OPERATIONS;
  * action ever maps to it again, classify it here.
  */
 const ACTION_KIND: Record<string, 'read' | 'write' | 'execute'> = {
-  // vault
-  'vault.list': 'read',
-  'vault.read': 'read',
-  'vault.search': 'read',
-  'vault.fragments': 'read',
-  'vault.create': 'write',
-  'vault.update': 'write',
-  'vault.delete': 'write',
-  'vault.move': 'write',
-  'vault.rename': 'write',
-  'vault.copy': 'write',
-  'vault.split': 'write',
-  'vault.combine': 'write',
-  'vault.concatenate': 'write',
+  // files
+  'files.create': 'write',
+  'files.delete': 'write',
+  'files.move': 'write',
+  'files.copy': 'write',
+  'files.split': 'write',
+  'files.concat': 'write',
   // edit — every action mutates a note
-  'edit.window': 'write',
+  'edit.replace': 'write',
   'edit.append': 'write',
   'edit.patch': 'write',
   'edit.at_line': 'write',
   'edit.from_buffer': 'write',
   // view
-  'view.file': 'read',
   'view.window': 'read',
   'view.active': 'read',
-  'view.open_in_obsidian': 'read',
-  // workflow / system
-  'workflow.suggest': 'read',
+  'system.open_in_obsidian': 'read',
+  // view.read / view.search / view.fragments moved here from vault — routed
+  // internally as vault.*, so the charge must match what those always were
+  'view.folder': 'read',
+  'view.read': 'read',
+  'view.search': 'read',
+  'view.fragments': 'read',
+  // system
   'system.info': 'read',
+  'system.hints': 'read',
   'system.commands': 'read',
   'system.fetch_web': 'read',
   // graph — all analysis
@@ -99,30 +97,24 @@ const ACTION_KIND: Record<string, 'read' | 'write' | 'execute'> = {
   'bases.list': 'read',
   'bases.read': 'read',
   'bases.query': 'read',
-  'bases.view': 'read',
   'bases.export': 'read',
-  'bases.create': 'write',
 };
 
 /** Params sufficient for each write action to actually attempt a vault write. */
 const WRITE_PARAMS: Record<string, Record<string, unknown>> = {
-  'vault.create': { path: 'new.md', content: 'x' },
-  'vault.update': { path: 'note.md', content: 'x' },
-  'vault.delete': { path: 'note.md' },
-  'vault.move': { path: 'note.md', destination: 'moved/note.md' },
-  'vault.rename': { path: 'note.md', newName: 'renamed' },
-  'vault.copy': { path: 'note.md', destination: 'copy.md' },
-  'vault.split': { path: 'note.md', splitBy: 'heading', level: 1 },
-  'vault.combine': { paths: ['note.md', 'other.md'], destination: 'combined.md' },
-  'vault.concatenate': { path1: 'note.md', path2: 'other.md', mode: 'new', destination: 'cat.md' },
-  'edit.window': { path: 'note.md', oldText: 'body', newText: 'changed' },
+  'files.create': { path: 'new.md', content: 'x' },
+  'files.delete': { path: 'note.md' },
+  'files.move': { path: 'note.md', destination: 'moved/note.md' },
+  'files.copy': { path: 'note.md', destination: 'copy.md' },
+  'files.split': { path: 'note.md', splitBy: 'heading', level: 1 },
+  'files.concat': { paths: ['note.md', 'other.md'], destination: 'combined.md' },
+  'edit.replace': { path: 'note.md', oldText: 'body', newText: 'changed' },
   'edit.append': { path: 'note.md', content: 'x' },
   'edit.patch': {
     path: 'note.md', targetType: 'heading', target: 'Heading', operation: 'append', content: 'x',
   },
   'edit.at_line': { path: 'note.md', lineNumber: 1, mode: 'replace', content: 'x' },
   'edit.from_buffer': { path: 'note.md' },
-  'bases.create': { path: 'new.base', config: { views: [{ type: 'table', name: 'v' }] } },
 };
 
 /**
@@ -146,7 +138,7 @@ const PERMISSIVE = {
   pathValidation: 'strict' as const,
   permissions: {
     read: true, create: true, update: true,
-    delete: true, move: true, rename: true, execute: true,
+    delete: true, move: true, execute: true,
   },
   blockedPaths: [],
   logSecurityEvents: false,

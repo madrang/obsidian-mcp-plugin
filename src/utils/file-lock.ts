@@ -7,7 +7,7 @@
  * targeting the *same* file path while leaving operations on *different*
  * paths fully concurrent.
  *
- * Without this, an MCP client that batches several `edit.window`/`append`/
+ * Without this, an MCP client that batches several `edit.replace`/`append`/
  * `patch` calls against one file in parallel triggers overlapping
  * read-modify-write cycles: every call reports success but only one edit
  * survives, with no error surfaced (#139).

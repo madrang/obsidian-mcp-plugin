@@ -1,7 +1,7 @@
 {
   "name": "obsidian-mcp-plugin",
-  "version": "0.12.6",
-  "description": "Read, write, search, and traverse your vault from Claude Desktop and any AI assistant — via a built-in MCP server, no external server to run.",
+  "version": "1.0.0",
+  "description": "Independent fork by Madrang of Semantic Notes Vault MCP. Adds scoped bearer tokens and per-token session limits. Read, write, search, and traverse your vault from any MCP client, with no external server to run.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",

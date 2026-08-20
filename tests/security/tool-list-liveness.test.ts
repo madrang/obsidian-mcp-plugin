@@ -36,7 +36,7 @@ const makeApp = (): App => ({
 /** Plugin double whose settings are mutated between calls, like the real UI. */
 const makePlugin = (settings: Record<string, unknown>) => ({
   settings,
-  manifest: { dir: '/test/vault/.obsidian/plugins/semantic-vault-mcp' }
+  manifest: { dir: '/test/vault/.obsidian/plugins/scoped-vault-mcp' }
 });
 
 interface ListToolsResult {
@@ -60,6 +60,12 @@ const systemActions = async (pool: MCPServerPool, sessionId: string): Promise<st
 
 const makePool = (settings: Record<string, unknown>) => {
   const app = makeApp();
+  // These tests stand up several sessions per pool with no credential scope;
+  // ADR-111's per-token cap defaults to 1 and would evict them from under the
+  // assertions. The cap has its own coverage in session-lifetime.test.ts.
+  // Mutated in place, not spread: the tests mutate `settings` after makePool
+  // and the plugin double must see those writes.
+  if (!('sessionsPerToken' in settings)) settings.sessionsPerToken = 32;
   const plugin = makePlugin(settings);
   const api = new SecureObsidianAPI(app, undefined, plugin, BASELINE_SECURITY_SETTINGS);
   return { pool: new MCPServerPool(api, 8, plugin), settings };
@@ -69,15 +75,15 @@ describe('tool list liveness', () => {
   it('reflects an enableWebFetch change on an EXISTING session, with no reconnect', async () => {
     const { pool, settings } = makePool({ enableWebFetch: false, toolVisibility: {} });
 
-    expect(await systemActions(pool, 'session-a')).toEqual(['info', 'commands']);
+    expect(await systemActions(pool, 'session-a')).toEqual(['info', 'commands', 'hints', 'open_in_obsidian']);
 
     // The settings tab mutates the same object the plugin holds.
     settings.enableWebFetch = true;
 
-    expect(await systemActions(pool, 'session-a')).toEqual(['info', 'commands', 'fetch_web']);
+    expect(await systemActions(pool, 'session-a')).toEqual(['info', 'commands', 'hints', 'open_in_obsidian', 'fetch_web']);
 
     settings.enableWebFetch = false;
-    expect(await systemActions(pool, 'session-a')).toEqual(['info', 'commands']);
+    expect(await systemActions(pool, 'session-a')).toEqual(['info', 'commands', 'hints', 'open_in_obsidian']);
   });
 
   it('reflects a tool-visibility change on an existing session', async () => {

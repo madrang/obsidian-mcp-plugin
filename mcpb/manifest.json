@@ -1,18 +1,18 @@
 {
   "manifest_version": "0.3",
-  "name": "obsidian-mcp",
-  "display_name": "Obsidian MCP",
-  "version": "0.12.6",
-  "description": "Read, write, search, and traverse your Obsidian vault from Claude Desktop — bridges to the MCP server built into the Obsidian plugin.",
-  "long_description": "Bridges Claude Desktop to the HTTP MCP server exposed by the Obsidian MCP plugin running inside Obsidian. Open Obsidian first, enable the MCP plugin in Settings, copy the URL and API key from the plugin's Settings tab, then paste them into the install prompt below.",
+  "name": "scoped-vault-mcp",
+  "display_name": "Scoped Vault MCP",
+  "version": "1.0.0",
+  "description": "Read, write, search, and traverse your Obsidian vault from any MCP client — bridges to the MCP server built into the Scoped Vault MCP plugin.",
+  "long_description": "Bridges MCP clients to the HTTP MCP server exposed by the Scoped Vault MCP plugin running inside Obsidian. Open Obsidian first, enable the Scoped Vault MCP plugin in Settings, copy the URL and API key from the plugin's Settings tab, then paste them into the install prompt below.",
   "author": {
-    "name": "Aaron Bockelie",
-    "url": "https://github.com/aaronsb"
+    "name": "Madrang",
+    "url": "https://github.com/madrang"
   },
-  "homepage": "https://github.com/aaronsb/obsidian-mcp-plugin",
+  "homepage": "https://github.com/madrang/obsidian-mcp-plugin",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aaronsb/obsidian-mcp-plugin"
+    "url": "https://github.com/madrang/obsidian-mcp-plugin"
   },
   "keywords": [
     "obsidian",
@@ -38,15 +38,15 @@
   "user_config": {
     "url": {
       "type": "string",
-      "title": "Obsidian MCP URL",
-      "description": "URL of the MCP endpoint exposed by the Obsidian MCP plugin. Find this in Obsidian → Settings → MCP. Default is http://localhost:3001/mcp; use the https:// form if you enabled HTTPS in the plugin.",
+      "title": "Scoped Vault MCP URL",
+      "description": "URL of the MCP endpoint exposed by the Scoped Vault MCP plugin. Find this in Obsidian → Settings → Scoped Vault MCP. Default is http://localhost:3011/mcp; use the https:// form if you enabled HTTPS in the plugin.",
       "required": true,
-      "default": "http://localhost:3001/mcp"
+      "default": "http://localhost:3011/mcp"
     },
     "api_key": {
       "type": "string",
       "title": "API Key",
-      "description": "API key shown in Obsidian → Settings → MCP. Leave blank only if you disabled authentication in the plugin (not recommended).",
+      "description": "API key shown in Obsidian → Settings → Scoped Vault MCP. Leave blank only if you disabled authentication in the plugin (not recommended).",
       "sensitive": true,
       "required": false,
       "default": ""

@@ -8,9 +8,9 @@ Common issues and solutions for the Obsidian MCP Plugin.
 AI client cannot connect to the MCP server.
 
 **Solutions:**
-1. **Check plugin is enabled**: Settings → Community plugins → Semantic MCP should be enabled
+1. **Check plugin is enabled**: Settings → Community plugins → Scoped Vault MCP should be enabled
 2. **Verify server is running**: Look for the MCP status indicator in Obsidian's status bar
-3. **Check port availability**: Default ports are 3001 (HTTP) and 3443 (HTTPS)
+3. **Check port availability**: Default ports are 3011 (HTTP) and 3444 (HTTPS)
 4. **Firewall**: Ensure your firewall allows local connections on these ports
 
 ## Authentication Errors
@@ -20,9 +20,9 @@ Connection works but requests are rejected with 401/403 errors.
 
 **Solutions:**
 1. **Check API key**: Ensure the key in your client config matches the one shown in plugin settings
-2. **Check config location**: For Claude Code, the config lives in `~/.claude/settings.json` (user scope) or `.mcp.json` (project scope). Verify the `headers.Authorization` value is `Bearer <your key>` (note the space after Bearer)
+2. **Check config location**: Find your client's MCP config file and verify the `headers.Authorization` value is `Bearer <your key>` (note the space after Bearer)
 3. **Regenerated key**: The API key regenerates on plugin updates — copy the new key from settings and update your config file
-4. **Don't use `claude mcp add --header`**: it echoes the resolved token to stdout and (on macOS) the unified log. Edit the config file directly instead
+4. **Edit config files directly**: client CLI commands that take the key as a flag can echo the resolved token to stdout or system logs. Paste the key into the config file instead
 
 ## SSL Certificate Errors
 
@@ -35,7 +35,7 @@ Trust the plugin's self-signed certificate properly. See [Trusting the self-sign
 - **macOS Keychain** (`security add-trusted-cert`) — for clients that use the system trust store.
 - **`NODE_EXTRA_CA_CERTS`** — required for Bun-based runtimes; set via `launchctl setenv` so dock-launched GUI apps inherit it.
 
-The cert is auto-generated on first start under `.obsidian/plugins/semantic-vault-mcp/certificates/default.crt` inside your vault; re-trust it whenever the plugin regenerates it.
+The cert is auto-generated on first start under `.obsidian/plugins/scoped-vault-mcp/certificates/default.crt` inside your vault; re-trust it whenever the plugin regenerates it.
 
 **Avoid `NODE_TLS_REJECT_UNAUTHORIZED=0`:** it disables TLS verification process-wide — not just for the plugin — and masks legitimate certificate problems (expired, revoked, tampered) instead of fixing them.
 
@@ -45,7 +45,7 @@ The cert is auto-generated on first start under `.obsidian/plugins/semantic-vaul
 MCP status bar shows error or server doesn't respond.
 
 **Solutions:**
-1. **Port conflict**: Another application may be using ports 3001/3443. Change ports in plugin settings.
+1. **Port conflict**: Another application may be using ports 3011/3444. Change ports in plugin settings.
 2. **Check console**: Open Developer Tools (Ctrl+Shift+I) and check for error messages
 3. **Restart plugin**: Disable and re-enable the plugin in Community plugins settings
 
@@ -68,7 +68,7 @@ Slow responses or timeouts.
 1. **Large vault**: Enable pagination in search results
 2. **Complex queries**: Use more specific search terms
 3. **Graph traversal**: Limit depth for large, highly-connected vaults
-4. **Debug logging**: Disable debug logging in production (Settings → Semantic MCP)
+4. **Debug logging**: Disable debug logging in production (Settings → Scoped Vault MCP)
 
 ## n8n Integration
 
@@ -83,14 +83,14 @@ Update n8n to the latest version which supports Streamable HTTP transport.
 
 **Configuration:**
 ```
-MCP URL: http://<your-ip>:3001/mcp
+MCP URL: http://<your-ip>:3011/mcp
 ```
 
 Ensure the plugin is enabled and the server is running (check the status bar in Obsidian).
 
 ## Still Having Issues?
 
-- Check [GitHub Issues](https://github.com/aaronsb/obsidian-mcp-plugin/issues) for known problems
+- Check [GitHub Issues](https://github.com/madrang/obsidian-mcp-plugin/issues) for known problems
 - Open a new issue with:
   - OS and version
   - Obsidian version

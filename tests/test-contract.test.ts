@@ -6,7 +6,7 @@
  * This file is the enforcement; it lints the corpus the way ESLint lints src/.
  *
  * (Source-grep guards are an established pattern here — see tls-cert-verification.test.ts.
- * This avoids adding eslint-plugin-jest, which the CLAUDE.md supply-chain hold would
+ * This avoids adding eslint-plugin-jest, which the AGENTS.md supply-chain hold would
  * otherwise delay by 7 days.)
  *
  * Rules:

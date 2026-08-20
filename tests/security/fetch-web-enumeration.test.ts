@@ -20,14 +20,14 @@ const actionsOf = (tool: ReturnType<typeof systemTool>): string[] =>
 describe('fetch_web enumeration', () => {
   it('advertises fetch_web when enabled', () => {
     const tool = systemTool(true);
-    expect(actionsOf(tool)).toEqual(['info', 'commands', 'fetch_web']);
+    expect(actionsOf(tool)).toEqual(['info', 'commands', 'hints', 'open_in_obsidian', 'fetch_web']);
     expect(tool?.description).toContain('fetch_web');
   });
 
   it('hides fetch_web when disabled, keeping the rest of the system tool', () => {
     const tool = systemTool(false);
     expect(tool).toBeDefined();
-    expect(actionsOf(tool)).toEqual(['info', 'commands']);
+    expect(actionsOf(tool)).toEqual(['info', 'commands', 'hints', 'open_in_obsidian']);
   });
 
   it('strips fetch_web from the advertised description when disabled', () => {
@@ -42,13 +42,13 @@ describe('fetch_web enumeration', () => {
     const enabled = createSemanticTools(undefined, undefined, true);
     expect(disabled.map(t => t.name)).toEqual(enabled.map(t => t.name));
     const vaultActions = (tools: typeof disabled) =>
-      (tools.find(t => t.name === 'vault')?.inputSchema.properties.action as { enum: string[] }).enum;
+      (tools.find(t => t.name === 'files')?.inputSchema.properties.action as { enum: string[] }).enum;
     expect(vaultActions(disabled)).toEqual(vaultActions(enabled));
   });
 
   it('hides fetch_web when the flag is omitted entirely (fail closed)', () => {
     // A caller that forgets to thread the setting must not accidentally
     // advertise the capability — the same fail-closed posture the handler has.
-    expect(actionsOf(systemTool(undefined))).toEqual(['info', 'commands']);
+    expect(actionsOf(systemTool(undefined))).toEqual(['info', 'commands', 'hints', 'open_in_obsidian']);
   });
 });

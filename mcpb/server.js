@@ -174,7 +174,7 @@ async function dispatch(message, isReplay = false) {
   if (response.status === 404) {
     // A 404 on /mcp means the server terminated/lost our session (idle GC or a
     // server restart); per MCP spec the bridge should re-initialize, but some
-    // clients (e.g. Claude Desktop) don't act on the signal and the connection
+    // clients don't act on the signal and the connection
     // dead-ends. We deliberately do NOT gate on the bridge's current
     // `sessionId`: a concurrent sibling's reinit may have already nulled it,
     // and the 404 itself proves a session id was presented on this request
@@ -289,8 +289,8 @@ function main() {
 //
 // We intentionally do NOT gate on `require.main === module`. Although the .mcpb
 // manifest launches `node ${__dirname}/server.js` (where that check would be
-// true), Claude Desktop actually runs the bundle through its built-in Node
-// ("Using built-in Node.js for MCP server" in its logs) via a loader that does
+// true), some bundle hosts run the bundle through a built-in Node
+// via a loader that does
 // NOT make server.js the main module — so the check is false in production:
 // main() never runs, stdin is never read, the client's `initialize` goes
 // unanswered, and Desktop times out after 60s ("Request timed out", -32001).

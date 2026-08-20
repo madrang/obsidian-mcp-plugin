@@ -19,7 +19,6 @@ export interface ConnectionPoolOptions {
   maxConnections: number;
   maxQueueSize: number;
   requestTimeout: number;
-  sessionTimeout: number;
   sessionCheckInterval: number;
 }
 
@@ -40,7 +39,6 @@ export class ConnectionPool extends EventEmitter {
       maxConnections: options.maxConnections || 32,
       maxQueueSize: options.maxQueueSize || 100,
       requestTimeout: options.requestTimeout || 30000, // 30 seconds
-      sessionTimeout: options.sessionTimeout || 3600000, // 1 hour
       sessionCheckInterval: options.sessionCheckInterval || 60000 // 1 minute
     };
   }

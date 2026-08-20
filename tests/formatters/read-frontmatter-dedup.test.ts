@@ -6,7 +6,7 @@
  * that truncates keys at 10 and values at 50 chars. So the most frequently called action
  * paid tokens to show a degraded copy of text it was about to show in full.
  */
-import { formatFileRead } from '../../src/formatters/vault';
+import { formatFileRead } from '../../src/formatters/files';
 
 const FRONTMATTER = {
   title: 'The MRP-API hidden hub and its dependency cluster',

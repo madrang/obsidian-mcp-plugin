@@ -80,14 +80,14 @@ export function buildMcpb({ manifest, serverJs }) {
 
 // CLI: emit both a versioned bundle (for archival) and an unversioned
 // alias so the Settings UI / README can link to a stable
-// releases/latest/download/obsidian-mcp.mcpb URL regardless of plugin
+// releases/latest/download/scoped-vault-mcp.mcpb URL regardless of plugin
 // version.
 if (import.meta.url === `file://${process.argv[1]}`) {
   const manifest = JSON.parse(readFileSync('mcpb/manifest.json', 'utf-8'));
   const serverJs = readFileSync('mcpb/server.js', 'utf-8');
   const bytes = buildMcpb({ manifest, serverJs });
-  const versioned = `obsidian-mcp-${manifest.version}.mcpb`;
-  const latest = 'obsidian-mcp.mcpb';
+  const versioned = `scoped-vault-mcp-${manifest.version}.mcpb`;
+  const latest = 'scoped-vault-mcp.mcpb';
   writeFileSync(versioned, bytes);
   writeFileSync(latest, bytes);
   console.log(`✅ Built ${versioned} and ${latest} (${manifest.version})`);

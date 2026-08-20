@@ -64,7 +64,7 @@ function setup(visibility?: Record<string, boolean>) {
   const writes: Write[] = [];
   // Read-only OFF and permissions permissive on purpose: visibility must stand on
   // its own, not be propped up by another control.
-  const plugin = { settings: { readOnlyMode: false } };
+  const plugin = { settings: { readOnlyMode: false, allowCreateOverwrite: true } };
   const api = new SecureObsidianAPI(
     makeApp(writes), undefined, plugin as never, BASELINE_SECURITY_SETTINGS,
   );
@@ -77,23 +77,23 @@ describe('tool visibility gating', () => {
     it('advertises every operation when no visibility is configured', () => {
       const { tools } = setup(undefined);
       expect(tools.map(t => t.name)).toEqual(
-        expect.arrayContaining(['vault', 'edit', 'view', 'workflow', 'system', 'graph', 'bases']),
+        expect.arrayContaining(['files', 'edit', 'view', 'system', 'graph', 'bases']),
       );
     });
 
     it('omits an operation disabled at the operation level', () => {
       const { byName } = setup({ edit: false });
       expect(byName('edit')).toBeUndefined();
-      expect(byName('vault')).toBeDefined();
+      expect(byName('files')).toBeDefined();
     });
 
     it('omits a disabled action from the advertised enum', () => {
-      const { byName } = setup({ 'bases.create': false });
-      const bases = byName('bases')!;
-      const advertised = advertisedActions(bases);
+      const { byName } = setup({ 'files.split': false });
+      const files = byName('files')!;
+      const advertised = advertisedActions(files);
 
-      expect(advertised).not.toContain('create');
-      expect(advertised).toContain('read');
+      expect(advertised).not.toContain('split');
+      expect(advertised).toContain('copy');
     });
 
     it('omits the whole operation when every one of its actions is disabled', () => {
@@ -110,7 +110,7 @@ describe('tool visibility gating', () => {
       const advertised = advertisedActions(edit);
 
       expect(advertised).not.toContain('append');
-      expect(advertised).toContain('window');
+      expect(advertised).toContain('replace');
     });
   });
 
@@ -133,17 +133,17 @@ describe('tool visibility gating', () => {
       const { byName, api, writes } = setup({ 'edit.append': false });
       const edit = byName('edit')!;
 
-      await edit.handler(api, { action: 'window', path: 'note.md', oldText: 'body', newText: 'z' });
+      await edit.handler(api, { action: 'replace', path: 'note.md', oldText: 'body', newText: 'z' });
 
       expect(writes.length).toBeGreaterThan(0);
     });
 
-    it('refuses bases.create and records no write', async () => {
-      const { byName, api, writes } = setup({ 'bases.create': false });
-      const bases = byName('bases')!;
+    it('refuses files.concat and records no write', async () => {
+      const { byName, api, writes } = setup({ 'files.concat': false });
+      const files = byName('files')!;
 
-      const res = await bases.handler(api, {
-        action: 'create', path: 'x.base', config: { views: [{ type: 'table', name: 'v' }] },
+      const res = await files.handler(api, {
+        action: 'concat', paths: ['note.md', 'other.md'], destination: 'combined.md',
       });
 
       expect(JSON.stringify(res)).toContain('ACTION_DISABLED');
@@ -156,19 +156,18 @@ describe('tool visibility gating', () => {
    * regresses, someone running it as their containment boundary loses that
    * boundary silently.
    */
-  describe("the reporter's read-only-by-visibility configuration", () => {
-    const config = { edit: false, 'bases.create': false };
+  // bases.create has since merged into files.create with format='base'.
+  describe("the reporter's read-only-by-visibility configuration, current surface", () => {
+    const config = { edit: false, 'files.create': false };
 
-    it('leaves no reachable write path through edit or bases.create', async () => {
+    it('leaves no reachable write path through edit or create', async () => {
       const { byName, api, writes } = setup(config);
 
       expect(byName('edit')).toBeUndefined();
 
-      const bases = byName('bases')!;
-      await bases.handler(api, {
-        action: 'create', path: 'x.base', config: { views: [{ type: 'table', name: 'v' }] },
-      });
+      const res = await byName('files')!.handler(api, { action: 'create', path: 'new.md', content: 'x' });
 
+      expect(JSON.stringify(res)).toContain('ACTION_DISABLED');
       expect(writes).toEqual([]);
     });
 
@@ -214,14 +213,14 @@ describe('tool visibility gating', () => {
       expect(JSON.stringify(res)).toContain('ACTION_DISABLED');
     });
 
-    it('does NOT block vault writes — visibility is per-action, not a read-only mode', async () => {
+    it('does NOT block files writes — visibility is per-action, not a read-only mode', async () => {
       // Worth pinning explicitly: this configuration is not equivalent to
-      // read-only. vault.create is untouched by it and still writes. Anyone
+      // read-only. files.concat is untouched by it and still writes. Anyone
       // relying on the visibility toggles for containment has to disable the
-      // vault write actions too.
+      // write actions too.
       const { byName, api, writes } = setup(config);
 
-      await byName('vault')!.handler(api, { action: 'create', path: 'new.md', content: 'x' });
+      await byName('files')!.handler(api, { action: 'concat', paths: ['note.md'], destination: 'combined.md' });
 
       expect(writes.length).toBeGreaterThan(0);
     });

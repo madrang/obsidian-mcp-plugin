@@ -26,7 +26,7 @@ export class GraphSearchTool {
         private api: ObsidianAPI
     ) {
         const searchCore = new SearchCore(app);
-        this.graphSearch = new GraphSearchTraversal(app, api, searchCore);
+        this.graphSearch = new GraphSearchTraversal(app, api, searchCore, api.getIgnoreManager());
     }
 
     async execute(params: GraphSearchToolParams): Promise<unknown> {

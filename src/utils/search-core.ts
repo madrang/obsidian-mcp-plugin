@@ -8,7 +8,7 @@ export class SearchCore {
 
     /**
      * Search for files containing the query
-     * Note: Since vault.search is not available in the API, we implement our own
+     * Note: The API exposes no simple one-shot search, so we implement our own
      */
     async search(query: string): Promise<Array<{file: TFile, matches: number}>> {
         const results: Array<{file: TFile, matches: number}> = [];

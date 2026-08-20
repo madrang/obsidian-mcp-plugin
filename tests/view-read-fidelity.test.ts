@@ -3,7 +3,7 @@
  * and line bookends. Covers #133's intent + the large-raw guard.
  */
 import { readFileWithFragments, READ_PAGE_CHARS } from '../src/utils/file-reader';
-import { formatFileRead } from '../src/formatters/vault';
+import { formatFileRead } from '../src/formatters/files';
 import { UniversalFragmentRetriever } from '../src/indexing/fragment-retriever';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 import { App } from 'obsidian';
@@ -23,7 +23,7 @@ const fr = () => new UniversalFragmentRetriever();
 // A whitespace/structure-sensitive small file — the #133 fidelity case.
 const TRICKY = '---\ntitle: T\n---\n\n# H\n\npara **b**\n\n```python\ndef f(x):\n    return x*2  # indented\n```\n\ttab-line   \n';
 
-describe('vault.read fidelity & pagination (ADR-203)', () => {
+describe('view.read fidelity & pagination (ADR-203)', () => {
   test('small file: whole verbatim source, byte-exact, not paginated, body not duplicated', async () => {
     const api = new MockAPI();
     api.files.set('s.md', TRICKY);
@@ -37,7 +37,7 @@ describe('vault.read fidelity & pagination (ADR-203)', () => {
     expect(JSON.stringify(r.metadata)).not.toContain('def f(x)');
   });
 
-  test('round-trip: a substring taken from the read matches the file for edit.window', async () => {
+  test('round-trip: a substring taken from the read matches the file for edit.replace', async () => {
     const api = new MockAPI();
     api.files.set('s.md', TRICKY);
     const r: any = await readFileWithFragments(api, fr(), { path: 's.md' });
@@ -58,7 +58,8 @@ describe('vault.read fidelity & pagination (ADR-203)', () => {
     expect(r.pagination.pageLineStart).toBe(1);
     expect(r.pagination.pageLineEnd).toBeLessThan(r.pagination.totalLines);
     expect(r.pagination.hasMore).toBe(true);
-    expect(r.pagination.nextPage).toContain('page=2');
+    // The next-call hint names a tool that exists on the current surface.
+    expect(r.pagination.nextPage).toContain("view.read(path='big.md', page=2)");
     // page content is bounded by the char budget (the agent-safety invariant)
     expect((r.content as string).length).toBeLessThanOrEqual(READ_PAGE_CHARS);
     // ...and is a verbatim contiguous prefix (line 1 present, exact)
@@ -94,7 +95,7 @@ describe('vault.read fidelity & pagination (ADR-203)', () => {
     expect(r.warning).toMatch(/past end of file/i);
   });
 
-  test('fragment params still route to semantic fragments (unchanged)', async () => {
+  test('fragment params still route to fragments (unchanged)', async () => {
     const api = new MockAPI();
     api.files.set('big.md', big);
     const r: any = await readFileWithFragments(api, fr(), { path: 'big.md', maxFragments: 3 });
@@ -104,7 +105,7 @@ describe('vault.read fidelity & pagination (ADR-203)', () => {
 
   test('formatted (non-raw) default output is byte-faithful — no truncation, no fence corruption', () => {
     // The blocking #133 case: an agent reading the DEFAULT (raw:false)
-    // formatted output must be able to lift a byte-exact edit.window oldText.
+    // formatted output must be able to lift a byte-exact edit.replace oldText.
     const out = formatFileRead({
       path: 's.md', content: TRICKY,
       metadata: { totalLines: TRICKY.split('\n').length, bytes: TRICKY.length },
@@ -122,7 +123,7 @@ describe('vault.read fidelity & pagination (ADR-203)', () => {
     const out2 = formatFileRead({
       path: 'big.md', content: 'line 1 ...\nline 2 ...',
       metadata: { totalLines: 4000, bytes: 90000 },
-      pagination: { paginated: true, page: 1, pageLineStart: 1, pageLineEnd: 1800, totalLines: 4000, bytes: 90000, hasMore: true, nextPage: "vault.read(path='big.md', page=2)" },
+      pagination: { paginated: true, page: 1, pageLineStart: 1, pageLineEnd: 1800, totalLines: 4000, bytes: 90000, hasMore: true, nextPage: "view.read(path='big.md', page=2)" },
       warning: 'Large file …',
     } as any);
     expect(out2).toContain('Pagination');

@@ -1,5 +1,8 @@
 import tseslint from 'typescript-eslint';
 import obsidianmd from "eslint-plugin-obsidianmd";
+// Not re-exported from the package root, so this is a deep import. If a
+// plugin upgrade moves the file, the config fails to load — loud, not silent.
+import { DEFAULT_ACRONYMS } from "eslint-plugin-obsidianmd/dist/lib/rules/ui/acronyms.js";
 import globals from "globals";
 import { globalIgnores } from "eslint/config";
 
@@ -33,8 +36,10 @@ export default tseslint.config(
 	{
 		files: ["**/*.ts"],
 		rules: {
-			// Enable auto-fix for sentence case UI text
-			"obsidianmd/ui/sentence-case": ["error", { allowAutoFix: true }],
+			// Enable auto-fix for sentence case UI text. The acronyms option
+			// REPLACES the rule's built-in list, so the defaults are spread back
+			// in — MCP is the project addition.
+			"obsidianmd/ui/sentence-case": ["error", { allowAutoFix: true, acronyms: [...DEFAULT_ACRONYMS, "MCP"] }],
 		},
 	},
 	// builtin-modules is build-tooling only (esbuild.config.mjs), not plugin code.

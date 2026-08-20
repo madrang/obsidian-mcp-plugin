@@ -28,7 +28,7 @@ export class NodeMCPServer {
   private server: Server | undefined;
   private isRunning: boolean = false;
 
-  constructor(app: App, port: number = 3001) {
+  constructor(app: App, port: number = 3011) {
     this.app = app;
     this.port = port;
   }
@@ -122,7 +122,7 @@ export class NodeMCPServer {
 
   private handleHealthCheck(_req: IncomingMessage, res: ServerResponse): void {
     const response = {
-      name: 'Semantic Notes Vault MCP',
+      name: 'Scoped Vault MCP',
       version: '0.1.4',
       status: 'running',
       vault: this.app.vault.getName(),
@@ -231,7 +231,7 @@ export class NodeMCPServer {
 📊 Total files: ${fileCount}
 ⏰ Timestamp: ${new Date().toISOString()}
 
-✨ This confirms the HTTP MCP transport is working between Claude Code and the Obsidian plugin!
+✨ This confirms the HTTP MCP transport is working between the MCP client and the Obsidian plugin!
 
 🔧 Plugin version: 0.1.4
 🌐 Transport: HTTP MCP  

@@ -14,8 +14,7 @@ export enum OperationType {
 	DELETE = 'delete',    // D - deleteFile
 	
 	// Special operations
-	MOVE = 'move',        // moveFile
-	RENAME = 'rename',    // renameFile
+	MOVE = 'move',        // moveFile (rename merged into move: one Obsidian primitive, one permission)
 	COPY = 'copy',        // copyFile
 	// Running an Obsidian command by id. Originally meant openFile, which is now
 	// charged as READ: opening a note mutates nothing, while the command palette
@@ -38,8 +37,7 @@ export interface SecuritySettings {
 		create: boolean;    // C in CRUD  
 		update: boolean;    // U in CRUD
 		delete: boolean;    // D in CRUD
-		move: boolean;      // Special operations
-		rename: boolean;
+		move: boolean;      // Special operations (covers rename: same primitive)
 		execute: boolean;   // Opening files in Obsidian
 	};
 	
@@ -61,7 +59,6 @@ export const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
 		update: true,
 		delete: true,
 		move: true,
-		rename: true,
 		execute: true
 	},
 	logSecurityEvents: true,
@@ -287,8 +284,6 @@ export class VaultSecurityManager {
 				return perms.delete;
 			case OperationType.MOVE:
 				return perms.move;
-			case OperationType.RENAME:
-				return perms.rename;
 			case OperationType.COPY:
 				return perms.create && perms.read; // Copy requires both
 			case OperationType.EXECUTE:
@@ -462,7 +457,6 @@ export class VaultSecurityManager {
 				update: false,
 				delete: false,
 				move: false,
-				rename: false,
 				execute: false
 			}
 		}),
@@ -482,7 +476,6 @@ export class VaultSecurityManager {
 				update: true,
 				delete: false,
 				move: true,
-				rename: true,
 				execute: false
 			}
 		}),
@@ -494,7 +487,6 @@ export class VaultSecurityManager {
 				update: true,
 				delete: true,
 				move: true,
-				rename: true,
 				execute: true
 			}
 		})

@@ -38,7 +38,7 @@ export class GraphTagTool {
         private api: ObsidianAPI
     ) {
         const searchCore = new SearchCore(app);
-        this.graphSearch = new GraphSearchTagTraversal(app, api, searchCore);
+        this.graphSearch = new GraphSearchTagTraversal(app, api, searchCore, api.getIgnoreManager());
     }
 
     async execute(params: GraphTagToolParams): Promise<unknown> {

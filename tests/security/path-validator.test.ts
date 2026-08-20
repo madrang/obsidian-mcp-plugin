@@ -155,11 +155,13 @@ describe('SecurePathValidator', () => {
   });
 
   describe('Absolute path prevention', () => {
-    test('rejects Unix absolute paths', () => {
-      expect(() => validator.validatePath('/etc/passwd'))
-        .toThrow(new SecurityError('Absolute paths are not allowed', 'ABSOLUTE_PATH'));
-      expect(() => validator.validatePath('/home/user/file.md'))
-        .toThrow(new SecurityError('Absolute paths are not allowed', 'ABSOLUTE_PATH'));
+    test('anchors a single leading slash at the vault root', () => {
+      // The plugin's path space is the vault: '/x' means <vault>/x, not the
+      // filesystem root. The returned path is vault-relative, exactly as if
+      // the slash had never been written.
+      expect(validator.validatePath('/etc/passwd')).toBe('etc/passwd');
+      expect(validator.validatePath('/home/user/file.md')).toBe('home/user/file.md');
+      expect(validator.validatePath('/notes/daily.md')).toBe('notes/daily.md');
     });
 
     test('rejects Windows absolute paths', () => {

@@ -58,7 +58,8 @@ function setup(readOnlyMode: boolean) {
   return {
     writes,
     plugin,
-    vault: tools.find(t => t.name === 'vault')!,
+    files: tools.find(t => t.name === 'files')!,
+    view: tools.find(t => t.name === 'view')!,
     edit: tools.find(t => t.name === 'edit')!,
     bases: tools.find(t => t.name === 'bases')!,
     api,
@@ -97,15 +98,19 @@ describe('read-only mode liveness', () => {
     expect(s.writes.length).toBe(1);
   });
 
-  it('covers vault and bases too, not just edit', async () => {
+  it('covers files and bases too, not just edit', async () => {
     const s = setup(false);
     s.plugin.settings.readOnlyMode = true;
 
-    await s.vault.handler(s.api, { action: 'create', path: 'new.md', content: 'x' });
-    await s.bases.handler(s.api, {
-      action: 'create', path: 'new.base', config: { views: [{ type: 'table', name: 'v' }] },
+    await s.files.handler(s.api, { action: 'create', path: 'new.md', content: 'x' });
+    // Bases creation goes through files.create with format "base". Calling the
+    // removed bases.create here would die at the INVALID_ACTION guard and this
+    // test would pass without ever reaching the security layer.
+    await s.files.handler(s.api, {
+      action: 'create', path: 'new.base', format: 'base',
+      content: { views: [{ type: 'table', name: 'v' }] },
     });
-    await s.vault.handler(s.api, {
+    await s.files.handler(s.api, {
       action: 'move', path: 'note.md', destination: 'moved.md',
     });
 
@@ -156,7 +161,7 @@ describe('read-only mode liveness', () => {
   it('ships a permissive baseline, so read-only is the only thing denying', () => {
     expect(BASELINE_SECURITY_SETTINGS.permissions).toEqual({
       read: true, create: true, update: true,
-      delete: true, move: true, rename: true, execute: true,
+      delete: true, move: true, execute: true,
     });
     // Path validation is not a permission and must stay on regardless.
     expect(BASELINE_SECURITY_SETTINGS.pathValidation).toBe('strict');
@@ -169,7 +174,7 @@ describe('read-only mode liveness', () => {
     const plugin = { settings: { readOnlyMode: true } };
     const api = new SecureObsidianAPI(
       makeApp(writes), undefined, plugin as never,
-      { permissions: { read: true, create: false, update: false, delete: false, move: false, rename: false, execute: false } },
+      { permissions: { read: true, create: false, update: false, delete: false, move: false, execute: false } },
     );
     const edit = createSemanticTools(api)!.find(t => t.name === 'edit')!;
 
@@ -196,7 +201,7 @@ describe('read-only mode liveness', () => {
       pathValidation: 'strict' as const,
       permissions: {
         read: true, create: true, update: true,
-        delete: true, move: true, rename: true, execute: true,
+        delete: true, move: true, execute: true,
       },
       blockedPaths: [],
       logSecurityEvents: false,
@@ -217,10 +222,25 @@ describe('read-only mode liveness', () => {
   it('never blocks reads', async () => {
     const s = setup(true);
 
-    const res = await s.vault.handler(s.api, { action: 'read', path: 'note.md' });
+    const res = await s.view.handler(s.api, { action: 'read', path: 'note.md' });
 
     const text = JSON.stringify(res);
     expect(text).not.toContain('READ_ONLY_MODE');
     expect(text).not.toContain('PERMISSION_DENIED');
+  });
+
+  it('blocks files.concat under read-only; a missing destination fails at dispatch', async () => {
+    // Concat always writes — the inline mode is gone. Under read-only the
+    // write is denied; without a destination the dispatch layer answers
+    // MISSING_PARAMETER first. Either way, nothing reaches the vault.
+    const s = setup(true);
+
+    const noDest = await s.files.handler(s.api, { action: 'concat', paths: ['note.md'] });
+    expect(JSON.stringify(noDest)).toContain('MISSING_PARAMETER');
+
+    const write = await s.files.handler(s.api, { action: 'concat', paths: ['note.md'], destination: 'out.md' });
+    expect(JSON.stringify(write)).toContain('READ_ONLY_MODE');
+
+    expect(s.writes).toEqual([]);
   });
 });

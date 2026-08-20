@@ -12,51 +12,6 @@ import {
 } from './utils';
 
 /**
- * Format view.file response (full document view)
- * Actual response: { path, content, tags, frontmatter }
- */
-export interface ViewFileResponse {
-  path: string;
-  content: string;
-  lineCount?: number;
-  tags?: string[];
-  frontmatter?: Record<string, unknown>;
-}
-
-export function formatViewFile(response: ViewFileResponse): string {
-  const lines: string[] = [];
-
-  const fileName = response.path.split('/').pop() || response.path;
-  const lineCount = response.lineCount ?? response.content.split('\n').length;
-
-  lines.push(header(1, `View: ${fileName}`));
-  lines.push('');
-  lines.push(property('Path', response.path, 0));
-  lines.push(property('Lines', lineCount.toString(), 0));
-
-  // Show tags if present
-  if (response.tags && response.tags.length > 0) {
-    lines.push(property('Tags', response.tags.join(', '), 0));
-  }
-
-  // Show frontmatter keys if present
-  if (response.frontmatter && Object.keys(response.frontmatter).length > 0) {
-    lines.push(property('Frontmatter', Object.keys(response.frontmatter).join(', '), 0));
-  }
-  lines.push('');
-
-  lines.push('```markdown');
-  lines.push(response.content);
-  lines.push('```');
-
-  lines.push(divider());
-  lines.push(tip('Use `edit.window(path, oldText, newText)` to make changes'));
-  lines.push(summaryFooter());
-
-  return joinLines(lines);
-}
-
-/**
  * Format view.window response (windowed view around a line)
  * Actual response: { path, lines[], startLine, endLine, totalLines, centerLine }
  */
@@ -127,7 +82,7 @@ export function formatViewWindow(response: ViewWindowResponse): string {
   if (endLine < response.totalLines) {
     tipLines.push(tip(`Use \`lineNumber: ${endLine + 1}\` to see later content`));
   }
-  tipLines.push(tip('Use `edit.window(path, oldText, newText)` to make changes'));
+  tipLines.push(tip('Use `edit.replace(path, oldText, newText)` to make changes'));
 
   lines.push(tipLines.join('\n'));
   lines.push(summaryFooter());
@@ -201,7 +156,7 @@ export function formatViewActive(response: ViewActiveResponse): string {
 }
 
 /**
- * Format view.open_in_obsidian response
+ * Format system.open_in_obsidian response
  */
 export interface OpenInObsidianResponse {
   success: boolean;

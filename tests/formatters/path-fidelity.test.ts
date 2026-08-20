@@ -2,26 +2,26 @@
  * Path fidelity in agent-facing output.
  *
  * A path is an identifier, not prose. It is the value the agent must hand back to
- * vault.read / graph.neighbors on the very next call, so any beautification of it —
+ * view.read / graph.neighbors on the very next call, so any beautification of it —
  * eliding the middle, or printing only the basename — makes the result unusable and
  * forces the agent to guess, re-search, or fabricate.
  *
  * Two measured failures motivate these tests:
- *  - vault.search elided long paths to `first/.../last`, so a search hit could not be
- *    fed into vault.read. Agents fell back to another search, which is exactly the
- *    repeated-search-instead-of-graph-follow behaviour we want to stop rewarding.
- *  - vault.list printed only the basename, implying files live directly under the
+ *  - view.search elided long paths to `first/.../last`, so a search hit could not be
+ *    fed into view.read. Agents fell back to another search, which is exactly the
+ *    repeated-search-instead-of-graph-follow behavior we want to stop rewarding.
+ *  - view.folder printed only the basename, implying files live directly under the
  *    directory that was listed. Joining the two produced a path that does not exist,
  *    and the read failed.
  */
-import { formatFileList } from '../../src/formatters/vault';
+import { formatFileList } from '../../src/formatters/files';
 import { formatSearchResults } from '../../src/formatters/search';
 
 // A real path from the test corpus: nested, long, and non-ASCII (em-dash).
 const DEEP_PATH = 'Part IV — How We Move It/7. Integration disposition/7.3 The MRP-API hidden hub and its dependency cluster.md';
 
 describe('formatSearchResults', () => {
-  it('should emit the full path of a hit so it can be passed straight to vault.read', () => {
+  it('should emit the full path of a hit so it can be passed straight to view.read', () => {
     const output = formatSearchResults({
       query: 'MRP-API',
       results: [{ path: DEEP_PATH, title: '7.3 The MRP-API hidden hub', score: 1.42 }],

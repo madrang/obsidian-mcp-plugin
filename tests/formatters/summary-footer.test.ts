@@ -11,7 +11,7 @@
  * what it actually elides rather than leaving the reader to guess it might be the text.
  */
 import { summaryFooter } from '../../src/formatters/utils';
-import { formatFileRead } from '../../src/formatters/vault';
+import { formatFileRead } from '../../src/formatters/files';
 
 describe('summaryFooter', () => {
   it('should not describe the response as a summary of the content', () => {

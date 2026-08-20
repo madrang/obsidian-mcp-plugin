@@ -254,7 +254,7 @@ export async function readFileWithFragments(
       totalLines,
       bytes: totalChars,
       hasMore,
-      nextPage: hasMore ? `vault.read(path='${path}', page=${nextPageNum})` : null,
+      nextPage: hasMore ? `view.read(path='${path}', page=${nextPageNum})` : null,
       oversizedLine: built.oversizedLine || undefined,
     },
     warning:

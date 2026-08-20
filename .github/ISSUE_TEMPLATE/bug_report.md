@@ -30,7 +30,7 @@ If applicable, add screenshots to help explain your problem.
  - OS: [e.g. macOS, Windows, Linux]
  - Obsidian version: [e.g. 1.5.0]
  - Plugin version: [e.g. 0.4.4]
- - MCP client: [e.g. Claude Desktop, Cline, custom]
+ - MCP client: [e.g. desktop app, Cline, custom]
 
 **Logs**
 ```

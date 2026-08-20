@@ -68,14 +68,21 @@ export class SecurePathValidator {
 			throw new SecurityError('Path contains forbidden sequences', 'FORBIDDEN_PATTERN');
 		}
 
-		// Layer 3: Path type validation - Reject absolute paths
-		if (this.isAbsolutePath(userPath)) {
+		// A single leading slash anchors at the VAULT root, not the filesystem
+		// root: the plugin's path space is the vault, and agents write absolute
+		// paths in that space. Strip the anchor so the layers below see a
+		// vault-relative path. Containment is unchanged — traversal patterns are
+		// rejected above and the boundary check below still applies.
+		const anchored = userPath.startsWith('/') ? userPath.slice(1) : userPath;
+
+		// Layer 3: Path type validation - Reject OS-absolute paths
+		if (this.isAbsolutePath(anchored)) {
 			throw new SecurityError('Absolute paths are not allowed', 'ABSOLUTE_PATH');
 		}
 
 		// Layer 4: Obsidian normalization - Use framework's built-in normalizer
 		// This handles things like converting backslashes to forward slashes
-		const obsidianNormalized = normalizePath(userPath);
+		const obsidianNormalized = normalizePath(anchored);
 
 		// Layer 5: Node.js path resolution - Resolve to absolute path
 		const resolved = path.resolve(this.baseDir, obsidianNormalized);

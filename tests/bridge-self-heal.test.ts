@@ -54,7 +54,7 @@ function res(status: number, opts: { sid?: string; json?: unknown } = {}): FakeR
 interface FetchRecord { method: string; session?: string; rpc?: string; id?: unknown }
 
 const INIT = { jsonrpc: '2.0', id: 0, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } } };
-const TOOL_CALL = { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'vault', arguments: { action: 'list' } } };
+const TOOL_CALL = { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'view', arguments: { action: 'folder' } } };
 
 describe('mcpb bridge self-heal on session expiry (#238)', () => {
   let emitted: Array<Record<string, unknown>>;
@@ -164,8 +164,8 @@ describe('mcpb bridge self-heal on session expiry (#238)', () => {
     await bridge.dispatch(INIT);
     // Two tool calls in flight together: both 404 on sess-1 and must coalesce
     // onto one re-init rather than each kicking off its own handshake.
-    const A = { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'vault', arguments: { action: 'list' } } };
-    const B = { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'vault', arguments: { action: 'read' } } };
+    const A = { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'view', arguments: { action: 'folder' } } };
+    const B = { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'view', arguments: { action: 'read' } } };
     await Promise.all([bridge.dispatch(A), bridge.dispatch(B)]);
 
     // Both clients get genuine results, neither sees the expiry error.

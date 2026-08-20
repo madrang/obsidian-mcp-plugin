@@ -130,3 +130,7 @@ test-concurrent-sessions.js
 
 # Claude configuration directory
 .claude/
+# Agent instruction files (local only; AGENTS.md is synced from the vault master)
+AGENTS.md
+CLAUDE.md
+.zcode/

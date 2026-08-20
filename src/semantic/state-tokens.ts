@@ -4,20 +4,20 @@
  */
 
 /** Params shape for vault read/create/search/list operations */
-interface VaultParams {
+interface FilesParams {
   path?: string;
   directory?: string;
   query?: string;
 }
 
 /** Result shape for vault read operations */
-interface VaultReadResult {
+interface FilesReadResult {
   content?: string;
   tags?: string[];
 }
 
 /** Result shape for vault search operations */
-interface VaultSearchResult {
+interface FilesSearchResult {
   totalResults: number;
   results?: Array<{ path: string }>;
 }
@@ -31,6 +31,8 @@ interface EditParams {
 /** Params shape for view operations */
 interface ViewParams {
   path?: string;
+  query?: string;
+  directory?: string;
 }
 
 export interface StateTokens {
@@ -80,8 +82,14 @@ export class StateTokenManager {
    */
   updateTokens(operation: string, action: string, params: unknown, result: unknown, success: boolean) {
     switch (operation) {
-      case 'vault':
-        this.updateVaultTokens(action, params, result, success);
+      // files operations track nothing: every files action writes, and the
+      // read-side tokens moved to view with the actions that produce them.
+      case 'system':
+        this.updateSystemTokens(action, success);
+        break;
+      case 'files':
+        // create is the only files action whose result feeds read-side tokens.
+        if (action === 'create') this.updateCreateTokens(params, success);
         break;
       case 'edit':
         this.updateEditTokens(action, params, result, success);
@@ -89,72 +97,19 @@ export class StateTokenManager {
       case 'view':
         this.updateViewTokens(action, params, result, success);
         break;
-      case 'search':
-        this.updateSearchTokens(action, params, result, success);
-        break;
     }
   }
-  
-  private updateVaultTokens(action: string, params: unknown, result: unknown, success: boolean) {
+
+  private updateCreateTokens(params: unknown, success: boolean) {
     if (!success) return;
 
-    const vaultParams = params as VaultParams;
-
-    switch (action) {
-      case 'read': {
-        this.tokens.file_loaded = vaultParams.path;
-        this.tokens.file_content = true;
-        this.tokens.file_is_markdown = vaultParams.path?.endsWith('.md');
-
-        // Extract links and tags from result
-        if (typeof result === 'object' && result !== null) {
-          const readResult = result as VaultReadResult;
-          // Use tags from API response (includes frontmatter tags from metadataCache)
-          if (readResult.tags && Array.isArray(readResult.tags)) {
-            this.tokens.file_has_tags = readResult.tags;
-          } else if (readResult.content) {
-            // Fallback to content extraction
-            this.tokens.file_has_tags = this.extractTags(readResult.content);
-          }
-
-          // Extract links from content
-          if (readResult.content) {
-            this.tokens.file_has_links = this.extractLinks(readResult.content);
-          }
-        }
-
-        // Update history
-        if (vaultParams.path) this.addToFileHistory(vaultParams.path);
-        break;
-      }
-
-      case 'list': {
-        this.tokens.directory_listed = vaultParams.directory || '/';
-        const fileList = result as string[] | undefined;
-        this.tokens.directory_file_list = fileList;
-        this.tokens.directory_has_files = Array.isArray(fileList) && fileList.length > 0;
-        if (vaultParams.directory) this.addToDirectoryHistory(vaultParams.directory);
-        break;
-      }
-
-      case 'search': {
-        const searchResult = result as VaultSearchResult;
-        this.tokens.search_performed = true;
-        this.tokens.search_query = vaultParams.query;
-        this.tokens.search_has_results = searchResult.totalResults > 0;
-        this.tokens.search_result_count = searchResult.totalResults;
-        this.tokens.search_result_paths = searchResult.results?.map((r) => r.path) || [];
-        break;
-      }
-
-      case 'create':
-        this.tokens.file_loaded = vaultParams.path;
-        this.tokens.file_content = true;
-        this.tokens.file_is_markdown = vaultParams.path?.endsWith('.md');
-        if (vaultParams.path) this.addToFileHistory(vaultParams.path);
-        break;
-    }
+    const createParams = params as FilesParams;
+    this.tokens.file_loaded = createParams.path;
+    this.tokens.file_content = true;
+    this.tokens.file_is_markdown = createParams.path?.endsWith('.md');
+    if (createParams.path) this.addToFileHistory(createParams.path);
   }
+  
   
   private updateEditTokens(action: string, params: unknown, _result: unknown, success: boolean) {
     const editParams = params as EditParams;
@@ -173,7 +128,7 @@ export class StateTokenManager {
       this.tokens.edit_in_progress = true;
 
       // Buffer tokens for failed edits
-      if (action === 'window') {
+      if (action === 'replace') {
         this.tokens.buffer_available = true;
         this.tokens.buffer_file = editParams.path;
         this.tokens.buffer_search_text = editParams.oldText;
@@ -181,27 +136,73 @@ export class StateTokenManager {
     }
   }
   
-  private updateViewTokens(action: string, params: unknown, _result: unknown, success: boolean) {
+  private updateViewTokens(action: string, params: unknown, result: unknown, success: boolean) {
     if (!success) return;
 
     const viewParams = params as ViewParams;
 
     switch (action) {
-      case 'file':
       case 'window':
         this.tokens.file_loaded = viewParams.path;
         this.tokens.file_content = true;
         if (viewParams.path) this.addToFileHistory(viewParams.path);
         break;
 
-      case 'open_in_obsidian':
-        this.tokens.obsidian_available = true;
+      case 'folder': {
+        this.tokens.directory_listed = viewParams.directory || '/';
+        const fileList = result as string[] | undefined;
+        this.tokens.directory_file_list = fileList;
+        this.tokens.directory_has_files = Array.isArray(fileList) && fileList.length > 0;
+        if (viewParams.directory) this.addToDirectoryHistory(viewParams.directory);
         break;
+      }
+
+      case 'read': {
+        this.tokens.file_loaded = viewParams.path;
+        this.tokens.file_content = true;
+        this.tokens.file_is_markdown = viewParams.path?.endsWith('.md');
+
+        // Extract links and tags from result
+        if (typeof result === 'object' && result !== null) {
+          const readResult = result as FilesReadResult;
+          // Use tags from API response (includes frontmatter tags from metadataCache)
+          if (readResult.tags && Array.isArray(readResult.tags)) {
+            this.tokens.file_has_tags = readResult.tags;
+          } else if (readResult.content) {
+            // Fallback to content extraction
+            this.tokens.file_has_tags = this.extractTags(readResult.content);
+          }
+
+          // Extract links from content
+          if (readResult.content) {
+            this.tokens.file_has_links = this.extractLinks(readResult.content);
+          }
+        }
+
+        // Update history
+        if (viewParams.path) this.addToFileHistory(viewParams.path);
+        break;
+      }
+
+      case 'search': {
+        const searchResult = result as FilesSearchResult;
+        this.tokens.search_performed = true;
+        this.tokens.search_query = viewParams.query;
+        this.tokens.search_has_results = searchResult.totalResults > 0;
+        this.tokens.search_result_count = searchResult.totalResults;
+        this.tokens.search_result_paths = searchResult.results?.map((r) => r.path) || [];
+        break;
+      }
+
     }
   }
-  
-  private updateSearchTokens(action: string, params: unknown, result: unknown, success: boolean) {
-    // Handled in vault tokens
+
+  private updateSystemTokens(action: string, success: boolean) {
+    if (!success) return;
+
+    if (action === 'open_in_obsidian') {
+      this.tokens.obsidian_available = true;
+    }
   }
   
   /**

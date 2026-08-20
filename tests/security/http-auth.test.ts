@@ -8,7 +8,7 @@
  * including the two fail-open paths, which are asserted so they stay recorded
  * decisions rather than quietly becoming accidents.
  */
-import { authorizeRequest } from '../../src/security/http-auth';
+import { authorizeRequest, identityForToken, normalizeScopedTokens, ScopedToken } from '../../src/security/http-auth';
 
 const KEY = 'super-secret-key-1234';
 
@@ -189,6 +189,137 @@ describe('authorizeRequest', () => {
       expect(() => authorizeRequest({
         method: 'POST', authHeader: 'Bearer ключ', apiKey: unicodeKey,
       })).not.toThrow();
+    });
+  });
+
+  /**
+   * ADR-110: scoped tokens. Each match must carry the token's identity (for
+   * session binding) and its folder/readOnly restriction (for the scoped
+   * session API). The primary key's decision shape is pinned unchanged.
+   */
+  describe('scoped tokens', () => {
+    const SCOPED: ScopedToken[] = [
+      { name: 'blog', token: 'blog-token-aaaa', folder: 'Projects/Blog' },
+      { name: 'reader', token: 'reader-token-bbbb', folder: 'Notes', readOnly: true },
+      { name: 'full', token: 'full-token-cccc' },
+    ];
+
+    it('accepts a matching scoped Bearer token and carries its scope', () => {
+      const d = authorizeRequest({
+        method: 'POST', authHeader: 'Bearer blog-token-aaaa', apiKey: KEY, scopedTokens: SCOPED,
+      });
+      expect(d).toEqual({
+        allow: true,
+        reason: 'authenticated',
+        identity: identityForToken('blog-token-aaaa'),
+        folder: 'Projects/Blog',
+      });
+    });
+
+    it('carries readOnly when the token sets it', () => {
+      const d = authorizeRequest({
+        method: 'POST', authHeader: 'Bearer reader-token-bbbb', apiKey: KEY, scopedTokens: SCOPED,
+      });
+      expect(d).toEqual({
+        allow: true,
+        reason: 'authenticated',
+        identity: identityForToken('reader-token-bbbb'),
+        folder: 'Notes',
+        readOnly: true,
+      });
+    });
+
+    it('a scoped token without restrictions carries only its identity', () => {
+      const d = authorizeRequest({
+        method: 'POST', authHeader: 'Bearer full-token-cccc', apiKey: KEY, scopedTokens: SCOPED,
+      });
+      expect(d).toEqual({
+        allow: true,
+        reason: 'authenticated',
+        identity: identityForToken('full-token-cccc'),
+      });
+    });
+
+    it('accepts a scoped token as a Basic password too', () => {
+      const d = authorizeRequest({
+        method: 'POST', authHeader: basic('anything', 'blog-token-aaaa'), apiKey: KEY, scopedTokens: SCOPED,
+      });
+      expect(d).toMatchObject({
+        allow: true,
+        reason: 'authenticated',
+        identity: identityForToken('blog-token-aaaa'),
+        folder: 'Projects/Blog',
+      });
+    });
+
+    it('the primary key still matches, with its decision shape unchanged', () => {
+      const d = authorizeRequest({
+        method: 'POST', authHeader: `Bearer ${KEY}`, apiKey: KEY, scopedTokens: SCOPED,
+      });
+      expect(d).toEqual({ allow: true, reason: 'authenticated' });
+    });
+
+    it('rejects a token that matches neither the primary key nor any scoped token', () => {
+      const d = authorizeRequest({
+        method: 'POST', authHeader: 'Bearer nope', apiKey: KEY, scopedTokens: SCOPED,
+      });
+      expect(d).toMatchObject({ allow: false, status: 401, reason: 'bad-key' });
+    });
+
+    it('skips entries with an empty token string', () => {
+      const d = authorizeRequest({
+        method: 'POST',
+        authHeader: 'Bearer ',
+        apiKey: KEY,
+        scopedTokens: [{ name: 'broken', token: '' }],
+      });
+      expect(d.allow).toBe(false);
+    });
+
+    it('identityForToken is deterministic and is not the secret itself', () => {
+      expect(identityForToken('blog-token-aaaa')).toBe(identityForToken('blog-token-aaaa'));
+      expect(identityForToken('blog-token-aaaa')).not.toContain('blog-token-aaaa');
+      expect(identityForToken('a')).not.toBe(identityForToken('b'));
+    });
+  });
+
+  describe('normalizeScopedTokens', () => {
+    it('returns [] for non-arrays', () => {
+      for (const bad of [undefined, null, 'x', 5, {}]) {
+        expect(normalizeScopedTokens(bad)).toEqual([]);
+      }
+    });
+
+    it('drops entries without a token string', () => {
+      expect(normalizeScopedTokens([
+        { name: 'no-token' },
+        { name: 'empty', token: '' },
+        'garbage',
+        null,
+        { name: 'ok', token: 'tok-1' },
+      ])).toEqual([{ name: 'ok', token: 'tok-1' }]);
+    });
+
+    it('trims and de-slashes folders, empty becomes unset', () => {
+      expect(normalizeScopedTokens([
+        { name: 'a', token: 't1', folder: ' /Projects/Blog/ ' },
+        { name: 'b', token: 't2', folder: '/' },
+        { name: 'c', token: 't3', folder: 5 },
+      ])).toEqual([
+        { name: 'a', token: 't1', folder: 'Projects/Blog' },
+        { name: 'b', token: 't2' },
+        { name: 'c', token: 't3' },
+      ]);
+    });
+
+    it('coerces readOnly with === true and fills a missing name', () => {
+      expect(normalizeScopedTokens([
+        { token: 't1', readOnly: true },
+        { token: 't2', readOnly: 'yes' },
+      ])).toEqual([
+        { name: '', token: 't1', readOnly: true },
+        { name: '', token: 't2' },
+      ]);
     });
   });
 });

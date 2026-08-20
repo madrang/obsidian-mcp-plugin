@@ -20,9 +20,9 @@ const ask = async (q, fallback) => {
 try {
   console.log('Obsidian MCPB maker — generates a custom-named bundle for one vault.\n');
 
-  const displayName = await ask('Display name shown in Claude Desktop', 'Obsidian (Work Vault)');
-  const slug = slugify(displayName) || 'obsidian-mcp-custom';
-  const url = await ask('Obsidian MCP URL', 'http://localhost:3001/mcp');
+  const displayName = await ask('Display name shown in the MCP client', 'Obsidian (Work Vault)');
+  const slug = slugify(displayName) || 'scoped-vault-mcp-custom';
+  const url = await ask('Scoped Vault MCP URL', 'http://localhost:3011/mcp');
   const apiKey = await ask('API key (leave blank only if plugin auth is disabled)', '');
 
   const baseManifest = JSON.parse(readFileSync('mcpb/manifest.json', 'utf-8'));
@@ -39,10 +39,10 @@ try {
     },
   };
 
-  const out = `obsidian-mcp-${slug}.mcpb`;
+  const out = `scoped-vault-mcp-${slug}.mcpb`;
   writeFileSync(out, buildMcpb({ manifest, serverJs }));
   console.log(`\n✅ Built ${out}`);
-  console.log(`   Drop it into Claude Desktop to install "${displayName}".`);
+  console.log(`   Drop it into a bundle-compatible MCP client to install "${displayName}".`);
   console.log('   The URL and API key are pre-filled — just click Install.');
 } finally {
   rl.close();

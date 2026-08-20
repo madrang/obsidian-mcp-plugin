@@ -44,7 +44,7 @@ export class CertificateManager {
       basePath,
       app.vault.configDir,
       'plugins',
-      'semantic-vault-mcp',
+      'scoped-vault-mcp',
       'certificates'
     );
     this.ensureCertDirectory();

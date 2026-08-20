@@ -10,7 +10,9 @@
  *   3. vault.rename   -> app.fileManager.renameFile() direct (vault.ts)
  *
  * (2) and (3) escaped the vault root in DEFAULT configuration — no read-only
- * needed — and being moves, they removed data from the vault.
+ * needed — and being moves, they removed data from the vault. (rename has
+ * since merged into files.move. renameFile likewise merged into moveFile, one
+ * Obsidian primitive with one MOVE charge.)
  *
  * These tests assert on RECORDED WRITES, not error strings: a friendly error
  * message means nothing if the write already landed.
@@ -27,7 +29,7 @@ const PERMISSIVE = {
   pathValidation: 'strict' as const,
   permissions: {
     read: true, create: true, update: true,
-    delete: true, move: true, rename: true, execute: true,
+    delete: true, move: true, execute: true,
   },
   blockedPaths: [],
   logSecurityEvents: false,
@@ -104,13 +106,13 @@ describe('write-path containment', () => {
     });
   });
 
-  describe('renameFile validates source and destination', () => {
+  describe('moveFile validates source and destination', () => {
     it('rejects a traversal destination even with writes permitted', async () => {
       const api = new SecureObsidianAPI(
         makeApp(['note.md'], writes), undefined, { settings: {} } as never, PERMISSIVE
       );
 
-      await expect(api.renameFile('note.md', '../escaped.md')).rejects.toThrow(SecurityError);
+      await expect(api.moveFile('note.md', '../escaped.md')).rejects.toThrow(SecurityError);
       expect(writes).toEqual([]);
     });
 
@@ -120,7 +122,7 @@ describe('write-path containment', () => {
         VaultSecurityManager.presets.readOnly()
       );
 
-      await expect(api.renameFile('note.md', 'renamed.md')).rejects.toThrow(SecurityError);
+      await expect(api.moveFile('note.md', 'renamed.md')).rejects.toThrow(SecurityError);
       expect(writes).toEqual([]);
     });
 
@@ -129,47 +131,21 @@ describe('write-path containment', () => {
         makeApp(['note.md'], writes), undefined, { settings: {} } as never, PERMISSIVE
       );
 
-      await api.renameFile('note.md', 'renamed.md');
+      await api.moveFile('note.md', 'renamed.md');
       expect(writes).toEqual([{ op: 'rename', path: 'renamed.md' }]);
     });
-  });
 
-  /**
-   * move and rename are the same Obsidian primitive, so it is tempting to charge
-   * both against one permission. Doing that makes permissions.rename dead config
-   * — it can be set to anything with no effect. No shipped preset distinguishes
-   * them today, which is exactly why this needs a test: reverting renameFile to
-   * OperationType.MOVE undoes the split and every other test still passes.
-   */
-  describe('move and rename are charged against their own permissions', () => {
-    function apiWith(perms: { move: boolean; rename: boolean }) {
-      return new SecureObsidianAPI(
+    it('is denied when the move permission is off', async () => {
+      // One primitive, one charge: in-place rename and relocation both charge
+      // MOVE. There is no separate rename permission to forget to deny.
+      const api = new SecureObsidianAPI(
         makeApp(['note.md'], writes), undefined, { settings: {} } as never,
-        {
-          ...PERMISSIVE,
-          permissions: { ...PERMISSIVE.permissions, move: perms.move, rename: perms.rename },
-        },
+        { ...PERMISSIVE, permissions: { ...PERMISSIVE.permissions, move: false } },
       );
-    }
 
-    it('rename works and move is denied when only rename is permitted', async () => {
-      const api = apiWith({ move: false, rename: true });
-
-      await api.renameFile('note.md', 'renamed.md');
-      expect(writes).toEqual([{ op: 'rename', path: 'renamed.md' }]);
-
-      await expect(api.moveFile('note.md', 'moved.md')).rejects.toThrow(SecurityError);
-      expect(writes).toHaveLength(1);
-    });
-
-    it('move works and rename is denied when only move is permitted', async () => {
-      const api = apiWith({ move: true, rename: false });
-
-      await api.moveFile('note.md', 'moved.md');
-      expect(writes).toEqual([{ op: 'rename', path: 'moved.md' }]);
-
-      await expect(api.renameFile('note.md', 'renamed.md')).rejects.toThrow(SecurityError);
-      expect(writes).toHaveLength(1);
+      await expect(api.moveFile('note.md', 'renamed.md')).rejects.toThrow(SecurityError);
+      await expect(api.moveFile('note.md', 'moved/note.md')).rejects.toThrow(SecurityError);
+      expect(writes).toEqual([]);
     });
   });
 
@@ -185,7 +161,7 @@ describe('write-path containment', () => {
     it('safeMode denies delete and execute, and permits reorganisation', () => {
       expect(VaultSecurityManager.presets.safeMode().permissions).toEqual({
         read: true, create: true, update: true,
-        delete: false, move: true, rename: true, execute: false,
+        delete: false, move: true, execute: false,
       });
     });
 
@@ -223,11 +199,11 @@ describe('write-path containment', () => {
       return new SemanticRouter(api, app);
     }
 
-    it('vault.move cannot relocate a file outside the vault', async () => {
+    it('files.move cannot relocate a file outside the vault', async () => {
       const r = router(['sec/victim.md']);
 
       const res = await r.route({
-        operation: 'vault',
+        operation: 'files',
         action: 'move',
         params: { path: 'sec/victim.md', destination: '../escaped.md' },
       });
@@ -239,26 +215,49 @@ describe('write-path containment', () => {
       expect(JSON.stringify(res)).toContain('FORBIDDEN_PATTERN');
     });
 
-    it('vault.rename cannot relocate a file outside the vault', async () => {
-      const r = router(['sec/victim.md']);
+    it('files.create with format=base writes through the security layer', async () => {
+      const r = router(['note.md']);
 
-      const res = await r.route({
-        operation: 'vault',
-        action: 'rename',
-        params: { path: 'sec/victim.md', newName: '../../escaped.md' },
+      await r.route({
+        operation: 'files',
+        action: 'create',
+        params: {
+          path: 'views/x.base',
+          format: 'base',
+          content: { views: [{ type: 'table', name: 'v' }] },
+        },
       });
 
-      // Load-bearing: fails on pre-fix vault.ts with `sec/../../escaped.md`.
-      expect(writes).toEqual([]);
-      // Names the rejecting control, so an incidental failure can't satisfy this.
-      expect(JSON.stringify(res)).toContain('FORBIDDEN_PATTERN');
+      expect(writes).toEqual([{ op: 'create', path: 'views/x.base' }]);
     });
 
-    it('vault.move still works for a legitimate destination', async () => {
+    it('files.create with format=base is denied under read-only', async () => {
+      const app = makeApp(['note.md'], writes);
+      const api = new SecureObsidianAPI(
+        app, undefined, { settings: {} } as never,
+        VaultSecurityManager.presets.readOnly(),
+      );
+      const r = new SemanticRouter(api, app);
+
+      const res = await r.route({
+        operation: 'files',
+        action: 'create',
+        params: {
+          path: 'views/x.base',
+          format: 'base',
+          content: { views: [{ type: 'table', name: 'v' }] },
+        },
+      });
+
+      expect(writes).toEqual([]);
+      expect(JSON.stringify(res)).toMatch(/PERMISSION_DENIED/);
+    });
+
+    it('files.move still works for a legitimate destination', async () => {
       const r = router(['sec/victim.md']);
 
       await r.route({
-        operation: 'vault',
+        operation: 'files',
         action: 'move',
         params: { path: 'sec/victim.md', destination: 'archive/victim.md' },
       });

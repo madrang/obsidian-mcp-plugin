@@ -2,10 +2,11 @@ import { App, TFile, getAllTags } from 'obsidian';
 import { ObsidianAPI } from '../utils/obsidian-api';
 import { SearchCore } from '../utils/search-core';
 import { GraphSearchTraversal, TraversalNode, GraphSearchResult } from './graph-search-traversal';
+import { MCPIgnoreManager } from '../security/mcp-ignore-manager';
 
 export class GraphSearchTagTraversal extends GraphSearchTraversal {
-    constructor(app: App, api: ObsidianAPI, searchCore: SearchCore) {
-        super(app, api, searchCore);
+    constructor(app: App, api: ObsidianAPI, searchCore: SearchCore, ignoreManager?: MCPIgnoreManager) {
+        super(app, api, searchCore, ignoreManager);
     }
 
     /**
@@ -81,7 +82,10 @@ export class GraphSearchTagTraversal extends GraphSearchTraversal {
             
             // Skip if already visited or exceeds max depth
             if (visited.has(currentPath) || depth > maxDepth) continue;
-            
+
+            // Skip .mcpignore-excluded and folder-scoped-out paths (ADR-110)
+            if (this.ignoreManager?.isExcluded(currentPath)) continue;
+
             visited.add(currentPath);
             totalNodesVisited++;
 

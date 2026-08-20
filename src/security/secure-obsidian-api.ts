@@ -102,9 +102,13 @@ export class SecureObsidianAPI extends ObsidianAPI {
 	}
 
 	async getActiveFile(): Promise<ObsidianFile> {
-		// This doesn't need path validation as it gets the currently active file
+		// Validate the active file's path when there is one: an .mcpignore-excluded
+		// or folder-scoped-out note must not leak through the active-file channel
+		// (ADR-110). With no active file the path is undefined, path checks skip,
+		// and the base class throws 'No active file' as before.
 		await this.security.validateOperation({
 			type: OperationType.READ,
+			path: this.getApp().workspace.getActiveFile()?.path,
 			context: { method: 'getActiveFile' }
 		});
 
@@ -173,7 +177,7 @@ export class SecureObsidianAPI extends ObsidianAPI {
 		return super.deleteFile(validated.path!);
 	}
 
-	// File Operations - MOVE / RENAME
+	// File Operations - MOVE
 
 	/**
 	 * Validates BOTH source and destination before a move/rename.
@@ -184,20 +188,10 @@ export class SecureObsidianAPI extends ObsidianAPI {
 	 * Before this override the router called app.fileManager.renameFile directly
 	 * and a `../` destination relocated files outside the vault root.
 	 *
-	 * Charged as RENAME so permissions.rename is real config rather than dead —
-	 * moveFile below charges the same Obsidian primitive against permissions.move.
+	 * Move and rename are one Obsidian primitive and one method here: the tool
+	 * surface merged rename into move, and the separate RENAME charge went with
+	 * it — a permission no caller can exercise independently is dead config.
 	 */
-	async renameFile(path: string, newPath: string): ReturnType<ObsidianAPI['renameFile']> {
-		const validated = await this.security.validateOperation({
-			type: OperationType.RENAME,
-			path: path,
-			targetPath: newPath,
-			context: { method: 'renameFile' }
-		});
-
-		return super.renameFile(validated.path!, validated.targetPath!);
-	}
-
 	async moveFile(path: string, newPath: string): ReturnType<ObsidianAPI['moveFile']> {
 		const validated = await this.security.validateOperation({
 			type: OperationType.MOVE,
@@ -262,6 +256,7 @@ export class SecureObsidianAPI extends ObsidianAPI {
 	async updateActiveFile(content: string): ReturnType<ObsidianAPI['updateActiveFile']> {
 		await this.security.validateOperation({
 			type: OperationType.UPDATE,
+			path: this.getApp().workspace.getActiveFile()?.path,
 			context: { method: 'updateActiveFile', contentSize: content.length }
 		});
 
@@ -271,6 +266,7 @@ export class SecureObsidianAPI extends ObsidianAPI {
 	async appendToActiveFile(content: string): ReturnType<ObsidianAPI['appendToActiveFile']> {
 		await this.security.validateOperation({
 			type: OperationType.UPDATE,
+			path: this.getApp().workspace.getActiveFile()?.path,
 			context: { method: 'appendToActiveFile', contentSize: content.length }
 		});
 
@@ -280,6 +276,7 @@ export class SecureObsidianAPI extends ObsidianAPI {
 	async deleteActiveFile(): ReturnType<ObsidianAPI['deleteActiveFile']> {
 		await this.security.validateOperation({
 			type: OperationType.DELETE,
+			path: this.getApp().workspace.getActiveFile()?.path,
 			context: { method: 'deleteActiveFile' }
 		});
 
@@ -297,7 +294,7 @@ export class SecureObsidianAPI extends ObsidianAPI {
 	 * covers executeCommand, which can reach destructive commands ("Delete current
 	 * file"). Sharing one permission between the two would force a choice between
 	 * blocking a harmless open and permitting arbitrary commands under read-only.
-	 * Splitting them keeps executeCommand denied while `view.open_in_obsidian`
+	 * Splitting them keeps executeCommand denied while `system.open_in_obsidian`
 	 * keeps working.
 	 *
 	 * Path validation still applies, so this cannot be used to probe outside the

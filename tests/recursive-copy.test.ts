@@ -215,7 +215,7 @@ describe('Recursive Directory Copy', () => {
   describe('isDirectory detection', () => {
     test('should detect directory correctly', async () => {
       const result = await router.route({
-        operation: 'vault',
+        operation: 'files',
         action: 'copy',
         params: { path: 'source', destination: 'dest' }
       });
@@ -226,7 +226,7 @@ describe('Recursive Directory Copy', () => {
 
     test('should detect file correctly', async () => {
       const result = await router.route({
-        operation: 'vault',
+        operation: 'files',
         action: 'copy',
         params: { path: 'source/file1.md', destination: 'dest/file1.md' }
       });
@@ -240,7 +240,7 @@ describe('Recursive Directory Copy', () => {
   describe('recursive directory copying', () => {
     test('should copy directory with all files', async () => {
       const result = await router.route({
-        operation: 'vault',
+        operation: 'files',
         action: 'copy',
         params: { path: 'source', destination: 'dest' }
       });
@@ -254,7 +254,7 @@ describe('Recursive Directory Copy', () => {
 
     test('should copy nested directory structure', async () => {
       const result = await router.route({
-        operation: 'vault',
+        operation: 'files',
         action: 'copy',
         params: { path: 'source', destination: 'dest' }
       });
@@ -269,14 +269,14 @@ describe('Recursive Directory Copy', () => {
     test('should handle overwrite flag', async () => {
       // First copy
       await router.route({
-        operation: 'vault',
+        operation: 'files',
         action: 'copy',
         params: { path: 'source', destination: 'dest' }
       });
 
       // Second copy without overwrite should fail because files already exist
       const result = await router.route({
-        operation: 'vault',
+        operation: 'files',
         action: 'copy',
         params: { path: 'source', destination: 'dest', overwrite: false }
       });
@@ -288,14 +288,14 @@ describe('Recursive Directory Copy', () => {
     test('should overwrite when overwrite=true', async () => {
       // First copy
       await router.route({
-        operation: 'vault',
+        operation: 'files',
         action: 'copy',
         params: { path: 'source', destination: 'dest' }
       });
 
       // Second copy with overwrite should succeed
       const result = await router.route({
-        operation: 'vault',
+        operation: 'files',
         action: 'copy',
         params: { path: 'source', destination: 'dest', overwrite: true }
       });
@@ -306,7 +306,7 @@ describe('Recursive Directory Copy', () => {
 
     test('should skip image files but continue copying', async () => {
       const result = await router.route({
-        operation: 'vault',
+        operation: 'files',
         action: 'copy',
         params: { path: 'source', destination: 'dest' }
       });
@@ -318,17 +318,17 @@ describe('Recursive Directory Copy', () => {
 
     test('should provide helpful workflow suggestions', async () => {
       const result = await router.route({
-        operation: 'vault',
+        operation: 'files',
         action: 'copy',
         params: { path: 'source', destination: 'dest' }
       });
 
       expect((result.result as DirectoryCopyResult).workflow.message).toContain('Directory copied successfully');
-      expect((result.result as DirectoryCopyResult).workflow.suggested_next).toHaveLength(3); // List, view, review skipped
+      expect((result.result as DirectoryCopyResult).workflow.suggested_next).toHaveLength(3); // Folder, view, review skipped
       
       const suggestions = (result.result as DirectoryCopyResult).workflow.suggested_next;
       expect(suggestions[0].description).toBe('List copied directory contents');
-      expect(suggestions[0].command).toContain('vault(action=\'list\', directory=\'dest\')');
+      expect(suggestions[0].command).toContain('view(action=\'folder\', directory=\'dest\')');
       expect(suggestions[2].description).toBe('Review skipped files');
     });
   });
@@ -336,7 +336,7 @@ describe('Recursive Directory Copy', () => {
   describe('backward compatibility', () => {
     test('should maintain existing file copy behavior', async () => {
       const result = await router.route({
-        operation: 'vault',
+        operation: 'files',
         action: 'copy',
         params: { path: 'source/file1.md', destination: 'copied-file.md' }
       });
@@ -348,7 +348,7 @@ describe('Recursive Directory Copy', () => {
 
     test('should default recursive=true for backward compatibility', async () => {
       const result = await router.route({
-        operation: 'vault',
+        operation: 'files',
         action: 'copy',
         params: { path: 'source', destination: 'dest' }
         // No recursive parameter - should default to true

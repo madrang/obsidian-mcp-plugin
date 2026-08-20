@@ -12,7 +12,7 @@ import { randomUUID } from 'crypto';
 import { getVersion } from './version';
 import { ObsidianAPI } from './utils/obsidian-api';
 import { SecureObsidianAPI } from './security';
-import { authorizeRequest } from './security/http-auth';
+import { authorizeRequest, AuthScope, ScopedToken } from './security/http-auth';
 import { Debug } from './utils/debug';
 import { ConnectionPool } from './utils/connection-pool';
 import { SessionManager } from './utils/session-manager';
@@ -40,6 +40,10 @@ interface MCPPluginRef {
     customBindHost?: string;
     readOnlyMode?: boolean;
     apiKey?: string;
+    scopedTokens?: ScopedToken[];
+    // ADR-111: session lifetime policy
+    sessionTimeoutMs?: number;
+    sessionsPerToken?: number;
     dangerouslyDisableAuth?: boolean;
     // From SecurePluginRef (for SecureObsidianAPI)
     security?: Partial<import('./security/vault-security-manager').SecuritySettings>;
@@ -59,6 +63,10 @@ interface JsonRpcRequest {
   method?: string;
   params?: Record<string, unknown>;
 }
+
+/** Express request after the auth middleware: carries the matched scoped
+ * token's restriction, when one matched (ADR-110). */
+type ScopedHttpRequest = express.Request & { authScope?: AuthScope };
 
 /** Server with configurable timeout properties (Node.js http.Server internals) */
 interface ServerWithTimeouts {
@@ -107,7 +115,6 @@ export const BASELINE_SECURITY_SETTINGS = {
     update: true,
     delete: true,
     move: true,
-    rename: true,
     execute: true
   },
   blockedPaths: [],  // .mcpignore will handle blocking
@@ -140,7 +147,7 @@ export class MCPHttpServer {
   private currentVerdict?: Verdict;
   private resolvedListenHost: string = '127.0.0.1';
 
-  constructor(obsidianApp: App, port: number = 3001, plugin?: MCPPluginRef) {
+  constructor(obsidianApp: App, port: number = 3011, plugin?: MCPPluginRef) {
     this.obsidianApp = obsidianApp;
     this.port = port;
     this.plugin = plugin;
@@ -149,7 +156,7 @@ export class MCPHttpServer {
     // to avoid fs module issues in browser environment
     if (plugin?.settings?.httpsEnabled && plugin?.settings?.certificateConfig?.enabled) {
       this.isHttps = true;
-      this.port = plugin.settings.httpsPort ?? 3443;
+      this.port = plugin.settings.httpsPort ?? 3444;
       // Lazy initialize certificate manager only when needed
       this.certificateManager = null; // Will be initialized when server starts
     } else {
@@ -183,7 +190,9 @@ export class MCPHttpServer {
 
     this.sessionManager = new SessionManager({
       maxSessions: maxConnections,
-      sessionTimeout: 3600000, // 1 hour
+      // ADR-111: live accessor — the sweep reads the current setting, so the
+      // expiry toggle applies without a restart. 0 = sessions never expire.
+      get sessionTimeout() { return plugin?.settings?.sessionTimeoutMs ?? 0; },
       checkInterval: 60000 // Check every minute
     });
     this.sessionManager.start();
@@ -204,7 +213,6 @@ export class MCPHttpServer {
       maxConnections,
       maxQueueSize: 100,
       requestTimeout: 30000,
-      sessionTimeout: 3600000,
       sessionCheckInterval: 60000
     });
     void this.connectionPool.initialize();
@@ -229,6 +237,21 @@ export class MCPHttpServer {
     this.mcpServerPool = new MCPServerPool(this.obsidianAPI, maxConnections, plugin);
     this.mcpServerPool.setContexts(this.sessionManager, this.connectionPool);
 
+    // A pool-level eviction (capacity, or the ADR-111 per-token cap) must
+    // actually end the session: close the transport and drop the manager
+    // entry, or the "evicted" session keeps working through them. The evicted
+    // client's next request then gets the ADR-106 404 and re-initializes.
+    this.mcpServerPool.on('server-evicted', (data: { sessionId: string }) => {
+      const transport = this.transports.get(data.sessionId);
+      if (transport) {
+        void transport.close();
+        this.transports.delete(data.sessionId);
+        this.connectionCount = Math.max(0, this.connectionCount - 1);
+      }
+      this.sessionManager.removeSession(data.sessionId);
+      Debug.log(`🔚 Pool-evicted session ${data.sessionId}. Connections: ${this.connectionCount}`);
+    });
+
     Debug.log(`🏊 Connection pool initialized with max ${maxConnections} connections`);
     
     this.app = express();
@@ -237,7 +260,7 @@ export class MCPHttpServer {
   }
 
   private setupMiddleware(): void {
-    // CORS middleware for Claude Code and MCP clients
+    // CORS middleware for MCP clients
     this.app.use(cors({
       origin: '*',
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -266,6 +289,7 @@ export class MCPHttpServer {
         method: req.method,
         authHeader: req.headers.authorization,
         apiKey: this.plugin?.settings?.apiKey,
+        scopedTokens: this.plugin?.settings?.scopedTokens,
         authDisabled: this.plugin?.settings?.dangerouslyDisableAuth
       });
 
@@ -276,6 +300,16 @@ export class MCPHttpServer {
           Debug.log('🔓 No API key configured, allowing access');
         } else if (decision.reason === 'authenticated') {
           Debug.log('✅ Auth successful');
+        }
+        // ADR-110: a scoped token match carries its identity and restriction
+        // into session creation. Everything else (primary key, no-key,
+        // auth-disabled, preflight) leaves authScope unset = full access.
+        if (decision.reason === 'authenticated' && decision.identity) {
+          (req as ScopedHttpRequest).authScope = {
+            identity: decision.identity,
+            folder: decision.folder,
+            readOnly: decision.readOnly
+          };
         }
         return next();
       }
@@ -289,7 +323,7 @@ export class MCPHttpServer {
     // Health check endpoint
     this.app.get('/', (req, res) => {
       const response = {
-        name: 'Semantic Notes Vault MCP',
+        name: 'Scoped Vault MCP',
         version: getVersion(),
         status: 'running',
         vault: this.obsidianApp.vault.getName(),
@@ -410,7 +444,25 @@ export class MCPHttpServer {
 
       // Get or create session ID
       const sessionId = req.headers['mcp-session-id'] as string | undefined;
+      const authScope = (req as ScopedHttpRequest).authScope;
       Debug.log(`📨 MCP Request: ${request?.method ?? 'unknown'}${sessionId ? ` [Session: ${sessionId}]` : ''}`, request?.params);
+
+      // ADR-110: a session is bound at creation to the credential that
+      // created it. A request presenting different credentials — for example
+      // a folder-scoped token replaying a full-access session ID it learned —
+      // is refused rather than served with the session's broader scope.
+      if (sessionId && !this.mcpServerPool.sessionIdentityMatches(sessionId, authScope?.identity)) {
+        res.status(403).json({
+          jsonrpc: '2.0',
+          error: {
+            code: -32600,
+            message: 'Forbidden: session is bound to different credentials'
+          },
+          id: request?.id ?? null
+        });
+        Debug.log(`⛔ Session ${sessionId} presented mismatched credentials → 403`);
+        return;
+      }
 
       // `GET /mcp` opens the standalone SSE notification stream — long-lived and
       // idle by design (this server pushes no server-initiated notifications).
@@ -422,13 +474,11 @@ export class MCPHttpServer {
       // exemption is a harmless no-op for those.)
       //
       // Trade-off: with no socket-layer idle reap, a truly-dead SSE socket
-      // (client vanished without a FIN) is no longer dropped at ~2 min. The
-      // backstop is the SessionManager's 1h idle eviction, which calls
-      // transport.close() and thereby closes the socket — so abandoned streams
-      // are bounded by that timeout and the 32-session cap, not leaked
-      // unbounded. A long finite timeout was weighed against 0; the choice is
-      // deferred to the live-instance validation, since a finite value would
-      // reintroduce some (less frequent) reconnect churn.
+      // (client vanished without a FIN) is no longer dropped at ~2 min.
+      // Sessions do not idle out by default (ADR-111), so abandoned streams
+      // are bounded by the capacity cap and the per-token session cap — both
+      // of which close the transport — not by a timeout. Setting a session
+      // timespan in the plugin settings re-enables the idle reap.
       if (req.method === 'GET') {
         req.socket?.setTimeout(0);
       }
@@ -468,7 +518,7 @@ export class MCPHttpServer {
           transport = this.transports.get(sessionId)!;
           
           // Get the server for this session (it should already exist)
-          mcpServer = this.mcpServerPool.getOrCreateServer(sessionId);
+          mcpServer = this.mcpServerPool.getOrCreateServer(sessionId, authScope);
           
           // Update session activity
           if (this.sessionManager) {
@@ -479,7 +529,7 @@ export class MCPHttpServer {
           // Only allow re-create on initialize; otherwise signal explicit session expiration
           if (isInitializeRequest(request)) {
             const session = this.sessionManager.getOrCreateSession(sessionId);
-            mcpServer = this.mcpServerPool.getOrCreateServer(sessionId);
+            mcpServer = this.mcpServerPool.getOrCreateServer(sessionId, authScope);
             effectiveSessionId = sessionId;
             transport = new StreamableHTTPServerTransport({
               sessionIdGenerator: () => effectiveSessionId
@@ -507,7 +557,7 @@ export class MCPHttpServer {
           effectiveSessionId = randomUUID();
           
           // Get or create server for this session
-          mcpServer = this.mcpServerPool.getOrCreateServer(effectiveSessionId);
+          mcpServer = this.mcpServerPool.getOrCreateServer(effectiveSessionId, authScope);
           
           transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => effectiveSessionId

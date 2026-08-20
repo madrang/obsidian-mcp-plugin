@@ -1,9 +1,11 @@
 /**
- * Vault operation handler — extracted from router.ts (ADR-202, #199).
+ * Files operation handler (ADR-202, #199).
  *
- * Behaviour-preserving move of SemanticRouter.executeVaultOperation and its
- * vault-private helpers. The router passes itself as the RouterContext, so
- * `ctx.api`/`ctx.app`/etc. are the same instances as before.
+ * Every files action writes: create, delete, move, copy, split, concat. The
+ * read-side cases (folder, read, search, fragments) share these handlers.
+ * The router reaches them through the view operation, and it passes itself
+ * as the RouterContext, so `ctx.api` and `ctx.app` are the same instances
+ * as the router's.
  */
 import { Debug } from '../../utils/debug';
 import { isImageFile, ObsidianFileResponse } from '../../types/obsidian';
@@ -12,6 +14,7 @@ import { ValidationException } from '../../validation/input-validator';
 import { SecurityError } from '../../security';
 import { RouterContext } from './router-context';
 import { Params, paramStr, paramNum, paramBool, requireParamStr } from './shared';
+import { FileLockManager } from '../../utils/file-lock';
 
 type FragmentStrategy = 'auto' | 'adaptive' | 'proximity' | 'semantic';
 
@@ -40,9 +43,16 @@ function extensionOf(path: string): string {
   return dot > 0 ? base.substring(dot) : '';
 }
 
-export async function executeVaultOperation(ctx: RouterContext, action: string, params: Params): Promise<unknown> {
+/**
+ * The actions the files tool owns — every one writes. list and
+ * read/search/fragments live in the view tool. Their cases below are
+ * reached through those operations.
+ */
+export const FILES_ACTIONS = ['create', 'delete', 'move', 'copy', 'split', 'concat'] as const;
+
+export async function executeFilesOperation(ctx: RouterContext, action: string, params: Params): Promise<unknown> {
     switch (action) {
-      case 'list': {
+      case 'folder': {
         // Translate "/" to undefined for root directory
         const dirParam = paramStr(params, 'directory');
         const directory = dirParam === '/' ? undefined : dirParam;
@@ -53,10 +63,10 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
         // call — page N gives the Nth slice of the recursive listing,
         // not a level-only folder enumeration. The root case is
         // already recursive (getAllLoadedFiles), so we leave
-        // recursive=false there; listFilesPaginated routes through
-        // the same path regardless.
+        // recursive=false there. The listFilesPaginated call routes
+        // through the same path regardless.
         if (params.page || params.pageSize) {
-          // MCP clients send these as JSON numbers; paramStr returns undefined
+          // MCP clients send these as JSON numbers. paramStr returns undefined
           // for non-strings, so parseInt(paramStr(...) ?? '1') silently
           // collapsed to defaults and made pagination a no-op.
           const page = paramNum(params, 'page') ?? 1;
@@ -84,9 +94,9 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
       }
       case 'fragments': {
         // Dedicated fragment search. When `path` is supplied it scopes the search to that
-        // one file; previously it was only ever read as a fallback *query* string, so
-        // naming a file returned passages from other files that the caller could easily
-        // attribute to the file it asked about.
+        // one file. Previously it was only ever read as a fallback *query* string.
+        // Naming a file then returned passages from other files, which the caller
+        // could easily attribute to the file it asked about.
         const fragmentPath = paramStr(params, 'path');
         const fragmentQuery = paramStr(params, 'query') ?? fragmentPath ?? '';
 
@@ -95,7 +105,7 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
           return {
             result: [],
             context: {
-              operation: 'vault',
+              operation: 'view',
               action: 'fragments',
               error: 'No query provided for fragment search'
             }
@@ -119,7 +129,7 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
 
               ctx.fragmentRetriever.indexDocument(`file:${filePath}`, filePath, content);
             } catch (e) {
-              // Skip files that can't be indexed
+              // Skip files that cannot be indexed
               Debug.log(`Skipping file during fragment indexing:`, e);
             }
           };
@@ -153,7 +163,7 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
           return {
             result: [],
             context: {
-              operation: 'vault',
+              operation: 'view',
               action: 'fragments',
               error: error instanceof Error ? error.message : String(error)
             }
@@ -161,23 +171,34 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
         }
       }
       case 'create': {
-        const path = requireParamStr(params, 'path', 'vault.create');
+        const path = requireParamStr(params, 'path', 'files.create');
         // Empty content is a legitimate "touch" — only the path is required.
         const content = paramStr(params, 'content') ?? '';
+        // Overwrite turns create into an upsert. An existing file is written
+        // through updateFile on purpose: overwriting IS an update, so the
+        // security layer must charge the UPDATE permission, not CREATE — a
+        // setup with create on and update off must not gain overwrite.
+        let exists = false;
+        try {
+          await ctx.api.getFile(path);
+          exists = true;
+        } catch (error) {
+          // A rejected path is not a "does not exist yet" — see the move case.
+          if (error instanceof SecurityError) {
+            throw error;
+          }
+        }
+        if (exists) {
+          if (paramBool(params, 'overwrite') !== true) {
+            throw new Error(`File already exists: ${path}. Set overwrite=true to replace its content`);
+          }
+          await ctx.api.updateFile(path, content);
+          return { success: true, path, overwritten: true };
+        }
         return await ctx.api.createFile(path, content);
       }
-      case 'update': {
-        const path = requireParamStr(params, 'path', 'vault.update');
-        const content = requireParamStr(
-          params,
-          'content',
-          'vault.update',
-          "For partial replacement, use edit.patch with operation='replace', oldText, newText — or edit.window for fuzzy in-place edits.",
-        );
-        return await ctx.api.updateFile(path, content);
-      }
       case 'delete': {
-        const path = requireParamStr(params, 'path', 'vault.delete');
+        const path = requireParamStr(params, 'path', 'files.delete');
         return await ctx.api.deleteFile(path);
       }
       case 'search': {
@@ -202,8 +223,14 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
           // MCP clients send these as JSON numbers — use paramNum, not paramStr.
           const page = paramNum(params, 'page') ?? 1;
           const pageSize = paramNum(params, 'pageSize') ?? 10;
-          // Use searchStrategy for search, fall back to strategy for backward compatibility
-          const strategy = (paramStr(params, 'searchStrategy') || paramStr(params, 'strategy') || 'combined') as 'filename' | 'content' | 'combined';
+          // One strategy parameter for the whole view tool. Only the search
+          // strategies apply here. Anything else (a fragment strategy, auto,
+          // or nothing) falls back to combined.
+          const requestedStrategy = paramStr(params, 'strategy');
+          const strategy: 'filename' | 'content' | 'combined' =
+            requestedStrategy === 'filename' || requestedStrategy === 'content' || requestedStrategy === 'combined'
+              ? requestedStrategy
+              : 'combined';
           const includeContent = params.includeContent !== false; // Default to true
 
           // Build search options from new parameters
@@ -248,7 +275,7 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
               1,
               10,
               'filename', // Use simple filename search as fallback
-              false // Don't include content to avoid errors
+              false // Do not include content, to avoid errors
             );
 
             if (fallbackResults && fallbackResults.results && fallbackResults.results.length > 0) {
@@ -276,13 +303,16 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
           };
         }
       }
+      // A destination without a directory renames in place, one with a
+      // directory relocates (vault-root-relative, with or without a leading
+      // slash) — one parameter covers both.
       case 'move': {
         const path = paramStr(params, 'path');
-        const destination = paramStr(params, 'destination');
         const overwrite = paramBool(params, 'overwrite') ?? false;
+        let destination = paramStr(params, 'destination');
 
         if (!path || !destination) {
-          throw new Error('Both path and destination are required for move operation');
+          throw new Error('The move operation needs path and destination. To rename in place, give a destination without a directory');
         }
 
         // Check if source file exists
@@ -291,19 +321,35 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
           throw new Error(`Source file not found: ${path}`);
         }
 
-        // Check if destination already exists
+        // A bare destination renames in place: same folder, with the source
+        // extension carried over when destination omits one, so renaming
+        // 'note.md' to 'renamed' yields 'renamed.md' rather than an
+        // extension-less file that drops out of markdown views (#253).
+        const inPlace = !destination.includes('/');
+        if (inPlace) {
+          const lastSlash = path.lastIndexOf('/');
+          const dir = lastSlash >= 0 ? path.substring(0, lastSlash) : '';
+          const resolvedName = extensionOf(destination) ? destination : `${destination}${extensionOf(path)}`;
+          destination = dir ? `${dir}/${resolvedName}` : resolvedName;
+        }
+
+        // Check if destination already exists. The refusal throw must stay
+        // OUTSIDE the try: this catch swallows every non-security error, so
+        // a throw inside the try would catch its own refusal.
+        let destExists = false;
         try {
-          const destFile = await ctx.api.getFile(destination);
-          if (destFile && !overwrite) {
-            throw new Error(`Destination already exists: ${destination}. Set overwrite=true to replace.`);
-          }
+          await ctx.api.getFile(destination);
+          destExists = true;
         } catch (error) {
-          // A rejected destination is not a "doesn't exist yet" — swallowing it
+          // A rejected destination is not a "does not exist yet" — swallowing it
           // here is what let a `../` destination through to the rename call.
           if (error instanceof SecurityError) {
             throw error;
           }
-          // Otherwise the file doesn't exist, which is what we want
+          // Otherwise the file does not exist, which is what we want
+        }
+        if (destExists && !overwrite) {
+          throw new Error(`Destination already exists: ${destination}. Set overwrite=true to replace.`);
         }
 
         // Directory creation is handled automatically by createFile
@@ -319,15 +365,15 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
               oldPath: path,
               newPath: destination,
               workflow: {
-                message: `File moved successfully from ${path} to ${destination}`,
+                message: `File ${inPlace ? 'renamed' : 'moved'} successfully from ${path} to ${destination}`,
                 suggested_next: [
                   {
                     description: 'View the moved file',
-                    command: `view(action='file', path='${destination}')`
+                    command: `view(action='read', path='${destination}')`
                   },
                   {
                     description: 'Edit the moved file',
-                    command: `edit(action='window', path='${destination}', oldText='...', newText='...')`
+                    command: `edit(action='replace', path='${destination}', oldText='...', newText='...')`
                   }
                 ]
               }
@@ -353,107 +399,11 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
             suggested_next: [
               {
                 description: 'View the moved file',
-                command: `view(action='file', path='${destination}')`
+                command: `view(action='read', path='${destination}')`
               },
               {
                 description: 'Edit the moved file',
-                command: `edit(action='window', path='${destination}', oldText='...', newText='...')`
-              }
-            ]
-          }
-        };
-      }
-      
-      case 'rename': {
-        const path = paramStr(params, 'path');
-        const newName = paramStr(params, 'newName');
-        const overwrite = paramBool(params, 'overwrite') ?? false;
-
-        if (!path || !newName) {
-          throw new Error('Both path and newName are required for rename operation');
-        }
-
-        // Check if source file exists
-        const sourceFile = await ctx.api.getFile(path);
-        if (!sourceFile) {
-          throw new Error(`File not found: ${path}`);
-        }
-
-        // Extract directory from current path
-        const lastSlash = path.lastIndexOf('/');
-        const dir = lastSlash >= 0 ? path.substring(0, lastSlash) : '';
-
-        // Carry the source extension over when newName omits one, so renaming
-        // 'note.md' to 'renamed' yields 'renamed.md' rather than an extension-less
-        // file that drops out of markdown views (#253). An explicit extension in
-        // newName is honoured as-is, so no double extension is appended.
-        const resolvedName = extensionOf(newName) ? newName : `${newName}${extensionOf(path)}`;
-        const newPath = dir ? `${dir}/${resolvedName}` : resolvedName;
-
-        // Check if destination already exists
-        try {
-          const destFile = await ctx.api.getFile(newPath);
-          if (destFile && !overwrite) {
-            throw new Error(`File already exists: ${newPath}. Set overwrite=true to replace.`);
-          }
-        } catch (error) {
-          // A rejected path is not a "doesn't exist yet" — see the move case.
-          if (error instanceof SecurityError) {
-            throw error;
-          }
-          // Otherwise the file doesn't exist, which is what we want
-        }
-
-        // Route through the API layer, not app.fileManager directly, so the
-        // security layer validates the new path as well as the source.
-        {
-          const abstractFile = ctx.app?.vault.getAbstractFileByPath(path);
-          if (abstractFile && 'extension' in abstractFile) {
-            await ctx.api.renameFile(path, newPath);
-            return {
-              success: true,
-              oldPath: path,
-              newPath: newPath,
-              workflow: {
-                message: `File renamed successfully from ${path} to ${newPath}`,
-                suggested_next: [
-                  {
-                    description: 'View the renamed file',
-                    command: `view(action='file', path='${newPath}')`
-                  },
-                  {
-                    description: 'Edit the renamed file', 
-                    command: `edit(action='window', path='${newPath}', oldText='...', newText='...')`
-                  }
-                ]
-              }
-            };
-          }
-        }
-        
-        // Fallback: copy and delete
-        const sourceFileData = await ctx.api.getFile(path);
-        if (isImageFile(sourceFileData)) {
-          throw new Error('Cannot rename image files using fallback method');
-        }
-        const content = sourceFileData.content;
-        await ctx.api.createFile(newPath, content);
-        await ctx.api.deleteFile(path);
-        
-        return { 
-          success: true,
-          oldPath: path,
-          newPath: newPath,
-          workflow: {
-            message: `File renamed successfully from ${path} to ${newPath}`,
-            suggested_next: [
-              {
-                description: 'View the renamed file',
-                command: `view(action='file', path='${newPath}')`
-              },
-              {
-                description: 'Edit the renamed file',
-                command: `edit(action='window', path='${newPath}', oldText='...', newText='...')`
+                command: `edit(action='replace', path='${destination}', oldText='...', newText='...')`
               }
             ]
           }
@@ -474,7 +424,7 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
           const sourceFile = await ctx.api.getFile(path);
           return await copyFile(ctx, path, destination, overwrite, sourceFile);
         } catch (error) {
-          // A security refusal is not "maybe it's a directory". Retrying as a
+          // A security refusal is not "maybe it is a directory". Retrying as a
           // directory and then reporting a missing source told a read-only user
           // their file did not exist — same swallow that hid the move/rename
           // traversal, with a misleading error instead of a bypass.
@@ -483,9 +433,9 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
           }
           // If file operation failed, try as directory (this will also go through security validation)
           try {
-            // Test if it's a directory by trying to list its contents
+            // Test if it is a directory by trying to list its contents
             await ctx.api.listFiles(path);
-            // If listing succeeds, it's a directory
+            // If listing succeeds, it is a directory
             return await copyDirectoryRecursive(ctx, path, destination, overwrite);
           } catch (dirError) {
             if (dirError instanceof SecurityError) {
@@ -556,175 +506,157 @@ export async function executeVaultOperation(ctx: RouterContext, action: string, 
             suggested_next: [
               {
                 description: 'View one of the split files',
-                command: `view(action='file', path='${createdFiles[0]?.path}')`
+                command: `view(action='read', path='${createdFiles[0]?.path}')`
               },
               {
                 description: 'List all created files',
-                command: `vault(action='list', directory='${dir || '.'}')`
+                command: `view(action='folder', directory='${dir || '.'}')`
               },
               {
                 description: 'Combine files back together',
-                command: `vault(action='combine', paths=${JSON.stringify(createdFiles.map(f => f.path))}, destination='${path}-combined${ext}')`
+                command: `edit(action='concat', paths=${JSON.stringify(createdFiles.map(f => f.path))}, destination='${path}-combined${ext}')`
               }
             ]
           }
         };
       }
       
-      case 'combine': {
-        const paths = params.paths as string[] | undefined;
-        const destination = paramStr(params, 'destination');
-        const separator = paramStr(params, 'separator') ?? '\n\n---\n\n';
-        const includeFilenames = paramBool(params, 'includeFilenames') ?? false;
-        const overwrite = paramBool(params, 'overwrite') ?? false;
-        const sortBy = paramStr(params, 'sortBy');
-        const sortOrder = paramStr(params, 'sortOrder') ?? 'asc';
+      case 'concat':
+        return combineFiles(ctx, params);
 
-        // Validate batch operation
-        const validationResult = ctx.validator.validate('batch.combine', { paths, path: destination });
-        if (!validationResult.valid) {
-          throw new ValidationException(
-            validationResult.errors || [],
-            `Validation failed for combine: ${validationResult.errors?.map(e => e.message).join(', ')}`
-          );
-        }
-
-        if (!paths || !Array.isArray(paths) || paths.length === 0) {
-          throw new Error('paths array is required for combine operation');
-        }
-
-        // When a destination is given, refuse to clobber it unless overwrite.
-        // When omitted, the combined content is returned inline (no write) —
-        // see the inline branch below.
-        if (destination) {
-          try {
-            const destFile = await ctx.api.getFile(destination);
-            if (destFile && !overwrite) {
-              throw new Error(`Destination already exists: ${destination}. Set overwrite=true to replace.`);
-            }
-          } catch {
-            // File doesn't exist, which is what we want
-          }
-        }
-
-        // Validate and get all source files
-        const sourceFiles = [];
-        for (const path of paths) {
-          const file = await ctx.api.getFile(path);
-          if (!file) {
-            throw new Error(`File not found: ${path}`);
-          }
-          if (isImageFile(file)) {
-            throw new Error(`Cannot combine image files: ${path}`);
-          }
-          sourceFiles.push({ path, content: file.content });
-        }
-        
-        // Sort files if requested
-        if (sortBy) {
-          sortFiles(sourceFiles, sortBy, sortOrder);
-        }
-        
-        // Combine content
-        const combinedContent = [];
-        for (const file of sourceFiles) {
-          if (includeFilenames) {
-            const filename = file.path.split('/').pop() || file.path;
-            combinedContent.push(`# ${filename}`);
-            combinedContent.push('');
-          }
-          combinedContent.push(file.content);
-        }
-        
-        const finalContent = combinedContent.join(separator);
-
-        // No destination → return the combined content inline without writing
-        // to the vault. Lets read-only consumers use combine for multi-file
-        // retrieval with no side effects.
-        if (!destination) {
-          return {
-            success: true,
-            inline: true,
-            content: finalContent,
-            filesCombined: paths.length,
-            totalSize: finalContent.length,
-            // Reflect the order the content was actually combined in
-            // (sortFiles mutates sourceFiles in place when sortBy is set),
-            // so consumers can map sections back to files correctly.
-            sourceFiles: sourceFiles.map(f => f.path),
-            workflow: {
-              message: `Combined ${paths.length} files inline (no file written)`,
-              suggested_next: [
-                {
-                  description: 'Save the combined content to a file',
-                  command: `vault(action='combine', paths=${JSON.stringify(paths)}, destination='combined.md')`
-                }
-              ]
-            }
-          };
-        }
-
-        // Create or update destination file
-        if (overwrite) {
-          await ctx.api.updateFile(destination, finalContent);
-        } else {
-          await ctx.api.createFile(destination, finalContent);
-        }
-
-        return {
-          success: true,
-          destination,
-          filesCombined: paths.length,
-          totalSize: finalContent.length,
-          workflow: {
-            message: `Successfully combined ${paths.length} files into ${destination}`,
-            suggested_next: [
-              {
-                description: 'View the combined file',
-                command: `view(action='file', path='${destination}')`
-              },
-              {
-                description: 'Edit the combined file',
-                command: `edit(action='window', path='${destination}', oldText='...', newText='...')`
-              },
-              {
-                description: 'Split the file back into parts',
-                command: `vault(action='split', path='${destination}', splitBy='delimiter', delimiter='${separator}')`
-              }
-            ]
-          }
-        };
-      }
-      
-      case 'concatenate': {
-        const path1 = paramStr(params, 'path1');
-        const path2 = paramStr(params, 'path2');
-        const concatDest = paramStr(params, 'destination');
-        const mode = paramStr(params, 'mode') ?? 'append';
-
-        if (!path1 || !path2) {
-          throw new Error('Both path1 and path2 are required for concatenate operation');
-        }
-
-        // Determine paths and destination based on mode
-        const concatPaths = mode === 'prepend' ? [path2, path1] : [path1, path2];
-        const dest = concatDest || (mode === 'new' ? `${path1}-concatenated` : path1);
-        
-        // Use combine operation internally
-        return executeVaultOperation(ctx, 'combine', {
-          paths: concatPaths,
-          destination: dest,
-          separator: '\n\n',
-          overwrite: mode !== 'new',
-          includeFilenames: false
-        });
-      }
-      
       default:
-        throw new Error(`Unknown vault action: ${action}`);
+        throw new Error(`Unknown files action: ${action}`);
     }
   }
   
+/**
+ * Join files in the order of the paths array. Routed from files.concat, and
+ * accepted from edit.concat though the tool schema no longer advertises the
+ * edit form.
+ */
+export async function executeConcat(ctx: RouterContext, params: Params): Promise<unknown> {
+  const run = () => combineFiles(ctx, params);
+
+  // Lock on the write target (#139's serialization argument, applied here
+  // too). destination is required — concat always writes — so there is always
+  // a lock target; combineFiles' own validation reports the missing param.
+  const lockPath = paramStr(params, 'destination');
+  if (!lockPath) return run();
+  return FileLockManager.getInstance().withLock(lockPath, run);
+}
+
+/**
+ * Join files into one document. destination is required: the result is
+ * always written (create, or update when overwrite=true).
+ */
+export async function combineFiles(ctx: RouterContext, params: Params): Promise<unknown> {
+  const paths = params.paths as string[] | undefined;
+  const destination = paramStr(params, 'destination');
+  const separator = paramStr(params, 'separator') ?? '\n\n---\n\n';
+  const includeFilenames = paramBool(params, 'includeFilenames') ?? false;
+  const overwrite = paramBool(params, 'overwrite') ?? false;
+  const sortBy = paramStr(params, 'sortBy');
+  const sortOrder = paramStr(params, 'sortOrder') ?? 'asc';
+
+  // Validate batch operation
+  const validationResult = ctx.validator.validate('batch.combine', { paths, path: destination });
+  if (!validationResult.valid) {
+    throw new ValidationException(
+      validationResult.errors || [],
+      `Validation failed for combine: ${validationResult.errors?.map(e => e.message).join(', ')}`
+    );
+  }
+
+  if (!paths || !Array.isArray(paths) || paths.length === 0) {
+    throw new Error('paths array is required for combine operation');
+  }
+
+  // destination is required: concat is a write, and the dispatch layer
+  // enforces it for tool calls (MISSING_PARAMETER). This is the router-level
+  // backstop. The clobber refusal throw stays outside the try, same as the
+  // move case.
+  if (!destination) {
+    throw new Error('destination is required for combine operation');
+  }
+
+  let destExists = false;
+  try {
+    await ctx.api.getFile(destination);
+    destExists = true;
+  } catch (error) {
+    // File does not exist, which is what we want. A security refusal is
+    // not a missing file, so it propagates.
+    if (error instanceof SecurityError) {
+      throw error;
+    }
+  }
+  if (destExists && !overwrite) {
+    throw new Error(`Destination already exists: ${destination}. Set overwrite=true to replace.`);
+  }
+
+  // Validate and get all source files
+  const sourceFiles = [];
+  for (const path of paths) {
+    const file = await ctx.api.getFile(path);
+    if (!file) {
+      throw new Error(`File not found: ${path}`);
+    }
+    if (isImageFile(file)) {
+      throw new Error(`Cannot combine image files: ${path}`);
+    }
+    sourceFiles.push({ path, content: file.content });
+  }
+  
+  // Sort files if requested
+  if (sortBy) {
+    sortFiles(sourceFiles, sortBy, sortOrder);
+  }
+  
+  // Combine content
+  const combinedContent = [];
+  for (const file of sourceFiles) {
+    if (includeFilenames) {
+      const filename = file.path.split('/').pop() || file.path;
+      combinedContent.push(`# ${filename}`);
+      combinedContent.push('');
+    }
+    combinedContent.push(file.content);
+  }
+  
+  const finalContent = combinedContent.join(separator);
+
+  // Create or update destination file
+  if (overwrite) {
+    await ctx.api.updateFile(destination, finalContent);
+  } else {
+    await ctx.api.createFile(destination, finalContent);
+  }
+
+  return {
+    success: true,
+    destination,
+    filesCombined: paths.length,
+    totalSize: finalContent.length,
+    workflow: {
+      message: `Successfully combined ${paths.length} files into ${destination}`,
+      suggested_next: [
+        {
+          description: 'View the combined file',
+          command: `view(action='read', path='${destination}')`
+        },
+        {
+          description: 'Edit the combined file',
+          command: `edit(action='replace', path='${destination}', oldText='...', newText='...')`
+        },
+        {
+          description: 'Split the file back into parts',
+          command: `files(action='split', path='${destination}', splitBy='delimiter', delimiter='${separator}')`
+        }
+      ]
+    }
+  };
+}
+
 function splitContent(content: string, params: Params): Array<{ content: string }> {
     const splitBy = paramStr(params, 'splitBy');
     const delimiter = paramStr(params, 'delimiter');
@@ -890,14 +822,21 @@ function sortFiles(files: Array<{ path: string; content: string }>, sortBy: stri
    * Copy a single file
    */
 async function copyFile(ctx: RouterContext, path: string, destination: string, overwrite: boolean, sourceFile: ObsidianFileResponse): Promise<unknown> {
-    // Check if destination already exists
+    // Check if destination already exists. The refusal throw stays outside
+    // the try, same as the move case.
+    let destExists = false;
     try {
-      const destFile = await ctx.api.getFile(destination);
-      if (destFile && !overwrite) {
-        throw new Error(`Destination already exists: ${destination}. Set overwrite=true to replace.`);
+      await ctx.api.getFile(destination);
+      destExists = true;
+    } catch (error) {
+      // File does not exist, which is what we want. A security refusal is
+      // not a missing file, so it propagates.
+      if (error instanceof SecurityError) {
+        throw error;
       }
-    } catch {
-      // File doesn't exist, which is what we want
+    }
+    if (destExists && !overwrite) {
+      throw new Error(`Destination already exists: ${destination}. Set overwrite=true to replace.`);
     }
 
     // Check for image files
@@ -923,15 +862,15 @@ async function copyFile(ctx: RouterContext, path: string, destination: string, o
         suggested_next: [
           {
             description: 'View the copied file',
-            command: `view(action='file', path='${destination}')`
+            command: `view(action='read', path='${destination}')`
           },
           {
             description: 'Edit the copied file',
-            command: `edit(action='window', path='${destination}', oldText='...', newText='...')`
+            command: `edit(action='replace', path='${destination}', oldText='...', newText='...')`
           },
           {
             description: 'Compare original and copy',
-            command: `view(action='file', path='${path}') then view(action='file', path='${destination}')`
+            command: `view(action='read', path='${path}') then view(action='read', path='${destination}')`
           }
         ]
       }
@@ -974,7 +913,7 @@ async function copyDirectoryRecursive(ctx: RouterContext, sourcePath: string, de
                 await ctx.api.getFile(destFilePath);
                 throw new Error(`Destination exists: ${destFilePath}. Set overwrite=true to replace.`);
               } catch (e: unknown) {
-                // File doesn't exist - good to proceed
+                // File does not exist - good to proceed
                 if (e instanceof Error && e.message?.includes('Destination exists')) {
                   throw e;
                 }
@@ -1015,11 +954,11 @@ async function copyDirectoryRecursive(ctx: RouterContext, sourcePath: string, de
         suggested_next: [
           {
             description: 'List copied directory contents',
-            command: `vault(action='list', directory='${destPath}')`
+            command: `view(action='folder', directory='${destPath}')`
           },
           {
             description: 'View a copied file',
-            command: `view(action='file', path='${copiedFiles[0] || destPath + '/README.md'}')`
+            command: `view(action='read', path='${copiedFiles[0] || destPath + '/README.md'}')`
           },
           ...(skippedFiles.length > 0 ? [{
             description: 'Review skipped files',

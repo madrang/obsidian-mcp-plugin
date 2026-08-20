@@ -83,7 +83,7 @@ export function formatSearchResults(response: SearchResponse): string {
     const scoreText = result.score > 0 ? ` (${interpretScore(result.score, topScore)})` : '';
 
     lines.push(`${num}. **${result.title}**${scoreText}`);
-    // Verbatim: the agent's next call feeds this straight to vault.read /
+    // Verbatim: the agent's next call feeds this straight to view.read /
     // graph.neighbors. An elided path is not a shorter path, it is a wrong one.
     lines.push(property('Path', result.path));
 
@@ -102,7 +102,7 @@ export function formatSearchResults(response: SearchResponse): string {
     lines.push(tip(`Use \`page: ${page + 1}\` for more results`));
   }
 
-  lines.push(tip('Use `vault.read(path)` or `view.file(path)` to see full content'));
+  lines.push(tip('Use `view.read(path)` to see full content'));
 
   // Say plainly what the score is and is not. Without this an agent reasonably treats the
   // ordering as a relevance ranking and prunes the tail — which, on a corpus where most
@@ -126,7 +126,7 @@ export function formatSearchResults(response: SearchResponse): string {
 }
 
 /**
- * Format fragment results (vault.fragments action)
+ * Format fragment results (view.fragments action)
  * Supports both single-file and multi-file fragment results
  */
 export interface FragmentItem {
@@ -190,7 +190,7 @@ export function formatFragmentResults(result: FragmentResult): string {
     }
 
     lines.push(divider());
-    lines.push(tip('Use `vault.read(path)` to see full file content'));
+    lines.push(tip('Use `view.read(path)` to see full file content'));
     lines.push(tip('Use `view.window(path, lineNumber)` to see context around a specific line'));
     lines.push(summaryFooter());
 

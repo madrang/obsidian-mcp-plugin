@@ -214,7 +214,7 @@ export function formatGraphPath(response: GraphPathResponse): string {
   }
 
   lines.push(divider());
-  lines.push(tip('Use `vault.read(path)` to examine any node in the path'));
+  lines.push(tip('Use `view.read(path)` to examine any node in the path'));
   lines.push(summaryFooter());
 
   return joinLines(lines);
@@ -330,9 +330,9 @@ function formatVaultGraphStats(stats: NonNullable<GraphStatsResponse['vaultStati
 
   if (stats.averageDegree >= 3) {
     lines.push(`This vault is densely linked (${stats.averageDegree.toFixed(1)} links per note on average). Its link structure is a stronger signal than keyword frequency:`);
-    lines.push(tip('Find one or two anchor notes with `vault.search`, then expand with `graph.neighbors(path)` / `graph.traverse(path)` rather than issuing more searches'));
+    lines.push(tip('Find one or two anchor notes with `view.search`, then expand with `graph.neighbors(path)` / `graph.traverse(path)` rather than issuing more searches'));
   } else {
-    lines.push(tip('Sparsely linked vault — `vault.search` will usually outperform graph traversal here'));
+    lines.push(tip('Sparsely linked vault — `view.search` will usually outperform graph traversal here'));
   }
 
   lines.push(summaryFooter());
@@ -395,7 +395,7 @@ export function formatTagAnalysis(response: TagAnalysisResponse): string {
 
   lines.push('');
   lines.push(divider());
-  lines.push(tip('Use `vault.search(query, tag: "#tagname")` to find files with a specific tag'));
+  lines.push(tip('Use `view.search` with query tag: "#tagname" to find files with a specific tag'));
   lines.push(summaryFooter());
 
   return joinLines(lines);

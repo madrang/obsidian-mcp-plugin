@@ -1,5 +1,5 @@
 /**
- * Debug logging utility for Semantic Notes Vault MCP
+ * Debug logging utility for Scoped Vault MCP
  * Only logs when debug mode is enabled in settings
  */
 

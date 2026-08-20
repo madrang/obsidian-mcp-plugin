@@ -191,12 +191,12 @@ export class UniversalFragmentRetriever {
         suggested_next: [
           {
             description: 'Read the full file containing the most relevant fragment',
-            command: 'vault read',
+            command: 'view read',
             reason: 'To see the complete context around the fragment'
           },
           {
             description: 'Search for related content',
-            command: 'vault search',
+            command: 'view search',
             reason: 'To find other documents with similar content'
           }
         ]
@@ -213,7 +213,7 @@ export class UniversalFragmentRetriever {
         suggested_next: [
           {
             description: 'Try a broader search query',
-            command: 'vault search',
+            command: 'view search',
             reason: 'The current query may be too specific'
           },
           {

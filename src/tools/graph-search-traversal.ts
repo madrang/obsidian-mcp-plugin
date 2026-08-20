@@ -1,6 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { ObsidianAPI } from '../utils/obsidian-api';
 import { SearchCore } from '../utils/search-core';
+import { MCPIgnoreManager } from '../security/mcp-ignore-manager';
 
 export interface SearchSnippet {
     text: string;
@@ -29,7 +30,8 @@ export class GraphSearchTraversal {
     constructor(
         protected app: App,
         protected api: ObsidianAPI,
-        protected searchCore: SearchCore
+        protected searchCore: SearchCore,
+        protected ignoreManager?: MCPIgnoreManager
     ) {}
 
     /**
@@ -79,7 +81,12 @@ export class GraphSearchTraversal {
             
             // Skip if already visited or exceeds max depth
             if (visited.has(currentPath) || depth > maxDepth) continue;
-            
+
+            // Skip .mcpignore-excluded and folder-scoped-out paths (ADR-110):
+            // the same filter GraphTraversal applies, so search-traverse
+            // cannot leak notes the caller is not allowed to see.
+            if (this.ignoreManager?.isExcluded(currentPath)) continue;
+
             visited.add(currentPath);
             totalNodesVisited++;
 
