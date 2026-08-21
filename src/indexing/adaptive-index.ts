@@ -160,7 +160,7 @@ export class AdaptiveTextIndex {
   private tokenize(text: string): string[] {
     // Simple but effective tokenization
     return text.toLowerCase()
-      .replace(/[^\w\s-]/g, ' ')
+      .replace(/[^\p{L}\p{N}_\s-]/gu, ' ')
       .split(/\s+/)
       .filter(t => t.length > 2);
   }

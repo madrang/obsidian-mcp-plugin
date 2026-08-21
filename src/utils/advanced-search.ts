@@ -310,7 +310,10 @@ export class AdvancedSearchService {
   private tokenize(text: string): string[] {
     return text
       .toLowerCase()
-      .replace(/[^\w\s]/g, ' ') // Replace punctuation with spaces
+      // Unicode word characters stay intact: an accented word must not
+      // split at its first accent. "leçon" once became "le" + "on" and
+      // both fragments died in the length filter.
+      .replace(/[^\p{L}\p{N}_\s]/gu, ' ')
       .split(/\s+/)
       .filter(token => token.length > 2) // Filter out very short tokens
       .filter(token => !this.isStopWord(token));
@@ -322,7 +325,7 @@ export class AdvancedSearchService {
   private normalizeQuery(query: string): string {
     return query
       .trim()
-      .replace(/[^\w\s]/g, ' ') // Replace punctuation with spaces
+      .replace(/[^\p{L}\p{N}_\s]/gu, ' ') // Replace punctuation with spaces
       .replace(/\s+/g, ' '); // Normalize whitespace
   }
 

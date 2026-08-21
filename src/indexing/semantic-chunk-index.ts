@@ -213,7 +213,7 @@ export class SemanticChunkIndex {
   
   private extractTerms(text: string): string[] {
     return text.toLowerCase()
-      .replace(/[^\w\s-]/g, ' ')
+      .replace(/[^\p{L}\p{N}_\s-]/gu, ' ')
       .split(/\s+/)
       .filter(t => t.length > 2);
   }

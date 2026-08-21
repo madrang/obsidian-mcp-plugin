@@ -94,7 +94,9 @@ export class ProximityFragmentIndex {
   
   private tokenizeWithPositions(content: string): TokenPosition[] {
     const tokens: TokenPosition[] = [];
-    const regex = /\b\w+\b/g;
+    // Unicode word characters, so an accented word is one token, not a
+    // split at its first accent.
+    const regex = /[\p{L}\p{N}_]+/gu;
     let match;
     
     while ((match = regex.exec(content)) !== null) {
@@ -113,7 +115,7 @@ export class ProximityFragmentIndex {
   
   private tokenize(text: string): string[] {
     return text.toLowerCase()
-      .match(/\b\w+\b/g)
+      .match(/[\p{L}\p{N}_]+/gu)
       ?.filter(t => t.length > 2) || [];
   }
   
