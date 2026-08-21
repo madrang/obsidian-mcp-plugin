@@ -429,7 +429,8 @@ export function formatFileMove(response: FileMoveResponse): string {
 export interface FileSplitResponse {
   success: boolean;
   sourceFile: string;
-  createdFiles: string[];
+  // Entries carry the handler's shape ({path, lines, size}), not bare paths.
+  createdFiles: Array<{ path: string; lines: number; size: number }>;
   totalFiles: number;
   splitBy?: string;
 }
@@ -451,7 +452,7 @@ export function formatFileSplit(response: FileSplitResponse): string {
 
     lines.push(header(2, 'Created Files'));
     response.createdFiles.slice(0, 20).forEach(file => {
-      const name = file.split('/').pop() || file;
+      const name = file.path.split('/').pop() || file.path;
       lines.push(`- ${name}`);
     });
     if (response.createdFiles.length > 20) {

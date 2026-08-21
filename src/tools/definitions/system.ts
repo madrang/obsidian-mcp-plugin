@@ -9,7 +9,16 @@ import { executeSystemOperation } from '../../semantic/operations/system';
 registerOperation({
   name: 'system',
   title: 'System Operations',
-  description: 'ℹ️ System operations - info: show server details, commands: list available actions, hints: get contextual suggestions for the next actions, open_in_obsidian: open a file in the Obsidian app, fetch_web: retrieve and process web content',
+  descriptionLines: [
+    'ℹ️ System operations.',
+    '',
+    '## Actions',
+    { when: 'system.info', text: '- `info` — show server details.' },
+    { when: 'system.commands', text: '- `commands` — list the Obsidian commands of the command palette, grouped by plugin.' },
+    { when: 'system.hints', text: '- `hints` — get suggestions for the next actions.' },
+    { when: 'system.open_in_obsidian', text: '- `open_in_obsidian` — open a file in the Obsidian app.' },
+    { when: 'system.fetch_web', text: '- `fetch_web` — retrieve and process web content.' }
+  ],
   actions: ['info', 'commands', 'hints', 'open_in_obsidian', 'fetch_web'],
   requiredParams: {
     open_in_obsidian: ['path'],

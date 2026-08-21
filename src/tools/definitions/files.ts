@@ -10,7 +10,18 @@ import { paramStr } from '../../semantic/operations/shared';
 registerOperation({
   name: 'files',
   title: 'File Management',
-  description: '🗂️ File management: create, delete, move, copy, split, and concat. Every files action writes. create makes a new file: raw text, or an Obsidian Bases view with format "base". Set overwrite=true to replace the whole content of an existing file. concat joins files into one, in the order of the paths array. To rename a file in place, use move with a destination that has no directory.',
+  descriptionLines: [
+    '🗂️ File management. Every `files` action writes.',
+    '',
+    '## Actions',
+    { when: 'files.create', text: '- `create` — write a new file. Give raw text, or a Bases view with `format: "base"`. It refuses a path that already exists.' },
+    { when: ['files.create', 'gate:overwrite'], text: '  `overwrite=true` replaces the whole content of an existing file.' },
+    { when: 'files.delete', text: '- `delete` — delete a file.' },
+    { when: 'files.move', text: '- `move` — move or rename a file. A destination with no directory renames in place. The file extension carries over.' },
+    { when: 'files.copy', text: '- `copy` — copy a file to a new path.' },
+    { when: 'files.split', text: '- `split` — split one file into several. Split by heading, delimiter, lines, or size.' },
+    { when: 'files.concat', text: '- `concat` — join several files into one. The `paths` array sets the order.' }
+  ],
   actions: ['create', 'delete', 'move', 'copy', 'split', 'concat'],
   requiredParams: {
     create: ['path'],

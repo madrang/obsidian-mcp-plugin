@@ -9,7 +9,23 @@ import { executeEditOperation } from '../../semantic/operations/edit';
 registerOperation({
   name: 'edit',
   title: 'Edit Files',
-  description: '✏️ Edit files. Every edit action writes. Actions: replace: find and replace text, count-guarded — expected (default 1) occurrences must match exactly or nothing is written; expected N above 1 replaces all N. append: add content to the end of a file. patch: modify headings, blocks, or frontmatter. at_line: insert text at a line number. from_buffer: retry with the content buffered by a failed replace. multi: apply several exact find-and-replace pairs in one write. Every action accepts an ifUnmodifiedSince or ifHash precondition, and a successful write returns the new mtime and hash so you can chain writes without re-reading. Warning: patch with operation "replace" removes all content under the target heading. patch on a frontmatter field writes a single value, not a YAML array.',
+  descriptionLines: [
+    '✏️ Edit files. Every `edit` action writes.',
+    '',
+    '## Actions',
+    { when: 'edit.replace', text: '- `replace` — find and replace text. The count guard: `expected` (default 1) occurrences must match exactly, or nothing is written. `expected` above 1 replaces all of them.' },
+    { when: 'edit.append', text: '- `append` — add content to the end of a file.' },
+    { when: 'edit.patch', text: '- `patch` — modify a heading, a block, or a frontmatter field.' },
+    { when: 'edit.at_line', text: '- `at_line` — insert text at a line number.' },
+    { when: 'edit.from_buffer', text: '- `from_buffer` — retry with the content buffered by a failed replace.' },
+    { when: 'edit.multi', text: '- `multi` — apply several exact find-and-replace pairs in one write.' },
+    '',
+    '## Rules',
+    '- Every action accepts an `ifUnmodifiedSince` or `ifHash` precondition. A mismatch refuses the write.',
+    '- A successful write returns the new `mtime` and `hash`. Chain writes without a re-read until the chain breaks.',
+    { when: 'edit.patch', text: '- Warning: `patch` with `operation: "replace"` removes all content under the target heading.' },
+    { when: 'edit.patch', text: '- `patch` on a frontmatter field writes a single value, not a YAML array.' }
+  ],
   actions: ['replace', 'append', 'patch', 'at_line', 'from_buffer', 'multi'],
   requiredParams: {
     replace: ['path', 'oldText', 'newText'],

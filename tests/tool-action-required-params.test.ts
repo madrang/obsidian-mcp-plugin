@@ -59,6 +59,7 @@ describe('per-action required parameters', () => {
       const view = byName('view');
       expect(requiredFor(view, 'search')).toEqual(['query']);
       expect(requiredFor(view, 'window')).toEqual(['path']);
+      expect(requiredFor(view, 'lines')).toEqual(['path', 'startLine', 'endLine']);
       expect(requiredFor(view, 'read')).toEqual(['path']);
       expect(requiredFor(view, 'active')).toBeUndefined();
       expect(requiredFor(view, 'folder')).toBeUndefined();

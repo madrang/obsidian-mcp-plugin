@@ -2,7 +2,7 @@
 
 The `view` tool reads content from the vault. Every `view` action is a read: nothing is written, so all of them work in read-only mode.
 
-Actions: `window`, `active`, `folder`, `read`, `search`, `fragments`.
+Actions: `window`, `lines`, `active`, `folder`, `read`, `search`, `fragments`, `grep`.
 
 ## Actions
 
@@ -60,6 +60,20 @@ Show about 20 lines around a point in a file.
 ```
 
 With `searchText` and no `lineNumber`, the window centers on the first fuzzy match. `windowSize` sets the number of lines.
+
+### `lines`
+Read an exact line range. The bounds belong to the caller.
+
+```json
+{ "action": "lines", "path": "notes/a.md", "startLine": 40, "endLine": 59 }
+```
+
+- `startLine` and `endLine` are 1-based and inclusive. Both are required.
+- What is asked is what is returned: no centering, no derived bounds. Use it to read the lines a `grep` addressed, or a range before an `edit`.
+- `endLine` past the end of the file clamps to the file length. The response reports `startLine`, `endLine`, and `totalLines`, so the clamp is visible.
+- `startLine` past the end of the file errors. The address is stale. Re-read the file.
+- A partial read carries no `mtime` or `hash`. Only a complete `read` returns them.
+- `window` centers on a point and derives the bounds. `lines` takes the bounds from the caller. That is the whole difference.
 
 ### `active`
 Get the file currently open in the Obsidian editor.

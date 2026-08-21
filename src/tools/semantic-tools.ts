@@ -5,7 +5,7 @@ import { SemanticRequest } from '../types/semantic';
 import { ObsidianImageFile } from '../types/obsidian';
 import { isDataviewToolAvailable } from './dataview-tool';
 import { formatResponse } from '../formatters';
-import { getOperationDefinition, getRegisteredOperations, type ToolAnnotations } from './tool-registry';
+import { getOperationDefinition, getRegisteredOperations, buildDescription, type ToolAnnotations } from './tool-registry';
 import type { DataviewResult } from '../semantic/operations/dataview';
 
 export type { ToolAnnotations } from './tool-registry';
@@ -108,16 +108,18 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
     if (actions.length === 0) return null;
   }
 
-  // Keep the advertised description in step with the action list.
-  let description = getOperationDescription(operation);
-  if (operation === 'system' && !actions.includes('fetch_web')) {
-    description = description.replace(/, fetch_web:[^,]*$/, '');
-  }
-  // Schema and prose must agree: when the overwrite gate is off, the
-  // description must not advertise a parameter the schema omits.
-  if (operation === 'files' && allowCreateOverwrite !== true) {
-    description = description.replace('. Set overwrite=true to replace the whole content of an existing file', '');
-  }
+  // The description is built from the same permission state that shaped the
+  // action list and the schema: every conditional line keys on an action
+  // this session can call, or a gate that is on. A hidden action leaves the
+  // description in the same pass it leaves the enum, so the prose can never
+  // advertise what the schema omits.
+  const visibleKeys = new Set<string>([operation, ...actions.map(action => `${operation}.${action}`)]);
+  if (allowCreateOverwrite === true) visibleKeys.add('gate:overwrite');
+  if (webFetchEnabled === true) visibleKeys.add('gate:webFetch');
+  const description = buildDescription(
+    getOperationDefinition(operation)?.descriptionLines ?? [],
+    visibleKeys
+  );
 
   const properties: SemanticTool['inputSchema']['properties'] = {
     action: {
@@ -408,7 +410,17 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
 };
 
 export function getOperationDescription(operation: string): string {
-  return getOperationDefinition(operation)?.description ?? 'Unknown operation';
+  // Full surface — every action and both gates. The settings UI shows this;
+  // sessions get the visibility-filtered build inside createSemanticTool.
+  const definition = getOperationDefinition(operation);
+  if (!definition) return 'Unknown operation';
+  const visible = new Set<string>([
+    operation,
+    ...definition.actions.map(action => `${operation}.${action}`),
+    'gate:overwrite',
+    'gate:webFetch',
+  ]);
+  return buildDescription(definition.descriptionLines, visible);
 }
 
 export function getActionsForOperation(operation: string): string[] {

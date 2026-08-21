@@ -27,12 +27,43 @@ export type OperationHandler = (
   params: Params
 ) => Promise<unknown>;
 
+/**
+ * One line of a tool description. A plain string always ships. A
+ * conditional line ships only when every key in `when` is on the session's
+ * surface: `'op'`, `'op.action'`, or `'gate:overwrite'` / `'gate:webFetch'`.
+ * A hidden action leaves the description in the same pass it leaves the
+ * schema, so the prose can never advertise what the enum omits.
+ */
+export type DescriptionLine = string | { when: string | string[]; text: string };
+
+/**
+ * Build the description for one session from its surface-key set: the
+ * operation, its visible actions as `op.action` keys, and the gates that are
+ * on. The same key set is what a future system.permissions reports, so one
+ * resolver drives both consumers.
+ */
+export function buildDescription(lines: DescriptionLine[], visible: ReadonlySet<string>): string {
+  return lines
+    .filter(line => {
+      if (typeof line === 'string') return true;
+      const keys = Array.isArray(line.when) ? line.when : [line.when];
+      return keys.every(key => visible.has(key));
+    })
+    .map(line => (typeof line === 'string' ? line : line.text))
+    .join('\n');
+}
+
 /** The surface of one tool: its declaration and its execution handler. */
 export interface OperationDefinition {
   name: string;
   /** Human-readable display name (MCP Tool.title, spec 2026-07-28). */
   title: string;
-  description: string;
+  /**
+   * The description as an array of markdown-shaped lines. The factory joins
+   * the lines the session can see on '\n' (buildDescription). The first
+   * static line starts with the tool emoji — the settings UI strips it.
+   */
+  descriptionLines: DescriptionLine[];
   actions: string[];
   /**
    * Required parameters per action, for actions that have any. Emitted into

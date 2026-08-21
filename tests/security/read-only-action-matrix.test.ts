@@ -62,6 +62,7 @@ const ACTION_KIND: Record<string, 'read' | 'write' | 'execute'> = {
   'edit.multi': 'write',
   // view
   'view.window': 'read',
+  'view.lines': 'read',
   'view.active': 'read',
   'system.open_in_obsidian': 'read',
   // view.read / view.search / view.fragments moved here from vault — routed

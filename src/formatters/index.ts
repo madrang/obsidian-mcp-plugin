@@ -34,10 +34,12 @@ import {
 
 import {
   formatViewWindow,
+  formatViewLines,
   formatViewActive,
   formatViewGrep,
   formatOpenInObsidian,
   ViewWindowResponse,
+  ViewLinesResponse,
   ViewActiveResponse,
   ViewGrepResponse,
   OpenInObsidianResponse
@@ -141,10 +143,12 @@ export {
   FileCombineResponse,
   // View
   formatViewWindow,
+  formatViewLines,
   formatViewActive,
   formatViewGrep,
   formatOpenInObsidian,
   ViewWindowResponse,
+  ViewLinesResponse,
   ViewActiveResponse,
   ViewGrepResponse,
   OpenInObsidianResponse,
@@ -593,6 +597,8 @@ export function formatResponse(
         return formatFragmentResults(normalized as FragmentResult);
       case 'view.window':
         return formatViewWindow(normalized as ViewWindowResponse);
+      case 'view.lines':
+        return formatViewLines(normalized as ViewLinesResponse);
       case 'view.active':
         return formatViewActive(normalized as ViewActiveResponse);
       case 'view.grep':

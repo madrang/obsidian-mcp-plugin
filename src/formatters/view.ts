@@ -91,6 +91,76 @@ export function formatViewWindow(response: ViewWindowResponse): string {
 }
 
 /**
+ * Format view.lines response (exact line range)
+ * Actual response: { path, lines[], startLine, endLine, totalLines }
+ */
+export interface ViewLinesResponse {
+  path: string;
+  content?: string;
+  lines?: string[];
+  startLine?: number;
+  endLine?: number;
+  totalLines: number;
+}
+
+export function formatViewLines(response: ViewLinesResponse): string {
+  const out: string[] = [];
+
+  const fileName = response.path.split('/').pop() || response.path;
+  const startLine = response.startLine ?? 1;
+  const endLine = response.endLine ?? response.totalLines;
+
+  out.push(header(1, `Lines: ${fileName}`));
+  out.push('');
+  out.push(property('Path', response.path, 0));
+  out.push(property('Showing', `lines ${startLine}-${endLine} of ${response.totalLines}`, 0));
+  out.push('');
+
+  let contentLines: string[];
+  if (response.lines && Array.isArray(response.lines)) {
+    contentLines = response.lines;
+  } else if (response.content) {
+    contentLines = response.content.split('\n');
+  } else {
+    contentLines = [];
+  }
+
+  const numberedContent = contentLines
+    .map((line, i) => {
+      const lineNum = startLine + i;
+      const padding = String(endLine).length;
+      return `${String(lineNum).padStart(padding)} | ${line}`;
+    })
+    .join('\n');
+
+  out.push('```');
+  out.push(numberedContent);
+  out.push('```');
+
+  out.push(divider());
+
+  // Navigation tips phrased in view.lines terms — the bounds belong to the
+  // caller, so the next range is another explicit request, not a recenter.
+  const tipLines: string[] = [];
+  if (startLine > 1) {
+    tipLines.push(tip(
+      `Use \`view.lines(path, startLine: ${Math.max(1, startLine - 50)}, endLine: ${startLine - 1})\` to read the range above`
+    ));
+  }
+  if (endLine < response.totalLines) {
+    tipLines.push(tip(
+      `Use \`view.lines(path, startLine: ${endLine + 1}, endLine: ${endLine + 50})\` to read the range below`
+    ));
+  }
+  tipLines.push(tip('Use `edit.replace(path, oldText, newText)` to make changes'));
+
+  out.push(tipLines.join('\n'));
+  out.push(summaryFooter());
+
+  return joinLines(out);
+}
+
+/**
  * Format view.active response (currently open file)
  * Actual response: { path, content, tags, frontmatter }
  */

@@ -22,7 +22,8 @@ class PreconditionError extends Error {
 }
 
 /**
- * Write preconditions: view.stat values echoed back by the caller. Runs
+ * Write preconditions: stats from a complete `view.read` echoed back by the
+ * caller. Runs
  * inside the file lock, so no other MCP write can land between the check
  * and the write; a human edit in Obsidian can still race, the check only
  * narrows that window. A mismatch refuses the edit before any mutation —

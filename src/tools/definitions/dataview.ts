@@ -9,7 +9,16 @@ import { executeDataviewOperation } from '../../semantic/operations/dataview';
 registerOperation({
   name: 'dataview',
   title: 'Dataview Operations',
-  description: '📊 Dataview operations. Actions: query: execute DQL queries, for example LIST FROM "folder" or TABLE field FROM #tag WHERE condition. list: get pages with metadata and frontmatter. metadata: extract the complete page metadata. validate: check DQL syntax. status: check plugin availability. Supports LIST, TABLE, TASK, and CALENDAR queries with WHERE filters, sorting, and grouping',
+  descriptionLines: [
+    '📊 Dataview operations. Supports LIST, TABLE, TASK, and CALENDAR queries with WHERE filters, sorting, and grouping.',
+    '',
+    '## Actions',
+    { when: 'dataview.query', text: '- `query` — execute a DQL query, for example `LIST FROM "folder"` or `TABLE field FROM #tag WHERE condition`.' },
+    { when: 'dataview.list', text: '- `list` — get pages with metadata and frontmatter.' },
+    { when: 'dataview.metadata', text: '- `metadata` — extract the complete page metadata.' },
+    { when: 'dataview.validate', text: '- `validate` — check DQL syntax.' },
+    { when: 'dataview.status', text: '- `status` — check plugin availability.' }
+  ],
   actions: ['query', 'list', 'metadata', 'validate', 'status'],
   requiredParams: {
     query: ['query'],

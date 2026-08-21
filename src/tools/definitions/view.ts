@@ -9,10 +9,28 @@ import { executeViewOperation } from '../../semantic/operations/view';
 registerOperation({
   name: 'view',
   title: 'View Content',
-  description: '👁️ View, read, and search content. Every view action is a read, so all of them work in read-only mode. Actions: window: show about 20 lines around a point. active: show the current editor file. folder: list the files in a folder. read: read a file, in full when it fits the size budget, in pages for a large file, or in fragments with query. Reading an image returns the image itself. A read that returns the complete file also returns its stats (mtime, content hash, line count). Pass the mtime or hash back as the edit tool ifUnmodifiedSince or ifHash precondition to write only when the file is unchanged. search: search the vault. fragments: get the matching passages from one file, or from the files that match the query. grep: scan with a regular expression and get every match as path, 1-based line, 1-based column, and the matching line. Use it to count and locate occurrences before an edit.replace with expected. Search supports operators (file:, path:, content:, tag:), OR/AND, "quoted phrases", and /regex/. Options include ranked=true for TF-IDF relevance scoring, strategy (filename|content|combined for search), and includeSnippets for contextual extracts. Search matches words, not meaning. It will miss notes that cover a topic in different vocabulary. Its scores are term frequency, so a low-scoring hit is not necessarily unimportant. Do not prune results on score alone. Run a few broad scans instead of many narrow ones. Then follow links from the hits with `graph.neighbors` to reach the notes that search cannot rank',
-  actions: ['window', 'active', 'folder', 'read', 'search', 'fragments', 'grep'],
+  descriptionLines: [
+    '👁️ View, read, and search vault content. Every action is a read. All of them work in read-only mode.',
+    '',
+    '## Actions',
+    { when: 'view.window', text: '- `window` — show about 20 lines around a point.' },
+    { when: 'view.lines', text: '- `lines` — read an exact line range. Give `startLine` and `endLine`, 1-based and inclusive. What you ask for is what you get.' },
+    { when: 'view.active', text: '- `active` — show the file that is open in the editor.' },
+    { when: 'view.folder', text: '- `folder` — list the files in a folder. The listing walks the whole subtree, not one level.' },
+    { when: 'view.read', text: '- `read` — read a file. Whole when it fits the size budget. Paged for a large file. With `query`, read returns fragments instead. Reading an image returns the image itself.' },
+    { when: 'view.search', text: '- `search` — search the vault. Supports operators (`file:`, `path:`, `content:`, `tag:`), OR/AND, "quoted phrases", and `/regex/`.' },
+    { when: 'view.fragments', text: '- `fragments` — get the matching passages from one file, or from the files that match the query.' },
+    { when: 'view.grep', text: '- `grep` — scan with a regular expression. Every match is a path, a 1-based line, a 1-based column, and the matching line.' },
+    '',
+    '## Guidance',
+    { when: 'view.read', text: '- A complete `read` returns the stats of the file: `mtime`, content `hash`, line count. Pass them back as `ifUnmodifiedSince` or `ifHash` on `edit` writes. Partial reads carry neither value.' },
+    { when: 'view.search', text: '- `search` matches words, not meaning. It misses notes that use different words for the topic. The scores are term frequency. A low score does not mean unimportant. Do not prune results on score alone. Run a few broad scans. Then follow links from the hits with `graph.neighbors`.' },
+    { when: 'view.grep', text: '- Use `grep` to count and locate occurrences. Then pass the count as `expected` to an `edit.replace`.' }
+  ],
+  actions: ['window', 'lines', 'active', 'folder', 'read', 'search', 'fragments', 'grep'],
   requiredParams: {
     window: ['path'],
+    lines: ['path', 'startLine', 'endLine'],
     read: ['path'],
     search: ['query'],
     grep: ['pattern']
@@ -47,6 +65,15 @@ registerOperation({
       type: 'number',
       description: 'The number of lines to show',
       default: 20
+    },
+    // lines action
+    startLine: {
+      type: 'number',
+      description: 'lines: the first line to return (1-based, inclusive). Must be an integer with startLine <= endLine'
+    },
+    endLine: {
+      type: 'number',
+      description: 'lines: the last line to return (1-based, inclusive). endLine past the end of the file clamps to the file length; a startLine past the end errors as a stale address'
     },
     // read action
     page: {

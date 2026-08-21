@@ -9,7 +9,15 @@ import { executeBasesOperation } from '../../semantic/operations/bases';
 registerOperation({
   name: 'bases',
   title: 'Bases Operations',
-  description: '🗃️ Bases operations. Actions: list: show all .base files. read: get the YAML configuration. query: execute filters on vault notes, optionally for a named view with viewName. export: export as CSV, JSON, or Markdown. Bases use YAML format with expression-based filters, for example status == "active" and file.hasTag("project")',
+  descriptionLines: [
+    '🗃️ Bases operations. A `.base` file is a YAML config with expression-based filters, for example `status == "active" and file.hasTag("project")`.',
+    '',
+    '## Actions',
+    { when: 'bases.list', text: '- `list` — show all `.base` files.' },
+    { when: 'bases.read', text: '- `read` — get the YAML configuration.' },
+    { when: 'bases.query', text: '- `query` — execute the filters on vault notes. Optionally name a view with `viewName`.' },
+    { when: 'bases.export', text: '- `export` — export the results as CSV, JSON, or Markdown.' }
+  ],
   actions: ['list', 'read', 'query', 'export'],
   requiredParams: {
     read: ['path'],

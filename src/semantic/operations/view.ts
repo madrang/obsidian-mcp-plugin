@@ -1,6 +1,6 @@
 /**
- * View operation handler (ADR-202). Only window and active live here.
- * folder/read/search/fragments run the shared file handlers in
+ * View operation handler (ADR-202). grep, lines, window, and active live
+ * here. folder/read/search/fragments run the shared file handlers in
  * operations/files.ts, and the view definition delegates to them.
  */
 import { RouterContext } from './router-context';
@@ -81,6 +81,51 @@ export async function executeViewOperation(ctx: RouterContext, action: string, p
         totalMatches: matches.length,
         truncated,
         filesScanned
+      };
+    }
+
+    case 'lines': {
+      // Exact range addressing: the caller owns the bounds, unlike window's
+      // derived ones. A partial read carries no stats — only a complete
+      // view.read returns mtime/hash.
+      const linesPath = requireParamStr(params, 'path', 'view.lines');
+      const startLine = paramNum(params, 'startLine');
+      const endLine = paramNum(params, 'endLine');
+      // Checked before any vault call, so a malformed range never reaches
+      // getFile (same boundary rule as requireParamStr, #210).
+      if (
+        startLine === undefined || endLine === undefined ||
+        !Number.isInteger(startLine) || !Number.isInteger(endLine) ||
+        startLine < 1 || endLine < startLine
+      ) {
+        throw new Error(
+          `view.lines requires 'startLine' and 'endLine' as integers with 1 <= startLine <= endLine ` +
+          `(got startLine: ${JSON.stringify(params.startLine) ?? 'missing'}, endLine: ${JSON.stringify(params.endLine) ?? 'missing'}).`
+        );
+      }
+
+      const file = await ctx.api.getFile(linesPath);
+      if (isImageFile(file)) {
+        throw new Error('Cannot view lines of image files');
+      }
+      const content = typeof file === 'string' ? file : file.content;
+      const allLines = content.split('\n');
+      if (startLine > allLines.length) {
+        // A start past the end means the address is stale — the caller is
+        // working from an outdated view of the file.
+        throw new Error(
+          `view.lines: startLine ${startLine} is past the end of ${linesPath} ` +
+          `(the file has ${allLines.length} lines). Re-read the file: the address is stale.`
+        );
+      }
+      const clampedEnd = Math.min(endLine, allLines.length);
+
+      return {
+        path: linesPath,
+        lines: allLines.slice(startLine - 1, clampedEnd),
+        startLine,
+        endLine: clampedEnd,
+        totalLines: allLines.length
       };
     }
 
