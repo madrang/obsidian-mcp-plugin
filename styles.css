@@ -388,3 +388,9 @@ input.mcp-api-key-input {
     font-size: 0.9em;
     opacity: 0.9;
 }
+
+/* Full-width custom content inside a declarative render row */
+.mcp-render-block {
+    flex-basis: 100%;
+    margin-top: 8px;
+}
