@@ -59,6 +59,7 @@ const ACTION_KIND: Record<string, 'read' | 'write' | 'execute'> = {
   'edit.patch': 'write',
   'edit.at_line': 'write',
   'edit.from_buffer': 'write',
+  'edit.multi': 'write',
   // view
   'view.window': 'read',
   'view.active': 'read',
@@ -69,6 +70,7 @@ const ACTION_KIND: Record<string, 'read' | 'write' | 'execute'> = {
   'view.read': 'read',
   'view.search': 'read',
   'view.fragments': 'read',
+  'view.grep': 'read',
   // system
   'system.info': 'read',
   'system.hints': 'read',
@@ -115,6 +117,7 @@ const WRITE_PARAMS: Record<string, Record<string, unknown>> = {
   },
   'edit.at_line': { path: 'note.md', lineNumber: 1, mode: 'replace', content: 'x' },
   'edit.from_buffer': { path: 'note.md' },
+  'edit.multi': { path: 'note.md', edits: [{ oldText: 'body', newText: 'changed' }] },
 };
 
 /**

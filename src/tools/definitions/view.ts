@@ -9,12 +9,13 @@ import { executeViewOperation } from '../../semantic/operations/view';
 registerOperation({
   name: 'view',
   title: 'View Content',
-  description: '👁️ View, read, and search content. Every view action is a read, so all of them work in read-only mode. Actions: window: show about 20 lines around a point. active: show the current editor file. folder: list the files in a folder. read: read a file, in full when it fits the size budget, in pages for a large file, or in fragments with query. Reading an image returns the image itself. search: search the vault. fragments: get the matching passages from one file, or from the files that match the query. Search supports operators (file:, path:, content:, tag:), OR/AND, "quoted phrases", and /regex/. Options include ranked=true for TF-IDF relevance scoring, strategy (filename|content|combined for search), and includeSnippets for contextual extracts. Search matches words, not meaning. It will miss notes that cover a topic in different vocabulary. Its scores are term frequency, so a low-scoring hit is not necessarily unimportant. Do not prune results on score alone. Run a few broad scans instead of many narrow ones. Then follow links from the hits with `graph.neighbors` to reach the notes that search cannot rank',
-  actions: ['window', 'active', 'folder', 'read', 'search', 'fragments'],
+  description: '👁️ View, read, and search content. Every view action is a read, so all of them work in read-only mode. Actions: window: show about 20 lines around a point. active: show the current editor file. folder: list the files in a folder. read: read a file, in full when it fits the size budget, in pages for a large file, or in fragments with query. Reading an image returns the image itself. A read that returns the complete file also returns its stats (mtime, content hash, line count). Pass the mtime or hash back as the edit tool ifUnmodifiedSince or ifHash precondition to write only when the file is unchanged. search: search the vault. fragments: get the matching passages from one file, or from the files that match the query. grep: scan with a regular expression and get every match as path, 1-based line, 1-based column, and the matching line. Use it to count and locate occurrences before an edit.replace with expected. Search supports operators (file:, path:, content:, tag:), OR/AND, "quoted phrases", and /regex/. Options include ranked=true for TF-IDF relevance scoring, strategy (filename|content|combined for search), and includeSnippets for contextual extracts. Search matches words, not meaning. It will miss notes that cover a topic in different vocabulary. Its scores are term frequency, so a low-scoring hit is not necessarily unimportant. Do not prune results on score alone. Run a few broad scans instead of many narrow ones. Then follow links from the hits with `graph.neighbors` to reach the notes that search cannot rank',
+  actions: ['window', 'active', 'folder', 'read', 'search', 'fragments', 'grep'],
   requiredParams: {
     window: ['path'],
     read: ['path'],
-    search: ['query']
+    search: ['query'],
+    grep: ['pattern']
     // active and folder take nothing. fragments needs path OR query — not
     // expressible as a flat required list, and its handler already returns a
     // helpful error, so it stays out of the map.
@@ -89,6 +90,15 @@ registerOperation({
     includeContent: {
       type: 'boolean',
       description: 'Include the file content in the search results (slower but more thorough)'
+    },
+    // grep action
+    pattern: {
+      type: 'string',
+      description: 'grep: a regular expression (plain JavaScript syntax, no delimiters, case-sensitive). Every match comes back as path, 1-based line, 1-based column, and the matching line'
+    },
+    maxResults: {
+      type: 'number',
+      description: 'grep: the maximum number of matches to return (default: 200). A truncated result sets truncated: true'
     }
   }
 });

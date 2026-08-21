@@ -7,7 +7,7 @@ import {
 	SecurityLogEntry
 } from './vault-security-manager';
 import { MCPIgnoreManager } from './mcp-ignore-manager';
-import { ObsidianConfig, ObsidianFile, ObsidianFileResponse } from '../types/obsidian';
+import { ObsidianConfig, ObsidianFile, ObsidianFileResponse, FileStatResponse } from '../types/obsidian';
 import { BaseYAML } from '../types/bases-yaml';
 import { Debug } from '../utils/debug';
 
@@ -73,8 +73,18 @@ export class SecureObsidianAPI extends ObsidianAPI {
 			path: path,
 			context: { method: 'getFile' }
 		});
-		
+
 		return super.getFile(validated.path!);
+	}
+
+	async getFileStat(path: string): Promise<FileStatResponse> {
+		const validated = await this.security.validateOperation({
+			type: OperationType.READ,
+			path: path,
+			context: { method: 'getFileStat' }
+		});
+
+		return super.getFileStat(validated.path!);
 	}
 
 	async listFiles(directory?: string): Promise<string[]> {
@@ -244,6 +254,43 @@ export class SecureObsidianAPI extends ObsidianAPI {
 		});
 
 		return super.createBase(validated.path!, config);
+	}
+
+	// Bases reads (ADR-110). These used to pass straight through to BasesAPI's
+	// raw vault access, so a folder-scoped token could read any base config and
+	// evaluate it over every note in the vault. The path now goes through
+	// validateOperation like every other read; the enumerations inside
+	// (listBases, the note set queryBase evaluates) are scoped by the ignore
+	// manager injected into this instance's BasesAPI at construction.
+
+	async readBase(path: string): Promise<BaseYAML> {
+		const validated = await this.security.validateOperation({
+			type: OperationType.READ,
+			path: path,
+			context: { method: 'readBase' }
+		});
+
+		return super.readBase(validated.path!);
+	}
+
+	async queryBase(path: string, viewName?: string): ReturnType<ObsidianAPI['queryBase']> {
+		const validated = await this.security.validateOperation({
+			type: OperationType.READ,
+			path: path,
+			context: { method: 'queryBase', viewName }
+		});
+
+		return super.queryBase(validated.path!, viewName);
+	}
+
+	async exportBase(path: string, format: 'csv' | 'json' | 'markdown', viewName?: string): ReturnType<ObsidianAPI['exportBase']> {
+		const validated = await this.security.validateOperation({
+			type: OperationType.READ,
+			path: path,
+			context: { method: 'exportBase', format }
+		});
+
+		return super.exportBase(validated.path!, format, viewName);
 	}
 
 	// Active-file writes

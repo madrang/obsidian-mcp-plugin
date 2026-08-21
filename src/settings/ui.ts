@@ -19,8 +19,9 @@
  * Every row carries name/desc/aliases so the 1.13 settings search indexes
  * it. Render rows are searchable:false — they are displays, not settings.
  */
-import { FileSystemAdapter, Notice, Setting, setIcon } from 'obsidian';
+import { ButtonComponent, FileSystemAdapter, Notice, Setting, setIcon, TFolder } from 'obsidian';
 import type { SettingDefinitionItem, SettingGroupItem, SettingDefinitionGroup, SettingDefinitionList } from 'obsidian';
+import { FolderScopeSuggest } from './folder-suggest';
 import { ALL_OPERATIONS, getActionsForOperation, getOperationDescription } from '../tools/semantic-tools';
 import { classifyFromSettings } from '../utils/network-classifier';
 import { Debug } from '../utils/debug';
@@ -98,7 +99,33 @@ function validateSessionCap(value: number): string | void {
   }
 }
 
+function validateRateLimit(value: number): string | void {
+  if (!Number.isInteger(value) || value < 0) {
+    return 'Rate limit must be 0 (disabled) or a whole number of calls per minute';
+  }
+}
+
 /** Getting started: the connect-a-client guide. A display, not a setting. */
+
+/**
+ * update() re-invokes a render callback into the same Setting element rather
+ * than rebuilding the row. A render callback must therefore reset the areas
+ * it fills — the control area (addText/addButton and friends append there)
+ * and its `.mcp-render-block` child — or every update() appends a second
+ * copy of the row's content. The framework-managed name and description sit
+ * outside both areas and survive.
+ */
+function resetRenderRow(setting: Setting): HTMLElement {
+  setting.settingEl.addClass('mcp-has-render-block');
+  setting.controlEl.empty();
+  const existing = setting.settingEl.querySelector<HTMLElement>(':scope > .mcp-render-block');
+  if (existing) {
+    existing.empty();
+    return existing;
+  }
+  return setting.settingEl.createDiv('mcp-render-block');
+}
+
 function gettingStartedGroup(host: SettingsUIHost): Group {
   return {
     type: 'group',
@@ -108,7 +135,7 @@ function gettingStartedGroup(host: SettingsUIHost): Group {
       searchable: false,
       render: (setting: Setting) => {
         const s = host.settings;
-        const info = setting.settingEl.createDiv('mcp-render-block');
+        const info = resetRenderRow(setting);
         const block = info.createDiv('mcp-protocol-info');
 
         if (s.dangerouslyDisableAuth) {
@@ -217,7 +244,7 @@ function connectionStatusGroup(host: SettingsUIHost): Group {
       name: 'Server status display',
       searchable: false,
       render: (setting: Setting) => {
-        const statusEl = setting.settingEl.createDiv('mcp-render-block');
+        const statusEl = resetRenderRow(setting);
         const grid = statusEl.createDiv('mcp-status-section');
         const info = host.getServerInfo();
         if (!info) {
@@ -300,6 +327,12 @@ function serverConfigGroup(host: SettingsUIHost): Group {
         desc: 'How many sessions one credential can hold at once, including the main key. A new session past the limit invalidates the oldest session of that credential.',
         aliases: ['session', 'token', 'limit'],
         control: { type: 'number', key: 'sessionsPerToken', placeholder: '1', validate: validateSessionCap }
+      },
+      {
+        name: 'Tool call rate limit',
+        desc: "Maximum tool calls per credential per minute, across all of that credential's sessions. 0 disables the limit (default). Takes effect immediately; a refused call returns the RATE_LIMITED error with a retry delay.",
+        aliases: ['rate', 'limit', 'throttle', 'per minute', 'calls'],
+        control: { type: 'number', key: 'rateLimitPerMinute', placeholder: '0', validate: validateRateLimit }
       }
     ]
   };
@@ -321,7 +354,7 @@ function networkBindingGroup(host: SettingsUIHost): Group {
             customBindHost: s.customBindHost,
             userSuppliedCert: !!(s.certificateConfig?.certPath && s.certificateConfig?.keyPath)
           });
-          const container = setting.settingEl.createDiv('mcp-render-block');
+          const container = resetRenderRow(setting);
           const badgeEmoji = verdict.class === 'ok' ? '🟢' : verdict.class === 'warn' ? '🟡' : '🔴';
           const badgeLabel = verdict.class === 'ok' ? 'OK' : verdict.class === 'warn' ? 'WARN' : 'INSECURE';
           const badgeEl = container.createDiv({ cls: `mcp-network-badge mcp-network-badge-${verdict.class}` });
@@ -441,7 +474,7 @@ function secureTransportGroup(host: SettingsUIHost): Group {
         searchable: false,
         visible: httpsOn,
         render: (setting: Setting) => {
-          const container = setting.settingEl.createDiv('mcp-render-block');
+          const container = resetRenderRow(setting);
           const statusEl = container.createDiv('mcp-cert-status');
           statusEl.createEl('p', { text: 'Checking certificate…', cls: 'setting-item-description mcp-security-note' });
           void import('../utils/certificate-manager').then(module => {
@@ -489,6 +522,7 @@ function authenticationGroup(host: SettingsUIHost): Group {
         aliases: ['api key', 'token', 'bearer', 'scoped token'],
         render: (setting: Setting) => {
           const s = host.settings;
+          const notes = resetRenderRow(setting);
           setting.addText(text => {
             const input = text
               .setPlaceholder('API key will be shown here')
@@ -518,7 +552,6 @@ function authenticationGroup(host: SettingsUIHost): Group {
                 }
               );
             }));
-          const notes = setting.settingEl.createDiv('mcp-render-block');
           notes.createEl('p', {
             text: 'Note: the API key is stored in the plugin settings file. Anyone with access to your vault can read it.',
             cls: 'setting-item-description mcp-security-note'
@@ -555,37 +588,88 @@ function scopedTokensList(host: SettingsUIHost): SettingDefinitionList {
       desc: `Folder: ${token.folder ?? 'whole vault'}${token.readOnly === true ? ' — read-only' : ''}`,
       searchable: false,
       render: (setting: Setting) => {
-        setting.addText(text => text
-          .setPlaceholder('Name')
-          .setValue(token.name)
-          .onChange(async (value) => {
-            token.name = value;
-            await host.saveSettings();
-          }));
-        setting.addText(text => text
-          .setPlaceholder('Folder (empty = whole vault)')
-          .setValue(token.folder ?? '')
-          .onChange(async (value) => {
-            const folder = value.trim().replace(/^\/+|\/+$/g, '');
-            token.folder = folder || undefined;
-            await host.saveSettings();
-          }));
-        setting.addToggle(toggle => toggle
-          .setTooltip('Read-only: this key cannot change the vault')
-          .setValue(token.readOnly === true)
-          .onChange(async (value) => {
-            token.readOnly = value || undefined;
-            await host.saveSettings();
-          }));
-        setting.addButton(button => button
-          .setButtonText('Copy')
-          .setTooltip('Copy token to clipboard')
-          .onClick(async () => {
-            await navigator.clipboard.writeText(token.token);
-            new Notice('Token copied to clipboard');
-          }));
-        const tokenRow = setting.settingEl.createDiv('mcp-render-block');
-        tokenRow.createEl('code', { text: token.token, cls: 'mcp-monospace-input' });
+        const block = resetRenderRow(setting);
+        // The framework's delete stays in the control area, top right. The
+        // editable fields live in the full-width block below: as
+        // label+control pairs that wrap as units, they get the whole row
+        // width instead of squeezing the half-width control column.
+        const fields = block.createDiv('mcp-token-fields');
+        const field = (label: string): HTMLElement => {
+          const pair = fields.createDiv('mcp-token-field');
+          pair.createSpan({ text: label, cls: 'mcp-inline-label' });
+          return pair;
+        };
+
+        const nameField = field('Name');
+        setting.addText(text => {
+          text
+            .setPlaceholder('Scope name')
+            .setValue(token.name)
+            .onChange(async (value) => {
+              token.name = value;
+              await host.saveSettings();
+            });
+          nameField.appendChild(text.inputEl);
+        });
+
+        const folderField = field('Folder');
+        setting.addText(text => {
+          text
+            .setPlaceholder('Folder (empty = whole vault)')
+            .setValue(token.folder ?? '')
+            .onChange(async (value) => {
+              const folder = value.trim().replace(/^\/+|\/+$/g, '');
+              token.folder = folder || undefined;
+              await host.saveSettings();
+            });
+          folderField.appendChild(text.inputEl);
+          // Hierarchical autocomplete on the scope folder: root folders on an
+          // empty field, then ancestors and children of the current value.
+          // The input stays freely editable; this only drives the popover.
+          // A pick writes the field, so the onChange above does the saving.
+          const folders = host.app.vault.getAllLoadedFiles()
+            .filter((f): f is TFolder => f instanceof TFolder)
+            .map(f => f.path)
+            .sort();
+          new FolderScopeSuggest(host.app, text.inputEl, folders);
+        });
+
+        // The toggle component carries only a tooltip; give it a visible
+        // label so the affordance is readable without hovering.
+        const readOnlyField = field('Read-only');
+        setting.addToggle(toggle => {
+          toggle
+            .setTooltip('Read-only: this key cannot change the vault')
+            .setValue(token.readOnly === true)
+            .onChange(async (value) => {
+              token.readOnly = value || undefined;
+              await host.saveSettings();
+            });
+          readOnlyField.appendChild(toggle.toggleEl);
+        });
+
+        // The token value on its own full-width line below the fields, in a
+        // disabled input with Copy beside it — the button sits next to the
+        // thing it copies, like the Authentication key row.
+        const valueRow = block.createDiv('mcp-token-value-row');
+        const tokenDisplay = valueRow.createEl('input', {
+          type: 'text',
+          cls: 'mcp-monospace-input mcp-token-display',
+          attr: { 'aria-label': 'Scoped token value (read-only)' }
+        });
+        tokenDisplay.value = token.token;
+        tokenDisplay.disabled = true;
+        let copyButton: ButtonComponent;
+        setting.addButton(button => {
+          copyButton = button
+            .setButtonText('Copy')
+            .setTooltip('Copy token to clipboard')
+            .onClick(async () => {
+              await navigator.clipboard.writeText(token.token);
+              new Notice('Token copied to clipboard');
+            });
+        });
+        valueRow.appendChild(copyButton!.buttonEl);
       }
     })),
     addItem: {
@@ -646,7 +730,7 @@ function securityGroup(host: SettingsUIHost): Group {
         visible: exclusionsOn,
         render: (setting: Setting) => {
           const ignoreManager = host.ignoreManager;
-          const container = setting.settingEl.createDiv('mcp-render-block');
+          const container = resetRenderRow(setting);
           if (!ignoreManager) return;
           const exclusionSection = container.createDiv('mcp-exclusion-section');
           const stats = ignoreManager.getStats();

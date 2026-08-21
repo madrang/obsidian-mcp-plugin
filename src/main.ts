@@ -739,6 +739,13 @@ class MCPSettingTab extends PluginSettingTab {
 				await plugin.saveSettings();
 				return;
 			}
+			case 'rateLimitPerMinute': {
+				// ADR-112: 0 = disabled. Malformed input falls back to disabled,
+				// never to an accidental limit.
+				s.rateLimitPerMinute = Number.isFinite(num) ? Math.max(0, Math.floor(num)) : 0;
+				await plugin.saveSettings();
+				return;
+			}
 			case 'certAutoGenerate': {
 				s.certificateConfig.autoGenerate = bool;
 				await plugin.saveSettings();

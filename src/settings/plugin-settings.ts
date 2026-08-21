@@ -29,6 +29,8 @@ export interface MCPPluginSettings {
 	// sessionsPerToken caps concurrent sessions per credential
 	sessionTimeoutMs: number;
 	sessionsPerToken: number;
+	// ADR-112: max tool calls per credential per 60s. 0 = disabled (default)
+	rateLimitPerMinute: number;
 	dangerouslyDisableAuth: boolean;
 	readOnlyMode: boolean;
 	enableWebFetch: boolean;
@@ -85,6 +87,7 @@ export const DEFAULT_SETTINGS: MCPPluginSettings = {
 	scopedTokens: [], // ADR-110: no scoped tokens until the user adds one
 	sessionTimeoutMs: 0, // ADR-111: sessions never expire by default
 	sessionsPerToken: 1, // ADR-111: one session per credential by default
+	rateLimitPerMinute: 0, // ADR-112: no limit until the user sets one
 	dangerouslyDisableAuth: false, // Auth enabled by default
 	readOnlyMode: false, // Read-only mode disabled by default
 	enableWebFetch: false, // ADR-109: outbound web fetch off by default, for everyone

@@ -241,9 +241,15 @@ export function formatWorkflowSuggest(response: WorkflowSuggestResponse): string
 export interface EditResponse {
   success?: boolean;
   path?: string;
-  operation?: 'replace' | 'append' | 'patch' | 'at_line';
+  operation?: 'replace' | 'append' | 'patch' | 'at_line' | 'multi';
   linesChanged?: number;
+  /** edit.multi: number of pairs applied in the single write. */
+  applied?: number;
   message?: string;
+  /** Post-write stat: echo back as the edit ifUnmodifiedSince / ifHash
+   * precondition to chain writes without re-reading. */
+  mtime?: number;
+  hash?: string;
 }
 
 export function formatEditResult(response: EditResponse): string {
@@ -271,12 +277,25 @@ export function formatEditResult(response: EditResponse): string {
     if (response.linesChanged !== undefined) {
       lines.push(property('Lines Changed', response.linesChanged.toString(), 0));
     }
+    if (response.applied !== undefined) {
+      lines.push(property('Pairs Applied', response.applied.toString(), 0));
+    }
+    if (response.mtime !== undefined) {
+      lines.push(property('Modified', response.mtime.toString(), 0));
+    }
+    if (response.hash !== undefined) {
+      lines.push(property('Hash', response.hash, 0));
+    }
   } else {
     lines.push(`Edit failed${response.message ? `: ${response.message}` : ''}`);
   }
 
   lines.push(divider());
-  lines.push(tip('Use `view.read(path)` to verify the changes'));
+  if (success && response.hash !== undefined) {
+    lines.push(tip('Pass the new hash as `ifHash` on the next edit to chain writes without re-reading'));
+  } else {
+    lines.push(tip('Use `view.read(path)` to verify the changes'));
+  }
   lines.push(summaryFooter());
 
   return joinLines(lines);

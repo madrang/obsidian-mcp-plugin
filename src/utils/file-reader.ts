@@ -1,6 +1,7 @@
 import { ObsidianAPI } from './obsidian-api';
 import { isImageFile } from '../types/obsidian';
 import { UniversalFragmentRetriever } from '../indexing/fragment-retriever';
+import { contentHash } from './content-hash';
 
 /**
  * Character budget that decides whole-file vs. paginated reads (ADR-203).
@@ -30,6 +31,12 @@ interface FileReadResult {
   metadata?: unknown;
   frontmatter?: unknown;
   tags?: unknown;
+  /** Last modification time (ms epoch). Present only on a complete read —
+   * the edit ifUnmodifiedSince precondition must not be obtainable without
+   * the content. */
+  mtime?: number;
+  /** SHA-256 content hash (16 hex chars). Same rule as mtime. */
+  hash?: string;
   originalContentLength?: number;
   pagination?: {
     paginated: boolean;
@@ -123,6 +130,7 @@ export async function readFileWithFragments(
   let metaNoBody: Record<string, unknown> = {};
   let frontmatter: unknown;
   let tags: unknown;
+  let fileMtime: unknown;
 
   if (typeof fileResponse === 'string') {
     fileContent = fileResponse;
@@ -132,11 +140,14 @@ export async function readFileWithFragments(
       return fileResponse; // image/binary structured
     }
     fileContent = fc;
-    // Strip the body so it is not embedded twice in the envelope (ADR-203 §3)
-    const { content: _body, frontmatter: fm, tags: tg, ...rest } =
+    // Strip the body so it is not embedded twice in the envelope (ADR-203 §3).
+    // mtime is held back too: it rejoins the response only on a complete
+    // read below, never as metadata on a page or fragment response.
+    const { content: _body, frontmatter: fm, tags: tg, mtime: readMtime, ...rest } =
       fileResponse as unknown as Record<string, unknown>;
     void _body;
     metaNoBody = rest;
+    fileMtime = readMtime;
     frontmatter = fm;
     tags = tg;
   } else {
@@ -181,6 +192,11 @@ export async function readFileWithFragments(
     return {
       path,
       content: fileContent, // verbatim, single contiguous string
+      // Precondition values (edit ifUnmodifiedSince / ifHash). Attached only
+      // here, on the branch that returns the complete file: there is no way
+      // to get them without the content.
+      mtime: typeof fileMtime === 'number' ? fileMtime : undefined,
+      hash: contentHash(fileContent),
       frontmatter,
       tags,
       metadata: {

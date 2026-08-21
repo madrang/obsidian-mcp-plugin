@@ -17,6 +17,7 @@ import type { SessionManager } from './session-manager';
 import type { ConnectionPool } from './connection-pool';
 import type { AuthScope } from '../security/http-auth';
 import { FolderScopedIgnoreManager } from '../security/token-scope';
+import { ToolCallRateLimiter, rateLimitErrorResponse } from '../security/rate-limiter';
 
 /** Plugin interface with settings relevant to MCPServerPool.
  * Includes fields from SecurePluginRef and ObsidianAPIPluginRef so the same object
@@ -29,6 +30,8 @@ interface PluginWithSettings {
     // ADR-111: session lifetime policy
     sessionTimeoutMs?: number;
     sessionsPerToken?: number;
+    // ADR-112: tool call rate limit per credential, 0 = disabled
+    rateLimitPerMinute?: number;
     // From SecurePluginRef (for SecureObsidianAPI)
     security?: Partial<import('../security/vault-security-manager').SecuritySettings>;
     // From ObsidianAPIPluginRef (for ObsidianAPI)
@@ -62,6 +65,10 @@ export class MCPServerPool extends EventEmitter {
   // ADR-107: agent-visible warning string injected into MCP initialize.instructions
   // when the network exposure verdict is 'jail'. Null otherwise (no field sent).
   private initializeInstructions: string | null = null;
+  // ADR-112: per-credential tool call limiter, shared by every session in the
+  // pool. One instance so one token cannot dodge its limit by opening more
+  // sessions.
+  private toolCallLimiter = new ToolCallRateLimiter(60_000, () => this.rateLimitPerMinute());
 
   constructor(obsidianAPI: ObsidianAPI | SecureObsidianAPI, maxServers: number = 32, plugin?: PluginWithSettings) {
     super();
@@ -321,6 +328,20 @@ export class MCPServerPool extends EventEmitter {
     // Call tool handler
     server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToolResult> => {
       const { name, arguments: args } = request.params;
+
+      // ADR-112: rate limit first, before any dispatch work — even unknown
+      // tool names count, so a caller cannot burn CPU by hammering garbage.
+      // Keyed by credential identity; the undefined identity (primary key,
+      // no-key, auth-disabled) is one bucket, the same bucketing as the
+      // ADR-111 session cap.
+      const limiterKey = scope?.identity ?? 'primary';
+      const decision = this.toolCallLimiter.check(limiterKey);
+      if (!decision.allowed) {
+        const limit = this.rateLimitPerMinute();
+        Debug.log(`⏱️ [Session ${sessionId}] Rate limited ${limiterKey} (${limit}/min) on tool: ${name}`);
+        return rateLimitErrorResponse(limit, decision.retryAfterMs ?? 60_000);
+      }
+
       Debug.log(`🔧 [Session ${sessionId}] Executing tool: ${name}`, args);
 
       const tool = this.buildTools().find(t => t.name === name);
@@ -554,6 +575,18 @@ export class MCPServerPool extends EventEmitter {
     return typeof n === 'number' && Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
   }
 
+  /**
+   * ADR-112: the per-credential tool call limit, read live so a settings
+   * change applies to live sessions. Missing, invalid, or non-positive means
+   * 0 — disabled. Unlike sessionsPerTokenLimit this fails open on a
+   * hand-edited data.json, on purpose: the limit is opt-in, and there is no
+   * strict default that would not silently throttle every existing user.
+   */
+  private rateLimitPerMinute(): number {
+    const n = this.plugin?.settings?.rateLimitPerMinute;
+    return typeof n === 'number' && Number.isFinite(n) && n >= 1 ? Math.floor(n) : 0;
+  }
+
   /** Label for the session-info resource, read live like the setting. */
   private sessionTimeoutLabel(): string {
     const ms = this.plugin?.settings?.sessionTimeoutMs;
@@ -598,5 +631,6 @@ export class MCPServerPool extends EventEmitter {
   shutdown(): void {
     Debug.log(`🛑 Shutting down MCP server pool (${this.servers.size} servers)`);
     this.servers.clear();
+    this.toolCallLimiter.reset();
   }
 }

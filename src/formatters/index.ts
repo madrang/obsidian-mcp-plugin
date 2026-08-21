@@ -35,9 +35,11 @@ import {
 import {
   formatViewWindow,
   formatViewActive,
+  formatViewGrep,
   formatOpenInObsidian,
   ViewWindowResponse,
   ViewActiveResponse,
+  ViewGrepResponse,
   OpenInObsidianResponse
 } from './view';
 
@@ -140,9 +142,11 @@ export {
   // View
   formatViewWindow,
   formatViewActive,
+  formatViewGrep,
   formatOpenInObsidian,
   ViewWindowResponse,
   ViewActiveResponse,
+  ViewGrepResponse,
   OpenInObsidianResponse,
   // Graph
   formatGraphTraverse,
@@ -591,6 +595,8 @@ export function formatResponse(
         return formatViewWindow(normalized as ViewWindowResponse);
       case 'view.active':
         return formatViewActive(normalized as ViewActiveResponse);
+      case 'view.grep':
+        return formatViewGrep(normalized as ViewGrepResponse);
       case 'system.open_in_obsidian':
         return formatOpenInObsidian(normalized as OpenInObsidianResponse);
 
@@ -652,6 +658,7 @@ export function formatResponse(
       case 'edit.append':
       case 'edit.patch':
       case 'edit.at_line':
+      case 'edit.multi':
         return formatEditResult(normalized as EditResponse);
 
       // Default: return formatted JSON with hint

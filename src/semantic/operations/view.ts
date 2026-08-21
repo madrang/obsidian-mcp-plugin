@@ -6,9 +6,84 @@
 import { RouterContext } from './router-context';
 import { Params, paramStr, paramNum, requireParamStr } from './shared';
 import { isImageFile } from '../../types/obsidian';
+import { grepContent, GrepMatch } from '../../utils/grep-search';
 
 export async function executeViewOperation(ctx: RouterContext, action: string, params: Params): Promise<unknown> {
   switch (action) {
+    case 'grep': {
+      const pattern = requireParamStr(params, 'pattern', 'view.grep');
+      // The same regex safety gate view.search applies (complexity + length).
+      const regexCheck = ctx.validator.validate('search.query', { query: pattern });
+      if (!regexCheck.valid) {
+        throw new Error(`view.grep: ${regexCheck.errors?.map(e => e.message).join(', ')}`);
+      }
+      let regex: RegExp;
+      try {
+        regex = new RegExp(pattern, 'g');
+      } catch (error: unknown) {
+        throw new Error(
+          `view.grep: invalid regular expression: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+
+      const maxResults = paramNum(params, 'maxResults') ?? 200;
+      const singlePath = paramStr(params, 'path');
+      const directory = paramStr(params, 'directory');
+      if (!ctx.app) {
+        throw new Error('view.grep requires the Obsidian app context');
+      }
+
+      let paths: string[];
+      if (singlePath) {
+        paths = [singlePath];
+      } else {
+        paths = ctx.app.vault.getMarkdownFiles().map(f => f.path);
+        if (directory && directory !== '/') {
+          const prefix = directory.endsWith('/') ? directory : `${directory}/`;
+          paths = paths.filter(p => p.startsWith(prefix));
+        }
+        const ignore = ctx.api.getIgnoreManager();
+        if (ignore) paths = ignore.filterPaths(paths);
+      }
+
+      const matches: GrepMatch[] = [];
+      let filesScanned = 0;
+      let truncated = false;
+      for (const p of paths) {
+        const remaining = maxResults - matches.length;
+        if (remaining <= 0) break;
+        let content: string;
+        try {
+          // Through the session's API, so path validation and the scoped-token
+          // folder boundary apply per file. An excluded path answers the same
+          // way getFile answers elsewhere: not visible to this caller.
+          const file = await ctx.api.getFile(p);
+          if (isImageFile(file)) continue;
+          content = typeof file === 'string' ? file : file.content;
+        } catch {
+          continue;
+        }
+        filesScanned++;
+        // Ask for one match past the remaining budget: a real dropped match
+        // is what sets truncated, not the budget merely being reached.
+        const found = grepContent(p, content, regex, remaining + 1);
+        if (found.length > remaining) {
+          matches.push(...found.slice(0, remaining));
+          truncated = true;
+          break;
+        }
+        matches.push(...found);
+      }
+
+      return {
+        pattern,
+        matches,
+        totalMatches: matches.length,
+        truncated,
+        filesScanned
+      };
+    }
+
     case 'window': {
       // View a portion of a file
       const viewPath = requireParamStr(params, 'path', 'view.window');

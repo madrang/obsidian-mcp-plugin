@@ -30,6 +30,9 @@ _Server architecture, transport, connection handling, plugin lifecycle_
 | [ADR-107](./core/ADR-107-network-exposure-modes-as-a-classified-state-machine.md) | Network exposure modes as a classified state machine | Accepted |
 | [ADR-108](./core/ADR-108-consolidate-read-only-enforcement-onto-the-security-layer-and-make-it-live.md) | Consolidate read-only enforcement onto the security layer and make it live | Draft |
 | [ADR-109](./core/ADR-109-outbound-web-fetch-is-off-by-default-and-range-filtered-when-enabled.md) | Outbound web fetch is off by default and range-filtered when enabled | Accepted |
+| [ADR-110](./core/ADR-110-scoped-bearer-tokens-with-folder-and-read-only-restriction.md) | Scoped bearer tokens with folder and read-only restriction | Accepted |
+| [ADR-111](./core/ADR-111-session-lifetime-policy-no-idle-expiry-and-per-credential-cap.md) | Session lifetime policy — no idle expiry by default, one session per credential | Accepted |
+| [ADR-112](./core/ADR-112-per-credential-tool-call-rate-limit-opt-in.md) | Per-credential tool call rate limit, opt-in only | Accepted |
 
 ## Tools & API
 _MCP tool design, semantic operations, graph operations, formatters_

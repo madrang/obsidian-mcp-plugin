@@ -9,8 +9,8 @@ import { executeEditOperation } from '../../semantic/operations/edit';
 registerOperation({
   name: 'edit',
   title: 'Edit Files',
-  description: '✏️ Edit files. Every edit action writes. Actions: replace: find and replace text with fuzzy matching. append: add content to the end of a file. patch: modify headings, blocks, or frontmatter. at_line: insert text at a line number. from_buffer: retry with the content buffered by a failed replace. Warning: patch with operation "replace" removes all content under the target heading. patch on a frontmatter field writes a single value, not a YAML array.',
-  actions: ['replace', 'append', 'patch', 'at_line', 'from_buffer'],
+  description: '✏️ Edit files. Every edit action writes. Actions: replace: find and replace text, count-guarded — expected (default 1) occurrences must match exactly or nothing is written; expected N above 1 replaces all N. append: add content to the end of a file. patch: modify headings, blocks, or frontmatter. at_line: insert text at a line number. from_buffer: retry with the content buffered by a failed replace. multi: apply several exact find-and-replace pairs in one write. Every action accepts an ifUnmodifiedSince or ifHash precondition, and a successful write returns the new mtime and hash so you can chain writes without re-reading. Warning: patch with operation "replace" removes all content under the target heading. patch on a frontmatter field writes a single value, not a YAML array.',
+  actions: ['replace', 'append', 'patch', 'at_line', 'from_buffer', 'multi'],
   requiredParams: {
     replace: ['path', 'oldText', 'newText'],
     append: ['path', 'content'],
@@ -18,7 +18,8 @@ registerOperation({
     // at_line and from_buffer take their content from the buffer when the
     // parameter is omitted, so only the path is unconditionally required.
     at_line: ['path'],
-    from_buffer: ['path']
+    from_buffer: ['path'],
+    multi: ['path', 'edits']
   },
   annotations: {
     readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false
@@ -39,6 +40,33 @@ registerOperation({
       type: 'number',
       description: 'The similarity threshold for fuzzy matching (0-1)',
       default: 0.7
+    },
+    expected: {
+      type: 'number',
+      description: 'replace: the exact number of occurrences oldText must match. Default 1 — exactly one occurrence, that one is replaced. N above 1 — exactly N occurrences, all replaced. Any other count refuses the edit with MATCH_COUNT_MISMATCH and nothing is written. Check the count first with view.grep or a complete view.read'
+    },
+    // Write preconditions, accepted by every edit action. The values come
+    // from a view.read that returned the complete file — there is no way to
+    // get them without reading the content.
+    ifUnmodifiedSince: {
+      type: 'number',
+      description: 'Precondition: proceed only when the file mtime (ms epoch) still equals this value. Get it from a complete view.read of the file (visible in raw mode). On mismatch the edit is refused with PRECONDITION_FAILED and nothing is written'
+    },
+    ifHash: {
+      type: 'string',
+      description: 'Precondition: proceed only when the file content hash still equals this value. Get it from a complete view.read of the file (visible in raw mode). On mismatch the edit is refused with PRECONDITION_FAILED and nothing is written'
+    },
+    edits: {
+      type: 'array',
+      description: 'The multi action: an ordered list of find-and-replace pairs applied in one write. Each pair must match exactly (no fuzzy matching) and replaces the first occurrence. Pair n applies to the result of pair n-1. Every pair is verified before anything is written; on any mismatch the whole batch is refused and nothing is written',
+      items: {
+        type: 'object',
+        properties: {
+          oldText: { type: 'string', description: 'The exact text to find (non-empty)' },
+          newText: { type: 'string', description: 'The replacement text' }
+        },
+        required: ['oldText', 'newText']
+      }
     },
     lineNumber: {
       type: 'number',

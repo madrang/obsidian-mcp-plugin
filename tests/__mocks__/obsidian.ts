@@ -100,6 +100,15 @@ export class PluginSettingTab {
   constructor(app: App, plugin: Plugin) {}
 }
 
+/** Stub of Obsidian's input autocomplete base (settings folder-suggest). */
+export abstract class AbstractInputSuggest<T> {
+  limit = 0;
+  constructor(_app: App, _textEl: HTMLInputElement | HTMLDivElement) {}
+  abstract getSuggestions(query: string): T[];
+  abstract renderSuggestion(value: T, el: HTMLElement): void;
+  abstract selectSuggestion(value: T): void;
+}
+
 export class Setting {
   constructor(containerEl: any) {}
   setName(name: string) { return this; }

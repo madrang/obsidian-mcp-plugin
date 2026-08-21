@@ -18,6 +18,7 @@ Read a file.
 - Set `returnFullFile: true` to force the whole file regardless of size.
 - Pass `query` to get matching fragments instead of the full file (see `fragments`).
 - Reading an image returns the image itself.
+- A read that returns the complete file also returns `mtime` and `hash` (visible with `raw: true`). Pass them back as the `edit` tool's `ifUnmodifiedSince` or `ifHash` precondition to write only when the file is unchanged since this read. Partial reads (pages, fragments) carry neither value.
 
 ### `search`
 Search the vault.
@@ -68,3 +69,15 @@ Get the file currently open in the Obsidian editor.
 ```
 
 Fails with a clear error when no file is open.
+
+### `grep`
+Scan markdown files with a regular expression and get every match as an address.
+
+```json
+{ "action": "grep", "pattern": "TODO\\(.*\\)" }
+```
+
+- Each match is `path`, 1-based `line`, 1-based `column`, and the matching `text` — the count-first half of a count-guarded `edit.replace`.
+- The pattern is a plain JavaScript regular expression: no delimiters, case-sensitive.
+- Scope with `path` (one file) or `directory` (a subtree); the default is the whole vault.
+- `maxResults` caps the match list (default: 200). A truncated result sets `truncated: true` — raise the cap or narrow the scope to see the rest.

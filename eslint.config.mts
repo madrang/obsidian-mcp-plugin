@@ -5,6 +5,9 @@ import obsidianmd from "eslint-plugin-obsidianmd";
 import { DEFAULT_ACRONYMS } from "eslint-plugin-obsidianmd/dist/lib/rules/ui/acronyms.js";
 import globals from "globals";
 import { globalIgnores } from "eslint/config";
+// Side-effect import: patches util.styleText on Node < 20.12 so the default
+// formatter does not crash when a run has findings to print.
+import "./scripts/styletext-polyfill.mjs";
 
 export default tseslint.config(
 	{

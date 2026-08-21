@@ -1,5 +1,6 @@
 import { App, TFile, TFolder, TAbstractFile, Command, getAllTags } from 'obsidian';
-import { ObsidianConfig, ObsidianFile, ObsidianFileResponse } from '../types/obsidian';
+import { ObsidianConfig, ObsidianFile, ObsidianFileResponse, FileStatResponse } from '../types/obsidian';
+import { contentHash } from './content-hash';
 import { paginateFiles } from './response-limiter';
 import { isImageFile as checkIsImageFile, processImageResponse, IMAGE_PROCESSING_PRESETS } from './image-handler';
 import { getVersion } from '../version';
@@ -86,7 +87,11 @@ export class ObsidianAPI {
     this.config = config || { apiKey: '', apiUrl: '' };
     this.plugin = plugin;
     this.ignoreManager = plugin?.ignoreManager;
-    this.basesAPI = new BasesAPI(app);
+    // The ignore manager rides along so every bases enumeration and query is
+    // scoped to the caller this API instance serves: the session's
+    // SecureObsidianAPI passes a folder-scoped manager (ADR-110), the main
+    // instance the plain .mcpignore manager.
+    this.basesAPI = new BasesAPI(app, this.ignoreManager);
     this.searchFacade = new SearchFacade(app);
 
     // Initialize input validator with plugin settings or defaults
@@ -387,8 +392,47 @@ export class ObsidianAPI {
       path: file.path,
       content,
       tags,
-      frontmatter
+      frontmatter,
+      mtime: file.stat.mtime
     };
+  }
+
+  /**
+   * Metadata and content hash for a file. Internal primitive, deliberately
+   * NOT a tool action: hash and mtime must not be obtainable without
+   * reading the content. They surface only as extra fields on a read that
+   * returns the complete file (raw mode shows them), and feed the edit
+   * tool's ifUnmodifiedSince / ifHash write preconditions. Text files also
+   * report lineCount and hash; image files report only the filesystem
+   * fields, since neither is meaningful for binary content. An excluded
+   * path reports exists: false, the same answer getFile gives by throwing
+   * "File not found".
+   */
+  async getFileStat(path: string): Promise<FileStatResponse> {
+    if (this.ignoreManager && this.ignoreManager.isExcluded(path)) {
+      return { path, exists: false };
+    }
+
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!file || !(file instanceof TFile)) {
+      return { path, exists: false };
+    }
+
+    const stat: FileStatResponse = {
+      path: file.path,
+      exists: true,
+      size: file.stat.size,
+      mtime: file.stat.mtime,
+      ctime: file.stat.ctime
+    };
+
+    if (!checkIsImageFile(path)) {
+      const content = await this.app.vault.cachedRead(file);
+      stat.lineCount = content.split('\n').length;
+      stat.hash = contentHash(content);
+    }
+
+    return stat;
   }
 
   async createFile(path: string, content: string) {
@@ -418,7 +462,9 @@ export class ObsidianAPI {
         return {
           success: true,
           path: file.path,
-          name: file.name
+          name: file.name,
+          mtime: file.stat.mtime,
+          hash: contentHash(content)
         };
       },
       'file creation',
@@ -445,7 +491,10 @@ export class ObsidianAPI {
     await this.app.vault.modify(file, content);
     // Include `path` so formatFileWrite renders "Updated: <path>" instead of
     // the misleading "Updated: undefined" that masked #210 client-side.
-    return { success: true, path };
+    // mtime and hash are the post-write stat: the caller can echo them back
+    // as ifUnmodifiedSince / ifHash on the next edit, chaining writes
+    // without re-reading.
+    return { success: true, path, mtime: file.stat.mtime, hash: contentHash(content) };
   }
 
   async deleteFile(path: string) {
@@ -508,7 +557,13 @@ export class ObsidianAPI {
     }
 
     await this.app.vault.modify(file, existingContent + content);
-    return { success: true };
+    // Post-write stat for write chaining (see updateFile).
+    return {
+      success: true,
+      path,
+      mtime: file.stat.mtime,
+      hash: contentHash(existingContent + content)
+    };
   }
 
   async patchVaultFile(path: string, params: PatchParams) {
@@ -539,7 +594,13 @@ export class ObsidianAPI {
     }
 
     await this.app.vault.modify(file, content);
-    return { success: true, updated_content: content };
+    // Post-write stat for write chaining (see updateFile).
+    return {
+      success: true,
+      updated_content: content,
+      mtime: file.stat.mtime,
+      hash: contentHash(content)
+    };
   }
 
   private applyStructuredPatch(content: string, params: PatchParams): string {

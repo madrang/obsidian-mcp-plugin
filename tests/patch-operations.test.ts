@@ -26,6 +26,9 @@ describe('Patch Operations', () => {
       path: 'test.md',
       name: 'test.md',
       extension: 'md',
+      // TFile.stat is always present in the real API; the post-write
+      // return of patchVaultFile reads it.
+      stat: { ctime: 0, mtime: 0, size: 0 },
       _isTFile: true // Mark as TFile for instanceof check
     };
 

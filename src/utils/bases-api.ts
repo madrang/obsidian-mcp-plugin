@@ -12,17 +12,24 @@ import {
 import { Debug } from './debug';
 import { ExpressionEvaluator } from './expression-evaluator';
 import { FormulaEngine } from './formula-engine';
+import { MCPIgnoreManager } from '../security/mcp-ignore-manager';
 
 /**
- * Bases API implementation that matches Obsidian's actual Bases behavior
+ * Bases API implementation that matches Obsidian's actual Bases behavior.
+ * The optional ignore manager scopes every enumeration and every note read to
+ * the caller: the session's SecureObsidianAPI injects the folder-scoped
+ * composite (ADR-110) or the plain .mcpignore manager, so listBases and
+ * queryBase cannot see files outside the caller's reach.
  */
 export class BasesAPI {
   private app: App;
+  private ignoreManager?: MCPIgnoreManager;
   private expressionEvaluator: ExpressionEvaluator;
   private formulaEngine: FormulaEngine;
 
-  constructor(app: App) {
+  constructor(app: App, ignoreManager?: MCPIgnoreManager) {
     this.app = app;
+    this.ignoreManager = ignoreManager;
     this.expressionEvaluator = new ExpressionEvaluator(app);
     this.formulaEngine = new FormulaEngine(app);
   }
@@ -36,6 +43,9 @@ export class BasesAPI {
 
     for (const file of files) {
       if (file.extension === 'base') {
+        // Scoped callers must not learn that out-of-reach bases exist, and
+        // their content must not be read to extract view names.
+        if (this.ignoreManager?.isExcluded(file.path)) continue;
         try {
           const content = await this.app.vault.read(file);
           const baseConfig = parseYaml(content) as BaseYAML;
@@ -105,8 +115,14 @@ export class BasesAPI {
       view = baseConfig.views[0];
     }
 
-    // Get all markdown files in the vault
-    const files = this.app.vault.getMarkdownFiles();
+    // Get all markdown files in the vault, scoped to the caller's reach. The
+    // filter runs before evaluation, so out-of-reach notes are neither read
+    // nor returned — an in-scope base with broad filters cannot farm data
+    // from outside the scope folder or past .mcpignore.
+    const allFiles = this.app.vault.getMarkdownFiles();
+    const files = this.ignoreManager
+      ? allFiles.filter(file => !this.ignoreManager!.isExcluded(file.path))
+      : allFiles;
     let notes: EvaluatedNote[] = [];
 
     // Process each file

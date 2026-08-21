@@ -86,6 +86,11 @@ export class InputValidator {
       new QueryLengthValidator(this.config)
     ]);
 
+    // Edit batch validators (edit.multi pair count)
+    this.validators.set('edit.multi', [
+      new BatchLimitValidator(this.config)
+    ]);
+
     // Batch operation validators
     this.validators.set('batch.combine', [
       new BatchLimitValidator(this.config),
@@ -429,6 +434,21 @@ export class BatchLimitValidator implements Validator {
             message: `Batch size ${params.paths.length} exceeds maximum ${this.config.maxBatchSize}`,
             code: 'BATCH_SIZE_EXCEEDED',
             value: params.paths.length
+          }]
+        };
+      }
+    }
+
+    // Check edits array (edit.multi pairs)
+    if (params.edits && Array.isArray(params.edits)) {
+      if (params.edits.length > this.config.maxBatchSize) {
+        return {
+          valid: false,
+          errors: [{
+            field: 'edits',
+            message: `Batch size ${params.edits.length} exceeds maximum ${this.config.maxBatchSize}`,
+            code: 'BATCH_SIZE_EXCEEDED',
+            value: params.edits.length
           }]
         };
       }

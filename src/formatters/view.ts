@@ -156,6 +156,46 @@ export function formatViewActive(response: ViewActiveResponse): string {
 }
 
 /**
+ * Format view.grep response (regex match list)
+ * Actual response: { pattern, matches: [{path, line, column, text}], totalMatches, truncated, filesScanned }
+ */
+export interface ViewGrepResponse {
+  pattern: string;
+  matches?: Array<{ path: string; line: number; column: number; text: string }>;
+  totalMatches?: number;
+  truncated?: boolean;
+  filesScanned?: number;
+}
+
+export function formatViewGrep(response: ViewGrepResponse): string {
+  const lines: string[] = [];
+
+  const matches = response.matches ?? [];
+  const total = response.totalMatches ?? matches.length;
+
+  lines.push(header(1, `Grep: ${response.pattern}`));
+  lines.push('');
+  lines.push(property('Matches', `${total}${response.truncated ? ' (truncated)' : ''}`, 0));
+  if (response.filesScanned !== undefined) {
+    lines.push(property('Files Scanned', response.filesScanned.toString(), 0));
+  }
+  lines.push('');
+
+  lines.push('```');
+  const padding = matches.reduce((w, m) => Math.max(w, String(m.line).length), 1);
+  for (const m of matches) {
+    lines.push(`${m.path}:${String(m.line).padStart(padding)}:${m.column}: ${m.text}`);
+  }
+  lines.push('```');
+
+  lines.push(divider());
+  lines.push(tip('Pass the count as `expected` on edit.replace to replace them; the line addresses work with view.window'));
+  lines.push(summaryFooter());
+
+  return joinLines(lines);
+}
+
+/**
  * Format system.open_in_obsidian response
  */
 export interface OpenInObsidianResponse {

@@ -37,6 +37,17 @@ describe('fetch_web enumeration', () => {
     expect(systemTool(false)?.description).not.toContain('fetch_web');
   });
 
+  it('drops the url parameter when fetch_web is disabled', () => {
+    // Schema and enum have to agree too: `url` is consumed only by fetch_web,
+    // so advertising the parameter while the action is hidden invites calls
+    // that can only be refused.
+    expect(systemTool(false)?.inputSchema.properties).not.toHaveProperty('url');
+  });
+
+  it('keeps the url parameter when fetch_web is enabled', () => {
+    expect(systemTool(true)?.inputSchema.properties).toHaveProperty('url');
+  });
+
   it('does not disturb other operations', () => {
     const disabled = createSemanticTools(undefined, undefined, false);
     const enabled = createSemanticTools(undefined, undefined, true);

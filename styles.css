@@ -394,3 +394,57 @@ input.mcp-api-key-input {
     flex-basis: 100%;
     margin-top: 8px;
 }
+
+/* Render rows whose custom block must sit below the controls, not beside
+   them: wrap the row so the full-width block gets a line of its own. Added
+   by resetRenderRow() on every declarative render row — without the wrap,
+   the block squeezes the name and description columns into ellipses. */
+.mcp-has-render-block {
+    flex-wrap: wrap;
+}
+
+/* Visible label for the scoped-token read-only toggle. The toggle component
+   itself carries only a tooltip. */
+.mcp-inline-label {
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    white-space: nowrap;
+    align-self: center;
+}
+
+/* The scoped token value: a full-width disabled input with the Copy button
+   beside it — the button sits next to the thing it copies. */
+.mcp-token-value-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.mcp-token-value-row input[type='text'] {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+}
+
+/* Scoped-token fields: label+control pairs flow on one full-width line and
+   wrap as units when the panel is narrow. A pair never splits across lines.
+   Copy and the framework delete stay in the control area at the top right. */
+.mcp-token-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+}
+
+.mcp-token-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mcp-token-field input[type='text'] {
+    width: 13em;
+    min-width: 8em;
+    flex: 0 1 auto;
+}

@@ -141,6 +141,12 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
     delete properties.overwrite;
   }
 
+  // And the same gate's parameter: `url` is consumed only by fetch_web, so
+  // the schema must not advertise it once the action is off the enum.
+  if (operation === 'system' && webFetchEnabled !== true) {
+    delete properties.url;
+  }
+
   // Per-action required parameters as JSON Schema 2020-12 conditionals
   // (MCP inputSchema defaults to 2020-12). The base required stays
   // ['action']; each advertised action with a required set gets an if/then.
