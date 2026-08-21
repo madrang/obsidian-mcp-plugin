@@ -29,6 +29,21 @@ For most people that's the entire setup. The numbered steps below spell it out, 
 
 ### 1. Install the Plugin
 
+**From a GitHub release (manual install)**
+
+Each release publishes the three files the plugin needs. Download them into the plugin folder by hand — the same three files, from the same releases, that the other install paths place for you.
+
+1. Create the folder `<your vault>/.obsidian/plugins/scoped-vault-mcp/`
+2. Download these three files into it:
+   - [`main.js`](https://github.com/madrang/obsidian-mcp-plugin/releases/latest/download/main.js)
+   - [`manifest.json`](https://github.com/madrang/obsidian-mcp-plugin/releases/latest/download/manifest.json)
+   - [`styles.css`](https://github.com/madrang/obsidian-mcp-plugin/releases/latest/download/styles.css)
+3. Enable the plugin in Settings → Community plugins
+
+Save each file with its exact name. Some browsers append `.txt` to a downloaded script — rename it back before you enable the plugin.
+
+> The `releases/latest/download` links always point at the newest stable release. A prerelease is never `latest`. When only a prerelease exists, take its three files from the [releases page](https://github.com/madrang/obsidian-mcp-plugin/releases) instead.
+
 **From source**
 - Clone this repo, then run `npm install && npm run build`
 - Copy `main.js`, `manifest.json`, and `styles.css` into `<your vault>/.obsidian/plugins/scoped-vault-mcp/`
