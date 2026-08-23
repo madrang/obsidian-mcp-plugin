@@ -80,9 +80,9 @@ export class SearchCore {
                 // Normalize score
                 score = score / (queryTerms.length * 2);
                 results.push({
-                    line: i + 1,
-                    match: line.trim(),
-                    score
+                    line: i + 1
+                    , match: line.trim()
+                    , score
                 });
             }
         }

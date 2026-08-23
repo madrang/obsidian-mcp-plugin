@@ -1,9 +1,16 @@
 /**
+ * @jest-environment jsdom
+ */
+/**
  * The settings tab renders entirely from buildSettingsUI (Obsidian 1.13+;
  * there is no imperative fallback). These tests pin the structure: every
  * setting has its control row with the right key, visibility predicates
  * mirror the old conditional rendering, validators reject bad input, and the
  * scoped-tokens list wires its add/delete affordances.
+ *
+ * jsdom: the tool-visibility rows build their descriptions as
+ * DocumentFragments (one div per line, so the framework cannot collapse the
+ * newlines), which needs a DOM. The rest of the suite is structure-only.
  */
 import { App } from 'obsidian';
 import { buildSettingsUI, SettingsUIHost } from '../src/settings/ui';
@@ -19,6 +26,7 @@ interface FlatItem {
   heading?: string;
   visible?: unknown;
   searchable?: unknown;
+  desc?: string | DocumentFragment;
   control?: { key?: string; validate?: (value: number) => string | void };
   items?: FlatItem[];
   addItem?: { name: string; action: () => void };
@@ -119,6 +127,69 @@ describe('buildSettingsUI', () => {
     for (const key of ['sessionTimeoutMinutes', 'httpsPort', 'customBindHost', 'enableIgnoreContextMenu']) {
       expect(on).toContain(key);
     }
+  });
+
+  it('tool visibility splits into one section per tool, named in the heading', () => {
+    const top = buildSettingsUI(makeHost().host) as unknown as FlatItem[];
+    const headings = top.map(i => i.heading).filter((h): h is string => Boolean(h));
+    for (const op of ALL_OPERATIONS.filter(o => o !== 'dataview')) {
+      expect(headings.some(h => h.startsWith(`${op} — `))).toBe(true);
+    }
+    // A tool section holds the tool toggle plus its actions, and nothing
+    // from another tool.
+    const viewGroup = top.find(i => i.heading === 'view — View Content')!;
+    const names = (viewGroup.items ?? []).map(i => i.name);
+    expect(names[0]).toBe('view');
+    expect(names).toContain('view.read');
+    expect(names).not.toContain('files');
+    // The files section carries the overwrite gate row as its last item.
+    const filesGroup = top.find(i => i.heading?.startsWith('files — '))!;
+    const filesItems = filesGroup.items ?? [];
+    expect(filesItems[filesItems.length - 1]?.name).toBe('Allow overwrite');
+  });
+
+  it('tool visibility rows distribute the description across the switches', () => {
+    // The tool row carries the static, tool-level text. Each action switch
+    // carries its own description lines. Fragments keep the line structure,
+    // and their textContent still feeds the settings search.
+    const rows = flatten(buildSettingsUI(makeHost().host));
+
+    const view = rows.find(i => i.name === 'view')!;
+    expect(view.desc).toBeInstanceOf(DocumentFragment);
+    const viewFrag = view.desc as DocumentFragment;
+    const viewChildren = Array.from(viewFrag.children) as HTMLElement[];
+    // The summary line is permanent and always first, same shape as the
+    // action rows.
+    expect(viewChildren[0].textContent).toBe('Show or hide the view tool and all its actions.');
+    // The static tool-level text sits in the same box style.
+    const viewBox = viewFrag.querySelector('.mcp-action-desc-box');
+    expect(viewBox).not.toBeNull();
+    const viewBoxText = viewBox!.textContent ?? '';
+    expect(viewBoxText).toContain('View, read, and search vault content');
+    // No action bullets and no orphaned Actions heading on the tool row.
+    expect(viewBoxText).not.toContain('## Actions');
+    expect(viewBoxText).not.toContain('`window`');
+
+    const read = rows.find(i => i.name === 'view.read')!;
+    expect(read.desc).toBeInstanceOf(DocumentFragment);
+    const readFrag = read.desc as DocumentFragment;
+    const readChildren = Array.from(readFrag.children) as HTMLElement[];
+    // The summary line is permanent and always first.
+    expect(readChildren[0].textContent).toBe('Show or hide the read action of the view tool');
+    // The action's own description sits boxed below it.
+    const box = readFrag.querySelector('.mcp-action-desc-box');
+    expect(box).not.toBeNull();
+    const boxText = box!.textContent ?? '';
+    expect(boxText).toContain('Read a file, whole up to a size budget');
+    // The read-owned guidance line rides along inside the box.
+    expect(boxText).toContain('stats of the file');
+
+    // The overwrite sentence reaches the create box only while the gate is on.
+    const off = rows.find(i => i.name === 'files.create')!.desc as DocumentFragment;
+    expect(off.querySelector('.mcp-action-desc-box')!.textContent).not.toContain('overwrite');
+    const onRows = flatten(buildSettingsUI(makeHost({ allowCreateOverwrite: true }).host));
+    const on = onRows.find(i => i.name === 'files.create')!.desc as DocumentFragment;
+    expect(on.querySelector('.mcp-action-desc-box')!.textContent).toContain('overwrite=true');
   });
 
   it('the port validator rejects out-of-range values and accepts a good one', () => {

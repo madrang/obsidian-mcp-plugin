@@ -115,10 +115,10 @@ export class PluginDetector {
     const version: string | undefined = plugin?.manifest?.version;
 
     return {
-      installed,
-      enabled,
-      apiReady,
-      version
+      installed
+      , enabled
+      , apiReady
+      , version
     };
   }
 }

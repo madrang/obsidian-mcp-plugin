@@ -53,6 +53,62 @@ export function buildDescription(lines: DescriptionLine[], visible: ReadonlySet<
     .join('\n');
 }
 
+/**
+ * The conditional lines that belong to one action: every line whose `when`
+ * names `op.action`, alone or inside a multi-key conjunction. A companion
+ * key that is not the action (a gate) must also pass `visible` when a set is
+ * given — the settings UI passes the live gate state so the overwrite
+ * sentence stays off the create row while the gate is off.
+ */
+export function getActionDescriptionLines(
+  operation: string,
+  action: string,
+  visible?: ReadonlySet<string>
+): string[] {
+  const definition = getOperationDefinition(operation);
+  if (!definition) return [];
+  const actionKey = `${operation}.${action}`;
+  const out: string[] = [];
+  for (const line of definition.descriptionLines) {
+    if (typeof line === 'string') continue;
+    const keys = Array.isArray(line.when) ? line.when : [line.when];
+    if (!keys.includes(actionKey)) continue;
+    if (visible && !keys.every(key => key === actionKey || visible.has(key))) continue;
+    out.push(line.text);
+  }
+  return out;
+}
+
+/**
+ * The static lines only — the tool-level text with every conditional
+ * (action-owned) line removed. Headings left with no content drop out too,
+ * so a section that consisted entirely of action bullets disappears instead
+ * of lingering as an empty title.
+ */
+export function getStaticDescriptionLines(operation: string): string[] {
+  const definition = getOperationDefinition(operation);
+  const staticLines = (definition?.descriptionLines ?? []).filter(
+    (line): line is string => typeof line === 'string'
+  );
+  const out: string[] = [];
+  let pendingHeading: string | null = null;
+  for (const line of staticLines) {
+    if (line.startsWith('#')) {
+      pendingHeading = line;
+      continue;
+    }
+    if (pendingHeading !== null) {
+      if (line.trim() !== '') {
+        out.push(pendingHeading, line);
+        pendingHeading = null;
+      }
+      continue;
+    }
+    out.push(line);
+  }
+  return out;
+}
+
 /** The surface of one tool: its declaration and its execution handler. */
 export interface OperationDefinition {
   name: string;
@@ -99,14 +155,14 @@ export function getRegisteredOperations(): OperationDefinition[] {
 /** Shared schema fragments for the definition modules. */
 export const pathParam = {
   path: {
-    type: 'string',
-    description: 'The file path relative to the vault root'
+    type: 'string'
+    , description: 'The file path relative to the vault root'
   }
 };
 
 export const contentParam = {
   content: {
-    type: 'string',
-    description: 'The text content to write (markdown supported)'
+    type: 'string'
+    , description: 'The text content to write (markdown supported)'
   }
 };

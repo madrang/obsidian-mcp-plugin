@@ -39,6 +39,12 @@ export default tseslint.config(
 	{
 		files: ["**/*.ts"],
 		rules: {
+			// Comma-first: the comma leads the next line instead of trailing
+			// the previous one. Cleanest diffs — adding an item touches only
+			// its own line. comma-spacing pairs with it: one space between
+			// the leading comma and the item.
+			"comma-style": ["error", "first"],
+			"comma-spacing": ["error", { before: false, after: true }],
 			// Enable auto-fix for sentence case UI text. The acronyms option
 			// REPLACES the rule's built-in list, so the defaults are spread back
 			// in — MCP is the project addition.

@@ -1,5 +1,5 @@
 import { ObsidianAPI } from '../utils/obsidian-api';
-import { GraphTraversal, GraphTraversalOptions, GraphNode } from '../utils/graph-traversal';
+import { GraphTraversal, GraphTraversalOptions } from '../utils/graph-traversal';
 import { App, TFile } from 'obsidian';
 
 /**
@@ -91,6 +91,41 @@ export interface GraphSearchResult {
 /**
  * Tool for searching and traversing the Obsidian vault graph
  */
+/**
+ * Path filters shared by the graph operations. Each entry tests one
+ * vault-relative path. A note passes when every filter passes. Exported for
+ * tests.
+ */
+export function buildPathFilters(params: { fileFilter?: string; folderFilter?: string }): Array<(path: string) => boolean> {
+  const filters: Array<(path: string) => boolean> = [];
+  if (params.fileFilter) {
+    const regex = new RegExp(params.fileFilter);
+    filters.push(path => regex.test(path));
+  }
+  if (params.folderFilter) {
+    const folder = params.folderFilter;
+    // The separator guard stops "Projects" from matching a sibling folder
+    // with a shared prefix.
+    filters.push(path => path === folder || path.startsWith(folder + '/'));
+  }
+  return filters;
+}
+
+/**
+ * Tag filter shared by the graph operations. A note passes when it carries
+ * every listed tag. The leading # is optional and matching ignores case.
+ * Returns undefined when no tag filter is given. Exported for tests.
+ */
+export function buildTagPredicate(tagFilter?: string[]): ((tags: string[] | undefined) => boolean) | undefined {
+  if (!tagFilter || tagFilter.length === 0) return undefined;
+  const normalize = (tag: string) => tag.replace(/^#/, '').toLowerCase();
+  const wanted = tagFilter.map(normalize);
+  return tags => {
+    const have = new Set((tags ?? []).map(normalize));
+    return wanted.every(tag => have.has(tag));
+  };
+}
+
 export class GraphSearchTool {
   private graphTraversal: GraphTraversal;
   
@@ -119,6 +154,20 @@ export class GraphSearchTool {
     this.assertNotExcluded(params.sourcePath);
     this.assertNotExcluded(params.targetPath);
 
+    const result = this.dispatch(operation, params);
+
+    // Listing filters. traverse applies the filters during the walk itself
+    // (performTraversal), so the walk never enters a filtered note. path is a
+    // found chain: hiding its middle nodes would corrupt it. statistics
+    // counts globally. The three listing actions filter the returned nodes
+    // and edges.
+    if (operation === 'neighbors' || operation === 'backlinks' || operation === 'forwardlinks') {
+      return this.applyListingFilters(params, result);
+    }
+    return result;
+  }
+
+  private dispatch(operation: GraphSearchParams['operation'], params: GraphSearchParams): GraphSearchResult {
     switch (operation) {
       case 'traverse':
         return this.performTraversal(params);
@@ -140,6 +189,26 @@ export class GraphSearchTool {
   }
 
   /**
+   * Filter the nodes and edges of a listing result. A node survives the path
+   * filters and the tag filter. An edge survives only when both endpoints
+   * survive. The source note itself is filtered like any other node.
+   */
+  private applyListingFilters(params: GraphSearchParams, result: GraphSearchResult): GraphSearchResult {
+    const pathFilters = buildPathFilters(params);
+    const tagPredicate = buildTagPredicate(params.tagFilter);
+    if ((pathFilters.length === 0 && !tagPredicate) || !result.nodes) return result;
+
+    const keepNode = (node: { path: string; tags?: string[] }) =>
+      pathFilters.every(filter => filter(node.path))
+      && (!tagPredicate || tagPredicate(node.tags));
+
+    const nodes = result.nodes.filter(keepNode);
+    const keptPaths = new Set(nodes.map(node => node.path));
+    const edges = (result.edges ?? []).filter(edge => keptPaths.has(edge.source) && keptPaths.has(edge.target));
+    return { ...result, nodes, edges };
+  }
+
+  /**
    * Perform graph traversal from a starting point
    */
   private performTraversal(params: GraphSearchParams): GraphSearchResult {
@@ -148,66 +217,65 @@ export class GraphSearchTool {
     }
 
     const options: GraphTraversalOptions = {
-      maxDepth: params.maxDepth || 3,
-      maxNodes: params.maxNodes || 50,
-      includeUnresolved: params.includeUnresolved || false,
-      followBacklinks: params.followBacklinks !== false,
-      followForwardLinks: params.followForwardLinks !== false,
-      followTags: params.followTags || false
+      maxDepth: params.maxDepth || 3
+      , maxNodes: params.maxNodes || 50
+      , includeUnresolved: params.includeUnresolved || false
+      , followBacklinks: params.followBacklinks !== false
+      , followForwardLinks: params.followForwardLinks !== false
+      , followTags: params.followTags || false
     };
 
-    // Add filters if specified
-    if (params.fileFilter) {
-      const regex = new RegExp(params.fileFilter);
-      options.nodeFilter = (node: GraphNode) => regex.test(node.path);
-    }
-
-    if (params.folderFilter) {
-      options.nodeFilter = (node: GraphNode) => node.path.startsWith(params.folderFilter!);
+    // Filters compose: a note enters the walk only when every filter passes.
+    const nodeFilters = buildPathFilters(params);
+    const tagPredicate = buildTagPredicate(params.tagFilter);
+    if (nodeFilters.length > 0 || tagPredicate) {
+      options.nodeFilter = node =>
+        nodeFilters.every(filter => filter(node.path))
+        && (!tagPredicate || tagPredicate(node.metadata?.tags?.map(cachedTag => cachedTag.tag)));
     }
 
     const result = this.graphTraversal.breadthFirstTraversal(params.sourcePath, options);
     
     // Convert to response format
     const nodes = Array.from(result.nodes.values()).map(node => ({
-      path: node.path,
-      title: node.title,
-      type: 'file' as const,
-      tags: node.metadata?.tags?.map(t => t.tag),
-      links: {
-        forward: this.graphTraversal.getForwardLinks(node.path).length,
-        backward: this.graphTraversal.getBacklinks(node.path).length,
-        total: this.graphTraversal.getForwardLinks(node.path).length + 
+      path: node.path
+      , title: node.title
+      , type: 'file' as const
+      , tags: node.metadata?.tags?.map(t => t.tag)
+      , links: {
+        forward: this.graphTraversal.getForwardLinks(node.path).length
+        , backward: this.graphTraversal.getBacklinks(node.path).length
+        , total: this.graphTraversal.getForwardLinks(node.path).length + 
                this.graphTraversal.getBacklinks(node.path).length
       }
     }));
 
     const response: GraphSearchResult = {
-      operation: 'traverse',
-      sourcePath: params.sourcePath,
-      nodes,
-      edges: result.edges,
-      graphStats: result.stats,
-      message: params.sourcePath === '/' || params.sourcePath === ''
+      operation: 'traverse'
+      , sourcePath: params.sourcePath
+      , nodes
+      , edges: result.edges
+      , graphStats: result.stats
+      , message: params.sourcePath === '/' || params.sourcePath === ''
         ? `Traversed from ${Math.min(10, this.app.vault.getFiles().filter(f => !this.graphTraversal.isExcluded(f.path)).length)} most recent files: Found ${result.stats.totalNodes} connected nodes within ${params.maxDepth} degrees`
-        : `Found ${result.stats.totalNodes} connected nodes within ${params.maxDepth} degrees of separation`,
-      workflow: {
-        message: 'Graph traversal complete. You can explore individual nodes or find paths between them.',
-        suggested_next: [
+        : `Found ${result.stats.totalNodes} connected nodes within ${params.maxDepth} degrees of separation`
+      , workflow: {
+        message: 'Graph traversal complete. You can explore individual nodes or find paths between them.'
+        , suggested_next: [
           {
-            description: 'View a specific file',
-            command: 'view:file',
-            reason: 'To see the content of any discovered node'
-          },
-          {
-            description: 'Get statistics for a node',
-            command: 'graph:statistics',
-            reason: 'To see detailed link statistics for a file'
-          },
-          {
-            description: 'Find path between nodes',
-            command: 'graph:path',
-            reason: 'To find connections between two specific files'
+            description: 'View a specific file'
+            , command: 'view:file'
+            , reason: 'To see the content of any discovered node'
+          }
+          , {
+            description: 'Get statistics for a node'
+            , command: 'graph:statistics'
+            , reason: 'To see detailed link statistics for a file'
+          }
+          , {
+            description: 'Find path between nodes'
+            , command: 'graph:path'
+            , reason: 'To find connections between two specific files'
           }
         ]
       }
@@ -227,36 +295,36 @@ export class GraphSearchTool {
     const { node, neighbors, edges } = this.graphTraversal.getLocalNeighborhood(params.sourcePath);
     
     const nodes = [node, ...neighbors].map(n => ({
-      path: n.path,
-      title: n.title,
-      type: 'file' as const,
-      tags: n.metadata?.tags?.map(t => t.tag),
-      links: {
-        forward: this.graphTraversal.getForwardLinks(n.path).length,
-        backward: this.graphTraversal.getBacklinks(n.path).length,
-        total: this.graphTraversal.getForwardLinks(n.path).length + 
+      path: n.path
+      , title: n.title
+      , type: 'file' as const
+      , tags: n.metadata?.tags?.map(t => t.tag)
+      , links: {
+        forward: this.graphTraversal.getForwardLinks(n.path).length
+        , backward: this.graphTraversal.getBacklinks(n.path).length
+        , total: this.graphTraversal.getForwardLinks(n.path).length + 
                this.graphTraversal.getBacklinks(n.path).length
       }
     }));
 
     return {
-      operation: 'neighbors',
-      sourcePath: params.sourcePath,
-      nodes,
-      edges,
-      message: `Found ${neighbors.length} direct neighbors of ${node.title}`,
-      workflow: {
-        message: 'Local neighborhood retrieved. You can explore connections or expand the search.',
-        suggested_next: [
+      operation: 'neighbors'
+      , sourcePath: params.sourcePath
+      , nodes
+      , edges
+      , message: `Found ${neighbors.length} direct neighbors of ${node.title}`
+      , workflow: {
+        message: 'Local neighborhood retrieved. You can explore connections or expand the search.'
+        , suggested_next: [
           {
-            description: 'Traverse deeper from this node',
-            command: 'graph:traverse',
-            reason: 'To explore connections beyond immediate neighbors'
-          },
-          {
-            description: 'View file content',
-            command: 'view:file',
-            reason: 'To examine the content of connected files'
+            description: 'Traverse deeper from this node'
+            , command: 'graph:traverse'
+            , reason: 'To explore connections beyond immediate neighbors'
+          }
+          , {
+            description: 'View file content'
+            , command: 'view:file'
+            , reason: 'To examine the content of connected files'
           }
         ]
       }
@@ -296,41 +364,41 @@ export class GraphSearchTool {
     // Convert string paths to node objects for the formatter
     const paths = rawPaths.map(pathList =>
       pathList.map(filePath => ({
-        path: filePath,
-        title: this.graphTraversal.getNodeTitleForPath(filePath)
+        path: filePath
+        , title: this.graphTraversal.getNodeTitleForPath(filePath)
       }))
     );
 
     return {
-      operation: 'path',
-      sourcePath: params.sourcePath,
-      targetPath: params.targetPath,
-      found: paths.length > 0,
-      paths,
-      shortestLength: paths.length > 0 ? paths[0].length - 1 : undefined,
-      message: paths.length > 0
+      operation: 'path'
+      , sourcePath: params.sourcePath
+      , targetPath: params.targetPath
+      , found: paths.length > 0
+      , paths
+      , shortestLength: paths.length > 0 ? paths[0].length - 1 : undefined
+      , message: paths.length > 0
         ? `Found ${paths.length} path(s) between files. Shortest path has ${paths[0].length} nodes.`
-        : 'No path found between the specified files',
-      workflow: {
+        : 'No path found between the specified files'
+      , workflow: {
         message: paths.length > 0 
           ? 'Paths found. You can view the files along any path.'
-          : 'No connection found. Try increasing search depth or following backlinks.',
-        suggested_next: paths.length > 0 ? [
+          : 'No connection found. Try increasing search depth or following backlinks.'
+        , suggested_next: paths.length > 0 ? [
           {
-            description: 'View files in the path',
-            command: 'view:file',
-            reason: 'To examine the content of files connecting the source and target'
-          },
-          {
-            description: 'Get statistics for path nodes',
-            command: 'graph:statistics',
-            reason: 'To understand the connectivity of intermediate nodes'
+            description: 'View files in the path'
+            , command: 'view:file'
+            , reason: 'To examine the content of files connecting the source and target'
+          }
+          , {
+            description: 'Get statistics for path nodes'
+            , command: 'graph:statistics'
+            , reason: 'To understand the connectivity of intermediate nodes'
           }
         ] : [
           {
-            description: 'Traverse from source with more depth',
-            command: 'graph:traverse',
-            reason: 'To explore the broader network around the source file'
+            description: 'Traverse from source with more depth'
+            , command: 'graph:traverse'
+            , reason: 'To explore the broader network around the source file'
           }
         ]
       }
@@ -345,21 +413,21 @@ export class GraphSearchTool {
     if (!params.sourcePath) {
       const vaultStats = this.graphTraversal.getVaultStatistics();
       return {
-        operation: 'statistics',
-        vaultStatistics: vaultStats,
-        message: `Vault-wide statistics: ${vaultStats.totalNotes} notes, ${vaultStats.totalLinks} links, ${vaultStats.orphanCount} orphans, ${vaultStats.isolatedClusters} components`,
-        workflow: {
-          message: 'Vault statistics retrieved. You can drill into specific files or explore the largest component.',
-          suggested_next: [
+        operation: 'statistics'
+        , vaultStatistics: vaultStats
+        , message: `Vault-wide statistics: ${vaultStats.totalNotes} notes, ${vaultStats.totalLinks} links, ${vaultStats.orphanCount} orphans, ${vaultStats.isolatedClusters} components`
+        , workflow: {
+          message: 'Vault statistics retrieved. You can drill into specific files or explore the largest component.'
+          , suggested_next: [
             {
-              description: 'Get per-node statistics for a specific file',
-              command: 'graph:statistics',
-              reason: 'Pass sourcePath to see degree/tag counts for one note'
-            },
-            {
-              description: 'Traverse from a known hub',
-              command: 'graph:traverse',
-              reason: 'Explore the connected structure of the largest component'
+              description: 'Get per-node statistics for a specific file'
+              , command: 'graph:statistics'
+              , reason: 'Pass sourcePath to see degree/tag counts for one note'
+            }
+            , {
+              description: 'Traverse from a known hub'
+              , command: 'graph:traverse'
+              , reason: 'Explore the connected structure of the largest component'
             }
           ]
         }
@@ -373,27 +441,27 @@ export class GraphSearchTool {
       : params.sourcePath;
 
     return {
-      operation: 'statistics',
-      sourcePath: params.sourcePath,
-      statistics: stats,
-      message: `Link statistics for ${title}`,
-      workflow: {
-        message: 'Statistics retrieved. You can explore the actual links or find connected nodes.',
-        suggested_next: [
+      operation: 'statistics'
+      , sourcePath: params.sourcePath
+      , statistics: stats
+      , message: `Link statistics for ${title}`
+      , workflow: {
+        message: 'Statistics retrieved. You can explore the actual links or find connected nodes.'
+        , suggested_next: [
           {
-            description: 'Get backlinks',
-            command: 'graph:backlinks',
-            reason: `To see the ${stats.inDegree} files linking to this file`
-          },
-          {
-            description: 'Get forward links',
-            command: 'graph:forwardlinks',
-            reason: `To see the ${stats.outDegree} files this file links to`
-          },
-          {
-            description: 'Get neighbors',
-            command: 'graph:neighbors',
-            reason: 'To see all directly connected files'
+            description: 'Get backlinks'
+            , command: 'graph:backlinks'
+            , reason: `To see the ${stats.inDegree} files linking to this file`
+          }
+          , {
+            description: 'Get forward links'
+            , command: 'graph:forwardlinks'
+            , reason: `To see the ${stats.outDegree} files this file links to`
+          }
+          , {
+            description: 'Get neighbors'
+            , command: 'graph:neighbors'
+            , reason: 'To see all directly connected files'
           }
         ]
       }
@@ -417,14 +485,14 @@ export class GraphSearchTool {
       if (file && file instanceof TFile) {
         const cache = this.app.metadataCache.getFileCache(file);
         nodes.push({
-          path: edge.source,
-          title: this.graphTraversal.getNodeTitle(file),
-          type: 'file',
-          tags: cache?.tags?.map(t => t.tag),
-          links: {
-            forward: this.graphTraversal.getForwardLinks(edge.source).length,
-            backward: this.graphTraversal.getBacklinks(edge.source).length,
-            total: 0 // Will be calculated
+          path: edge.source
+          , title: this.graphTraversal.getNodeTitle(file)
+          , type: 'file'
+          , tags: cache?.tags?.map(t => t.tag)
+          , links: {
+            forward: this.graphTraversal.getForwardLinks(edge.source).length
+            , backward: this.graphTraversal.getBacklinks(edge.source).length
+            , total: 0 // Will be calculated
           }
         });
         nodes[nodes.length - 1].links!.total = 
@@ -433,23 +501,23 @@ export class GraphSearchTool {
     }
 
     return {
-      operation: 'backlinks',
-      sourcePath: params.sourcePath,
-      nodes,
-      edges: backlinks,
-      message: `Found ${backlinks.length} files linking to this file`,
-      workflow: {
-        message: 'Backlinks retrieved. You can explore these files or analyze their connections.',
-        suggested_next: [
+      operation: 'backlinks'
+      , sourcePath: params.sourcePath
+      , nodes
+      , edges: backlinks
+      , message: `Found ${backlinks.length} files linking to this file`
+      , workflow: {
+        message: 'Backlinks retrieved. You can explore these files or analyze their connections.'
+        , suggested_next: [
           {
-            description: 'View a linking file',
-            command: 'view:file',
-            reason: 'To see how these files reference the source'
-          },
-          {
-            description: 'Traverse from a backlink',
-            command: 'graph:traverse',
-            reason: 'To explore the network around files that link here'
+            description: 'View a linking file'
+            , command: 'view:file'
+            , reason: 'To see how these files reference the source'
+          }
+          , {
+            description: 'Traverse from a backlink'
+            , command: 'graph:traverse'
+            , reason: 'To explore the network around files that link here'
           }
         ]
       }
@@ -477,14 +545,14 @@ export class GraphSearchTool {
       if (file && file instanceof TFile) {
         const cache = this.app.metadataCache.getFileCache(file);
         nodes.push({
-          path: edge.target,
-          title: this.graphTraversal.getNodeTitle(file),
-          type: 'file',
-          tags: cache?.tags?.map(t => t.tag),
-          links: {
-            forward: this.graphTraversal.getForwardLinks(edge.target).length,
-            backward: this.graphTraversal.getBacklinks(edge.target).length,
-            total: 0
+          path: edge.target
+          , title: this.graphTraversal.getNodeTitle(file)
+          , type: 'file'
+          , tags: cache?.tags?.map(t => t.tag)
+          , links: {
+            forward: this.graphTraversal.getForwardLinks(edge.target).length
+            , backward: this.graphTraversal.getBacklinks(edge.target).length
+            , total: 0
           }
         });
         nodes[nodes.length - 1].links!.total = 
@@ -493,23 +561,23 @@ export class GraphSearchTool {
     }
 
     return {
-      operation: 'forwardlinks',
-      sourcePath: params.sourcePath,
-      nodes,
-      edges: allForwardLinks,
-      message: `Found ${allForwardLinks.length} files linked from this file`,
-      workflow: {
-        message: 'Forward links retrieved. You can explore these referenced files.',
-        suggested_next: [
+      operation: 'forwardlinks'
+      , sourcePath: params.sourcePath
+      , nodes
+      , edges: allForwardLinks
+      , message: `Found ${allForwardLinks.length} files linked from this file`
+      , workflow: {
+        message: 'Forward links retrieved. You can explore these referenced files.'
+        , suggested_next: [
           {
-            description: 'View a linked file',
-            command: 'view:file',
-            reason: 'To see the content of referenced files'
-          },
-          {
-            description: 'Find path to a linked file',
-            command: 'graph:path',
-            reason: 'To explore alternative connections between files'
+            description: 'View a linked file'
+            , command: 'view:file'
+            , reason: 'To see the content of referenced files'
+          }
+          , {
+            description: 'Find path to a linked file'
+            , command: 'graph:path'
+            , reason: 'To explore alternative connections between files'
           }
         ]
       }

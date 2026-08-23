@@ -60,9 +60,9 @@ export class BrowserMCPServer {
 
       // For now, let's create a simple mock server that can handle requests
       this.server = {
-        port: this.port,
-        handlers: new Map(),
-        isRunning: true
+        port: this.port
+        , handlers: new Map()
+        , isRunning: true
       };
 
       // Register our MCP endpoints
@@ -103,30 +103,30 @@ export class BrowserMCPServer {
 
   private handleHealthCheck(): MCPHTTPResponse {
     return {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: JSON.stringify({
-        name: 'Scoped Vault MCP',
-        version: '0.1.3',
-        status: 'running',
-        vault: this.app.vault.getName(),
-        timestamp: new Date().toISOString()
+      status: 200
+      , headers: {
+        'Content-Type': 'application/json'
+        , 'Access-Control-Allow-Origin': '*'
+      }
+      , body: JSON.stringify({
+        name: 'Scoped Vault MCP'
+        , version: '0.1.3'
+        , status: 'running'
+        , vault: this.app.vault.getName()
+        , timestamp: new Date().toISOString()
       })
     };
   }
 
   private handleCORS(): MCPHTTPResponse {
     return {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Authorization'
-      },
-      body: ''
+      status: 200
+      , headers: {
+        'Access-Control-Allow-Origin': '*'
+        , 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+        , 'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+      }
+      , body: ''
     };
   }
 
@@ -147,34 +147,34 @@ export class BrowserMCPServer {
         default:
           response = {
             error: {
-              code: -32601,
-              message: `Method not found: ${request.method}`
-            },
-            id: request.id
+              code: -32601
+              , message: `Method not found: ${request.method}`
+            }
+            , id: request.id
           };
       }
 
       return {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify(response)
+        status: 200
+        , headers: {
+          'Content-Type': 'application/json'
+          , 'Access-Control-Allow-Origin': '*'
+        }
+        , body: JSON.stringify(response)
       };
 
     } catch (error: unknown) {
       Debug.error('MCP request error:', error);
       return {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify({
+        status: 500
+        , headers: {
+          'Content-Type': 'application/json'
+          , 'Access-Control-Allow-Origin': '*'
+        }
+        , body: JSON.stringify({
           error: {
-            code: -32603,
-            message: 'Internal error: ' + (error instanceof Error ? error.message : 'Unknown error')
+            code: -32603
+            , message: 'Internal error: ' + (error instanceof Error ? error.message : 'Unknown error')
           }
         })
       };
@@ -186,22 +186,22 @@ export class BrowserMCPServer {
       result: {
         tools: [
           {
-            name: 'echo',
-            description: 'Echo back the input message with Obsidian context',
-            inputSchema: {
-              type: 'object',
-              properties: {
+            name: 'echo'
+            , description: 'Echo back the input message with Obsidian context'
+            , inputSchema: {
+              type: 'object'
+              , properties: {
                 message: {
-                  type: 'string',
-                  description: 'Message to echo back'
+                  type: 'string'
+                  , description: 'Message to echo back'
                 }
-              },
-              required: ['message']
+              }
+              , required: ['message']
             }
           }
         ]
-      },
-      id: request.id
+      }
+      , id: request.id
     };
   }
 
@@ -220,8 +220,8 @@ export class BrowserMCPServer {
         result: {
           content: [
             {
-              type: 'text',
-              text: `🎉 Echo from Obsidian MCP Plugin!
+              type: 'text'
+              , text: `🎉 Echo from Obsidian MCP Plugin!
 
 📝 Original message: ${message}
 📚 Vault name: ${vaultName}
@@ -236,17 +236,17 @@ export class BrowserMCPServer {
 🎯 Status: Connected and operational`
             }
           ]
-        },
-        id: request.id
+        }
+        , id: request.id
       };
     }
 
     return {
       error: {
-        code: -32602,
-        message: `Unknown tool: ${name}`
-      },
-      id: request.id
+        code: -32602
+        , message: `Unknown tool: ${name}`
+      }
+      , id: request.id
     };
   }
 
@@ -274,9 +274,9 @@ export class BrowserMCPServer {
     
     if (!handler) {
       return {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Not found' })
+        status: 404
+        , headers: { 'Content-Type': 'application/json' }
+        , body: JSON.stringify({ error: 'Not found' })
       };
     }
 

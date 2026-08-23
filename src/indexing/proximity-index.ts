@@ -20,10 +20,10 @@ export class ProximityFragmentIndex {
     
     // Store processed document
     this.documents.set(docId, {
-      id: docId,
-      content,
-      tokens: tokens.map(t => t.token),
-      positions: tokens
+      id: docId
+      , content
+      , tokens: tokens.map(t => t.token)
+      , positions: tokens
     });
     
     // Store file path mapping
@@ -35,9 +35,9 @@ export class ProximityFragmentIndex {
         this.positionIndex.set(token, []);
       }
       this.positionIndex.get(token)!.push({
-        docId,
-        start,
-        end
+        docId
+        , start
+        , end
       });
     });
   }
@@ -74,16 +74,16 @@ export class ProximityFragmentIndex {
         );
         
         fragments.push({
-          id: `${docId}:prox${idx}`,
-          docId,
-          docPath: filePath,
-          content: fragment.text,
-          score: this.scoreCluster(cluster, queryTokens.length),
-          lineStart: this.getLineNumber(doc.content, fragment.start),
-          lineEnd: this.getLineNumber(doc.content, fragment.end),
-          metadata: {
-            clusterSize: cluster.terms.size,
-            proximity: cluster.end - cluster.start
+          id: `${docId}:prox${idx}`
+          , docId
+          , docPath: filePath
+          , content: fragment.text
+          , score: this.scoreCluster(cluster, queryTokens.length)
+          , lineStart: this.getLineNumber(doc.content, fragment.start)
+          , lineEnd: this.getLineNumber(doc.content, fragment.end)
+          , metadata: {
+            clusterSize: cluster.terms.size
+            , proximity: cluster.end - cluster.start
           }
         });
       });
@@ -103,9 +103,9 @@ export class ProximityFragmentIndex {
       const token = match[0].toLowerCase();
       if (token.length > 2) {
         tokens.push({
-          token,
-          start: match.index,
-          end: match.index + match[0].length
+          token
+          , start: match.index
+          , end: match.index + match[0].length
         });
       }
     }
@@ -185,10 +185,10 @@ export class ProximityFragmentIndex {
       if (!currentCluster || pos - currentCluster.end > maxDistance) {
         // Start new cluster
         currentCluster = {
-          start: pos,
-          end: pos,
-          terms: new Set([term]),
-          positions: [pos]
+          start: pos
+          , end: pos
+          , terms: new Set([term])
+          , positions: [pos]
         };
         clusters.push(currentCluster);
       } else {
@@ -241,9 +241,9 @@ export class ProximityFragmentIndex {
     }
     
     return {
-      text: content.substring(fragmentStart, fragmentEnd).trim(),
-      start: fragmentStart,
-      end: fragmentEnd
+      text: content.substring(fragmentStart, fragmentEnd).trim()
+      , start: fragmentStart
+      , end: fragmentEnd
     };
   }
   

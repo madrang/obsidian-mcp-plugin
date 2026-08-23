@@ -53,11 +53,16 @@ export const FILES_ACTIONS = ['create', 'delete', 'move', 'copy', 'split', 'conc
 export async function executeFilesOperation(ctx: RouterContext, action: string, params: Params): Promise<unknown> {
     switch (action) {
       case 'folder': {
-        // Translate "/" to undefined for root directory
-        const dirParam = paramStr(params, 'directory');
+        // `path` names the folder to list. "/" means the vault root.
+        const dirParam = paramStr(params, 'path');
         const directory = dirParam === '/' ? undefined : dirParam;
+        // A glob filter. Blank means absent.
+        const pattern = paramStr(params, 'pattern')?.trim() || undefined;
 
-        // Use paginated list if page parameters are provided.
+        // Use paginated list if page parameters are provided, or when a
+        // pattern filters the listing: the structured response then carries
+        // the pattern and the next-page hint can reproduce the filtered call.
+        //
         // When paginating inside a specific directory, recurse so the
         // agent sees the same universe of files as the non-paginated
         // call — page N gives the Nth slice of the recursive listing,
@@ -65,14 +70,14 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
         // already recursive (getAllLoadedFiles), so we leave
         // recursive=false there. The listFilesPaginated call routes
         // through the same path regardless.
-        if (params.page || params.pageSize) {
+        if (pattern !== undefined || params.page || params.pageSize) {
           // MCP clients send these as JSON numbers. paramStr returns undefined
           // for non-strings, so parseInt(paramStr(...) ?? '1') silently
           // collapsed to defaults and made pagination a no-op.
           const page = paramNum(params, 'page') ?? 1;
           const pageSize = paramNum(params, 'pageSize') ?? 20;
           const recursive = directory !== undefined;
-          return await ctx.api.listFilesPaginated(directory, page, pageSize, recursive);
+          return await ctx.api.listFilesPaginated(directory, page, pageSize, recursive, pattern);
         }
 
         // Fallback to simple list for backwards compatibility
@@ -84,12 +89,12 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
           ? resolveFragmentStrategy(paramStr(params, 'strategy'))
           : undefined;
         return await readFileWithFragments(ctx.api, ctx.fragmentRetriever, {
-          path,
-          returnFullFile: paramBool(params, 'returnFullFile'),
-          page: paramNum(params, 'page'),
-          query: paramStr(params, 'query'),
-          strategy,
-          maxFragments: paramNum(params, 'maxFragments')
+          path
+          , returnFullFile: paramBool(params, 'returnFullFile')
+          , page: paramNum(params, 'page')
+          , query: paramStr(params, 'query')
+          , strategy
+          , maxFragments: paramNum(params, 'maxFragments')
         });
       }
       case 'fragments': {
@@ -103,11 +108,11 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
         // Skip indexing if no query provided
         if (!fragmentQuery || fragmentQuery.trim().length === 0) {
           return {
-            result: [],
-            context: {
-              operation: 'view',
-              action: 'fragments',
-              error: 'No query provided for fragment search'
+            result: []
+            , context: {
+              operation: 'view'
+              , action: 'fragments'
+              , error: 'No query provided for fragment search'
             }
           };
         }
@@ -152,20 +157,20 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
 
           // Search for fragments in indexed documents
           const fragmentResponse = ctx.fragmentRetriever.retrieveFragments(fragmentQuery, {
-            strategy: resolveFragmentStrategy(paramStr(params, 'strategy')),
-            maxFragments: paramNum(params, 'maxFragments') || 5,
-            scopePath: fragmentPath
+            strategy: resolveFragmentStrategy(paramStr(params, 'strategy'))
+            , maxFragments: paramNum(params, 'maxFragments') || 5
+            , scopePath: fragmentPath
           });
 
           return fragmentResponse;
         } catch (error) {
           Debug.error('Fragment search failed:', error);
           return {
-            result: [],
-            context: {
-              operation: 'view',
-              action: 'fragments',
-              error: error instanceof Error ? error.message : String(error)
+            result: []
+            , context: {
+              operation: 'view'
+              , action: 'fragments'
+              , error: error instanceof Error ? error.message : String(error)
             }
           };
         }
@@ -206,15 +211,15 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
         const queryStr = paramStr(params, 'query');
         if (!queryStr || queryStr.trim().length === 0) {
           return {
-            query: queryStr || '',
-            page: 1,
-            pageSize: 10,
-            totalResults: 0,
-            totalPages: 0,
-            results: [],
-            method: 'error',
-            error: 'Search query is required',
-            hint: 'Please provide a search query. Examples: "keyword", "tag:#example", "file:name.md"'
+            query: queryStr || ''
+            , page: 1
+            , pageSize: 10
+            , totalResults: 0
+            , totalPages: 0
+            , results: []
+            , method: 'error'
+            , error: 'Search query is required'
+            , hint: 'Please provide a search query. Examples: "keyword", "tag:#example", "file:name.md"'
           };
         }
 
@@ -280,9 +285,9 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
 
             if (fallbackResults && fallbackResults.results && fallbackResults.results.length > 0) {
               return {
-                ...fallbackResults,
-                method: 'filename_fallback',
-                warning: 'Using filename-only search due to advanced search failure'
+                ...fallbackResults
+                , method: 'filename_fallback'
+                , warning: 'Using filename-only search due to advanced search failure'
               };
             }
           } catch (fallbackError) {
@@ -291,15 +296,15 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
 
           // Return error with helpful information
           return {
-            query: queryStr,
-            page: 1,
-            pageSize: 10,
-            totalResults: 0,
-            totalPages: 0,
-            results: [],
-            method: 'error',
-            error: searchError instanceof Error ? searchError.message : String(searchError),
-            hint: 'Try simplifying your query or check if the vault is accessible'
+            query: queryStr
+            , page: 1
+            , pageSize: 10
+            , totalResults: 0
+            , totalPages: 0
+            , results: []
+            , method: 'error'
+            , error: searchError instanceof Error ? searchError.message : String(searchError)
+            , hint: 'Try simplifying your query or check if the vault is accessible'
           };
         }
       }
@@ -361,19 +366,19 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
           if (abstractFile && 'extension' in abstractFile) {
             await ctx.api.moveFile(path, destination);
             return {
-              success: true,
-              oldPath: path,
-              newPath: destination,
-              workflow: {
-                message: `File ${inPlace ? 'renamed' : 'moved'} successfully from ${path} to ${destination}`,
-                suggested_next: [
+              success: true
+              , oldPath: path
+              , newPath: destination
+              , workflow: {
+                message: `File ${inPlace ? 'renamed' : 'moved'} successfully from ${path} to ${destination}`
+                , suggested_next: [
                   {
-                    description: 'View the moved file',
-                    command: `view(action='read', path='${destination}')`
-                  },
-                  {
-                    description: 'Edit the moved file',
-                    command: `edit(action='replace', path='${destination}', oldText='...', newText='...')`
+                    description: 'View the moved file'
+                    , command: `view(action='read', path='${destination}')`
+                  }
+                  , {
+                    description: 'Edit the moved file'
+                    , command: `edit(action='replace', path='${destination}', oldText='...', newText='...')`
                   }
                 ]
               }
@@ -391,19 +396,19 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
         await ctx.api.deleteFile(path);
         
         return { 
-          success: true, 
-          oldPath: path,
-          newPath: destination,
-          workflow: {
-            message: `File moved successfully from ${path} to ${destination}`,
-            suggested_next: [
+          success: true 
+          , oldPath: path
+          , newPath: destination
+          , workflow: {
+            message: `File moved successfully from ${path} to ${destination}`
+            , suggested_next: [
               {
-                description: 'View the moved file',
-                command: `view(action='read', path='${destination}')`
-              },
-              {
-                description: 'Edit the moved file',
-                command: `edit(action='replace', path='${destination}', oldText='...', newText='...')`
+                description: 'View the moved file'
+                , command: `view(action='read', path='${destination}')`
+              }
+              , {
+                description: 'Edit the moved file'
+                , command: `edit(action='replace', path='${destination}', oldText='...', newText='...')`
               }
             ]
           }
@@ -490,31 +495,31 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
           await ctx.api.createFile(outputPath, splitFiles[i].content);
           
           createdFiles.push({
-            path: outputPath,
-            lines: splitFiles[i].content.split('\n').length,
-            size: splitFiles[i].content.length
+            path: outputPath
+            , lines: splitFiles[i].content.split('\n').length
+            , size: splitFiles[i].content.length
           });
         }
         
         return {
-          success: true,
-          sourceFile: path,
-          createdFiles,
-          totalFiles: createdFiles.length,
-          workflow: {
-            message: `Successfully split ${path} into ${createdFiles.length} files`,
-            suggested_next: [
+          success: true
+          , sourceFile: path
+          , createdFiles
+          , totalFiles: createdFiles.length
+          , workflow: {
+            message: `Successfully split ${path} into ${createdFiles.length} files`
+            , suggested_next: [
               {
-                description: 'View one of the split files',
-                command: `view(action='read', path='${createdFiles[0]?.path}')`
-              },
-              {
-                description: 'List all created files',
-                command: `view(action='folder', directory='${dir || '.'}')`
-              },
-              {
-                description: 'Combine files back together',
-                command: `edit(action='concat', paths=${JSON.stringify(createdFiles.map(f => f.path))}, destination='${path}-combined${ext}')`
+                description: 'View one of the split files'
+                , command: `view(action='read', path='${createdFiles[0]?.path}')`
+              }
+              , {
+                description: 'List all created files'
+                , command: `view(action='folder', directory='${dir || '.'}')`
+              }
+              , {
+                description: 'Combine files back together'
+                , command: `edit(action='concat', paths=${JSON.stringify(createdFiles.map(f => f.path))}, destination='${path}-combined${ext}')`
               }
             ]
           }
@@ -633,24 +638,24 @@ export async function combineFiles(ctx: RouterContext, params: Params): Promise<
   }
 
   return {
-    success: true,
-    destination,
-    filesCombined: paths.length,
-    totalSize: finalContent.length,
-    workflow: {
-      message: `Successfully combined ${paths.length} files into ${destination}`,
-      suggested_next: [
+    success: true
+    , destination
+    , filesCombined: paths.length
+    , totalSize: finalContent.length
+    , workflow: {
+      message: `Successfully combined ${paths.length} files into ${destination}`
+      , suggested_next: [
         {
-          description: 'View the combined file',
-          command: `view(action='read', path='${destination}')`
-        },
-        {
-          description: 'Edit the combined file',
-          command: `edit(action='replace', path='${destination}', oldText='...', newText='...')`
-        },
-        {
-          description: 'Split the file back into parts',
-          command: `files(action='split', path='${destination}', splitBy='delimiter', delimiter='${separator}')`
+          description: 'View the combined file'
+          , command: `view(action='read', path='${destination}')`
+        }
+        , {
+          description: 'Edit the combined file'
+          , command: `edit(action='replace', path='${destination}', oldText='...', newText='...')`
+        }
+        , {
+          description: 'Split the file back into parts'
+          , command: `files(action='split', path='${destination}', splitBy='delimiter', delimiter='${separator}')`
         }
       ]
     }
@@ -854,23 +859,23 @@ async function copyFile(ctx: RouterContext, path: string, destination: string, o
     }
     
     return { 
-      success: true,
-      sourcePath: path,
-      copiedTo: destination,
-      workflow: {
-        message: `File copied successfully from ${path} to ${destination}`,
-        suggested_next: [
+      success: true
+      , sourcePath: path
+      , copiedTo: destination
+      , workflow: {
+        message: `File copied successfully from ${path} to ${destination}`
+        , suggested_next: [
           {
-            description: 'View the copied file',
-            command: `view(action='read', path='${destination}')`
-          },
-          {
-            description: 'Edit the copied file',
-            command: `edit(action='replace', path='${destination}', oldText='...', newText='...')`
-          },
-          {
-            description: 'Compare original and copy',
-            command: `view(action='read', path='${path}') then view(action='read', path='${destination}')`
+            description: 'View the copied file'
+            , command: `view(action='read', path='${destination}')`
+          }
+          , {
+            description: 'Edit the copied file'
+            , command: `edit(action='replace', path='${destination}', oldText='...', newText='...')`
+          }
+          , {
+            description: 'Compare original and copy'
+            , command: `view(action='read', path='${path}') then view(action='read', path='${destination}')`
           }
         ]
       }
@@ -943,26 +948,26 @@ async function copyDirectoryRecursive(ctx: RouterContext, sourcePath: string, de
     await copyDir(sourcePath, destPath);
     
     return {
-      success: true,
-      sourcePath,
-      destinationPath: destPath,
-      filesCount: copiedFiles.length,
-      copiedFiles,
-      skippedFiles,
-      workflow: {
-        message: `Directory copied successfully: ${copiedFiles.length} files from ${sourcePath} to ${destPath}${skippedFiles.length > 0 ? ` (${skippedFiles.length} files skipped)` : ''}`,
-        suggested_next: [
+      success: true
+      , sourcePath
+      , destinationPath: destPath
+      , filesCount: copiedFiles.length
+      , copiedFiles
+      , skippedFiles
+      , workflow: {
+        message: `Directory copied successfully: ${copiedFiles.length} files from ${sourcePath} to ${destPath}${skippedFiles.length > 0 ? ` (${skippedFiles.length} files skipped)` : ''}`
+        , suggested_next: [
           {
-            description: 'List copied directory contents',
-            command: `view(action='folder', directory='${destPath}')`
-          },
-          {
-            description: 'View a copied file',
-            command: `view(action='read', path='${copiedFiles[0] || destPath + '/README.md'}')`
-          },
-          ...(skippedFiles.length > 0 ? [{
-            description: 'Review skipped files',
-            command: `Review skipped files: ${skippedFiles.slice(0, 3).join(', ')}${skippedFiles.length > 3 ? '...' : ''}`
+            description: 'List copied directory contents'
+            , command: `view(action='folder', directory='${destPath}')`
+          }
+          , {
+            description: 'View a copied file'
+            , command: `view(action='read', path='${copiedFiles[0] || destPath + '/README.md'}')`
+          }
+          , ...(skippedFiles.length > 0 ? [{
+            description: 'Review skipped files'
+            , command: `Review skipped files: ${skippedFiles.slice(0, 3).join(', ')}${skippedFiles.length > 3 ? '...' : ''}`
           }] : [])
         ]
       }

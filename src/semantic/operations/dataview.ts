@@ -27,60 +27,60 @@ export async function executeDataviewOperation(ctx: RouterContext, action: strin
   switch (action) {
     case 'status':
       return {
-        result: dataviewTool.getStatus(),
-        context: { operation, action }
+        result: dataviewTool.getStatus()
+        , context: { operation, action }
       };
     case 'query': {
       if (!params.query) {
         return {
-          error: { code: 'MISSING_PARAMETER', message: 'Query parameter is required' },
-          context: { operation, action }
+          error: { code: 'MISSING_PARAMETER', message: 'Query parameter is required' }
+          , context: { operation, action }
         };
       }
       const dvFormat = params.format === 'js' ? 'js' : 'dql';
       const queryResult = await dataviewTool.executeQuery(params.query as string, dvFormat);
       return {
-        result: queryResult,
-        context: { operation, action, query: params.query as string }
+        result: queryResult
+        , context: { operation, action, query: params.query as string }
       };
     }
     case 'list': {
       const listResult = await dataviewTool.listPages(params.source as string | undefined);
       return {
-        result: listResult,
-        context: { operation, action, source: params.source }
+        result: listResult
+        , context: { operation, action, source: params.source }
       };
     }
     case 'metadata': {
       if (!params.path) {
         return {
-          error: { code: 'MISSING_PARAMETER', message: 'Path parameter is required' },
-          context: { operation, action }
+          error: { code: 'MISSING_PARAMETER', message: 'Path parameter is required' }
+          , context: { operation, action }
         };
       }
       const metadataResult = await dataviewTool.getPageMetadata(params.path as string);
       return {
-        result: metadataResult,
-        context: { operation, action, path: params.path as string }
+        result: metadataResult
+        , context: { operation, action, path: params.path as string }
       };
     }
     case 'validate': {
       if (!params.query) {
         return {
-          error: { code: 'MISSING_PARAMETER', message: 'Query parameter is required' },
-          context: { operation, action }
+          error: { code: 'MISSING_PARAMETER', message: 'Query parameter is required' }
+          , context: { operation, action }
         };
       }
       const validateResult = await dataviewTool.validateQuery(params.query as string);
       return {
-        result: validateResult,
-        context: { operation, action, query: params.query as string }
+        result: validateResult
+        , context: { operation, action, query: params.query as string }
       };
     }
     default:
       return {
-        error: { code: 'INVALID_ACTION', message: `Unknown Dataview action: ${action}` },
-        context: { operation, action }
+        error: { code: 'INVALID_ACTION', message: `Unknown Dataview action: ${action}` }
+        , context: { operation, action }
       };
   }
 }

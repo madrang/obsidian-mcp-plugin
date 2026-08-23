@@ -90,11 +90,11 @@ function buildPage(lines: string[], startIdx: number): {
     if (oversizedLine) break;
   }
   return {
-    text: parts.join('\n'),
-    lineStart: startIdx + 1,
-    lineEnd: i, // 1-based inclusive end == count of lines consumed
-    nextIdx: i,
-    oversizedLine,
+    text: parts.join('\n')
+    , lineStart: startIdx + 1
+    , lineEnd: i // 1-based inclusive end == count of lines consumed
+    , nextIdx: i
+    , oversizedLine,
   };
 }
 
@@ -166,23 +166,23 @@ export async function readFileWithFragments(
     fragmentRetriever.indexDocument(docId, path, fileContent);
     const fragmentQuery = query || path.split('/').pop()?.replace('.md', '') || '';
     const fragmentResponse = fragmentRetriever.retrieveFragments(fragmentQuery, {
-      strategy: strategy || 'auto',
-      maxFragments: maxFragments || 5,
+      strategy: strategy || 'auto'
+      , maxFragments: maxFragments || 5,
     });
     return {
-      path,
-      ...metaNoBody,
-      frontmatter,
-      tags,
-      content: fragmentResponse.result,
-      originalContentLength: totalChars,
-      fragmentMetadata: {
-        totalFragments: fragmentResponse.result.length,
-        strategy: strategy || 'auto',
-        query: fragmentQuery,
-      },
-      workflow: fragmentResponse.workflow,
-      efficiency_hints: fragmentResponse.efficiency_hints,
+      path
+      , ...metaNoBody
+      , frontmatter
+      , tags
+      , content: fragmentResponse.result
+      , originalContentLength: totalChars
+      , fragmentMetadata: {
+        totalFragments: fragmentResponse.result.length
+        , strategy: strategy || 'auto'
+        , query: fragmentQuery,
+      }
+      , workflow: fragmentResponse.workflow
+      , efficiency_hints: fragmentResponse.efficiency_hints,
     };
   }
 
@@ -190,31 +190,31 @@ export async function readFileWithFragments(
   if (returnFullFile || totalChars <= READ_PAGE_CHARS) {
     const overrideOnLarge = !!returnFullFile && totalChars > READ_PAGE_CHARS;
     return {
-      path,
-      content: fileContent, // verbatim, single contiguous string
+      path
+      , content: fileContent // verbatim, single contiguous string
       // Precondition values (edit ifUnmodifiedSince / ifHash). Attached only
       // here, on the branch that returns the complete file: there is no way
       // to get them without the content.
-      mtime: typeof fileMtime === 'number' ? fileMtime : undefined,
-      hash: contentHash(fileContent),
-      frontmatter,
-      tags,
-      metadata: {
-        ...metaNoBody,
-        totalLines,
-        bytes: totalChars,
-      },
-      pagination: {
-        paginated: false,
-        page: 1,
-        pageLineStart: 1,
-        pageLineEnd: totalLines,
-        totalLines,
-        bytes: totalChars,
-        hasMore: false,
-        nextPage: null,
-      },
-      warning: overrideOnLarge
+      , mtime: typeof fileMtime === 'number' ? fileMtime : undefined
+      , hash: contentHash(fileContent)
+      , frontmatter
+      , tags
+      , metadata: {
+        ...metaNoBody
+        , totalLines
+        , bytes: totalChars,
+      }
+      , pagination: {
+        paginated: false
+        , page: 1
+        , pageLineStart: 1
+        , pageLineEnd: totalLines
+        , totalLines
+        , bytes: totalChars
+        , hasMore: false
+        , nextPage: null,
+      }
+      , warning: overrideOnLarge
         ? `Returned entire large file verbatim (${totalLines} lines, ${totalChars} bytes) via returnFullFile override.`
         : undefined,
     };
@@ -234,46 +234,46 @@ export async function readFileWithFragments(
   // Requested a page past EOF
   if (cur < requested) {
     return {
-      path,
-      content: '',
-      frontmatter,
-      tags,
-      metadata: { ...metaNoBody, totalLines, bytes: totalChars },
-      pagination: {
-        paginated: true,
-        page: requested,
-        pageLineStart: totalLines + 1,
-        pageLineEnd: totalLines,
-        totalLines,
-        bytes: totalChars,
-        hasMore: false,
-        nextPage: null,
-        beyondEnd: true,
-      },
-      warning: `Requested page ${requested} is past end of file (file has ${totalLines} lines, last page is ${cur}).`,
+      path
+      , content: ''
+      , frontmatter
+      , tags
+      , metadata: { ...metaNoBody, totalLines, bytes: totalChars }
+      , pagination: {
+        paginated: true
+        , page: requested
+        , pageLineStart: totalLines + 1
+        , pageLineEnd: totalLines
+        , totalLines
+        , bytes: totalChars
+        , hasMore: false
+        , nextPage: null
+        , beyondEnd: true,
+      }
+      , warning: `Requested page ${requested} is past end of file (file has ${totalLines} lines, last page is ${cur}).`,
     };
   }
 
   const hasMore = built.nextIdx < lines.length;
   const nextPageNum = cur + 1;
   return {
-    path,
-    content: built.text, // contiguous verbatim block for this line range
-    frontmatter,
-    tags,
-    metadata: { ...metaNoBody, totalLines, bytes: totalChars },
-    pagination: {
-      paginated: true,
-      page: cur,
-      pageLineStart: built.lineStart,
-      pageLineEnd: built.lineEnd,
-      totalLines,
-      bytes: totalChars,
-      hasMore,
-      nextPage: hasMore ? `view.read(path='${path}', page=${nextPageNum})` : null,
-      oversizedLine: built.oversizedLine || undefined,
-    },
-    warning:
+    path
+    , content: built.text // contiguous verbatim block for this line range
+    , frontmatter
+    , tags
+    , metadata: { ...metaNoBody, totalLines, bytes: totalChars }
+    , pagination: {
+      paginated: true
+      , page: cur
+      , pageLineStart: built.lineStart
+      , pageLineEnd: built.lineEnd
+      , totalLines
+      , bytes: totalChars
+      , hasMore
+      , nextPage: hasMore ? `view.read(path='${path}', page=${nextPageNum})` : null
+      , oversizedLine: built.oversizedLine || undefined,
+    }
+    , warning:
       `Large file (${totalLines} lines, ${totalChars} bytes). Returned page ${cur} ` +
       `(lines ${built.lineStart}-${built.lineEnd}, verbatim). ` +
       (hasMore ? `Use page=${nextPageNum} for more, ` : '') +

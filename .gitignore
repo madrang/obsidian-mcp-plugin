@@ -134,3 +134,7 @@ test-concurrent-sessions.js
 AGENTS.md
 CLAUDE.md
 .zcode/
+
+# Generated cleanroom surface dump (regenerate with scripts/dump-surface.mjs)
+surface-dump.json
+.surface-dump.tmp.cjs

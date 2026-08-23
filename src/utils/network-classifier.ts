@@ -99,20 +99,20 @@ export function classify(state: NetworkState): Verdict {
   if (protocol === 'http') {
     if (bind === 'loopback' || bind === 'custom-loopback') {
       return {
-        class: 'ok',
-        reason: 'HTTP on loopback — traffic never leaves this machine.'
+        class: 'ok'
+        , reason: 'HTTP on loopback — traffic never leaves this machine.'
       };
     }
     if (bind === 'all') {
       return {
-        class: 'jail',
-        reason:
+        class: 'jail'
+        , reason:
           'HTTP bound to every interface. API key and vault content travel in cleartext to anyone on the network.'
       };
     }
     return {
-      class: 'jail',
-      reason:
+      class: 'jail'
+      , reason:
         'HTTP bound to a non-loopback address. API key and vault content travel in cleartext on the wire.'
     };
   }
@@ -120,15 +120,15 @@ export function classify(state: NetworkState): Verdict {
   // protocol === 'https'
   if (bind === 'loopback' || bind === 'custom-loopback') {
     return {
-      class: 'ok',
-      reason: 'HTTPS on loopback — self-signed certificate is fine here.'
+      class: 'ok'
+      , reason: 'HTTPS on loopback — self-signed certificate is fine here.'
     };
   }
 
   if (certSource === 'user') {
     return {
-      class: 'ok',
-      reason:
+      class: 'ok'
+      , reason:
         bind === 'all'
           ? 'HTTPS on every interface with a user-supplied certificate — the intended public deployment.'
           : 'HTTPS on a custom interface with a user-supplied certificate — the intended LAN/remote deployment.'
@@ -137,8 +137,8 @@ export function classify(state: NetworkState): Verdict {
 
   // self-signed on non-loopback
   return {
-    class: 'warn',
-    reason:
+    class: 'warn'
+    , reason:
       bind === 'all'
         ? 'HTTPS on every interface with a self-signed certificate — encrypted but clients must trust-on-first-use.'
         : 'HTTPS on a custom interface with a self-signed certificate — encrypted but clients must trust-on-first-use.'
@@ -155,9 +155,9 @@ export function classifyFromSettings(args: {
   userSuppliedCert: boolean;
 }): Verdict {
   return classify({
-    protocol: args.httpsEnabled ? 'https' : 'http',
-    bind: resolveBindAxis(args.bindMode, args.customBindHost),
-    certSource: args.userSuppliedCert ? 'user' : 'self'
+    protocol: args.httpsEnabled ? 'https' : 'http'
+    , bind: resolveBindAxis(args.bindMode, args.customBindHost)
+    , certSource: args.userSuppliedCert ? 'user' : 'self'
   });
 }
 
@@ -172,9 +172,9 @@ export function agentInstructionsForVerdict(
 ): string | null {
   if (verdict.class !== 'jail') return null;
   return [
-    'SECURITY WARNING: This Obsidian MCP server is configured to serve vault contents',
-    `over an unencrypted network interface (${resolvedHost}:${port}). The API key and all`,
-    'document text travel in cleartext over the network. If the user did not intend this,',
-    'advise them to reconfigure the plugin to use HTTPS or to bind to loopback (127.0.0.1) only.'
+    'SECURITY WARNING: This Obsidian MCP server is configured to serve vault contents'
+    , `over an unencrypted network interface (${resolvedHost}:${port}). The API key and all`
+    , 'document text travel in cleartext over the network. If the user did not intend this,'
+    , 'advise them to reconfigure the plugin to use HTTPS or to bind to loopback (127.0.0.1) only.'
   ].join(' ');
 }

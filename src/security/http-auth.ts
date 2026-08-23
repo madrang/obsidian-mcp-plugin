@@ -63,10 +63,10 @@ export function normalizeScopedTokens(raw: unknown): ScopedToken[] {
       ? e.folder.trim().replace(/^\/+|\/+$/g, '')
       : '';
     out.push({
-      name: typeof e.name === 'string' ? e.name : '',
-      token: e.token,
-      ...(folder ? { folder } : {}),
-      ...(e.readOnly === true ? { readOnly: true } : {})
+      name: typeof e.name === 'string' ? e.name : ''
+      , token: e.token
+      , ...(folder ? { folder } : {})
+      , ...(e.readOnly === true ? { readOnly: true } : {})
     });
   }
   return out;
@@ -122,11 +122,11 @@ function matchScopedToken(secret: string, tokens: ScopedToken[] | undefined): Sc
 /** The allow-decision for a scoped token match carries the token's scope. */
 function scopedDecision(token: ScopedToken): AuthDecision {
   return {
-    allow: true,
-    reason: 'authenticated',
-    identity: identityForToken(token.token),
-    ...(token.folder ? { folder: token.folder } : {}),
-    ...(token.readOnly === true ? { readOnly: true } : {})
+    allow: true
+    , reason: 'authenticated'
+    , identity: identityForToken(token.token)
+    , ...(token.folder ? { folder: token.folder } : {})
+    , ...(token.readOnly === true ? { readOnly: true } : {})
   };
 }
 

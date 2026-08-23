@@ -60,16 +60,16 @@ export class SemanticRouter implements RouterContext {
   
   private getDefaultConfig(): WorkflowConfig {
     return {
-      version: '1.0.0',
-      description: 'Default workflow configuration',
-      operations: {
+      version: '1.0.0'
+      , description: 'Default workflow configuration'
+      , operations: {
         files: {
-          description: 'File operations',
-          actions: {}
-        },
-        edit: {
-          description: 'Edit operations', 
-          actions: {}
+          description: 'File operations'
+          , actions: {}
+        }
+        , edit: {
+          description: 'Edit operations' 
+          , actions: {}
         }
       }
     };
@@ -131,8 +131,8 @@ export class SemanticRouter implements RouterContext {
     const limitedResult = shouldLimit ? limitResponse(result) : result;
     
     const response: SemanticResponse = {
-      result: limitedResult,
-      context: this.getCurrentContext()
+      result: limitedResult
+      , context: this.getCurrentContext()
     };
     
     // Add workflow hints
@@ -140,8 +140,8 @@ export class SemanticRouter implements RouterContext {
       const hints = isError ? actionConfig.failure_hints : actionConfig.success_hints;
       if (hints && hints.suggested_next) {
         response.workflow = {
-          message: this.interpolateMessage(hints.message || '', params, result),
-          suggested_next: this.generateSuggestions(hints.suggested_next, params, result)
+          message: this.interpolateMessage(hints.message || '', params, result)
+          , suggested_next: this.generateSuggestions(hints.suggested_next, params, result)
         };
       }
     }
@@ -153,8 +153,8 @@ export class SemanticRouter implements RouterContext {
         if (response.workflow) {
           // Merge with existing workflow hints
           response.workflow.suggested_next = [
-            ...response.workflow.suggested_next,
-            ...enhancedHints.suggested_next
+            ...response.workflow.suggested_next
+            , ...enhancedHints.suggested_next
           ];
           response.workflow.message += ' ' + enhancedHints.message;
         } else {
@@ -167,8 +167,8 @@ export class SemanticRouter implements RouterContext {
     const efficiencyHints = this.checkEfficiencyRules(operation, action, params);
     if (efficiencyHints.length > 0) {
       response.efficiency_hints = {
-        message: efficiencyHints[0].hint,
-        alternatives: efficiencyHints.slice(1).map(h => h.hint)
+        message: efficiencyHints[0].hint
+        , alternatives: efficiencyHints.slice(1).map(h => h.hint)
       };
     }
     
@@ -202,9 +202,9 @@ export class SemanticRouter implements RouterContext {
           }
           
           suggestions.push({
-            description: suggestion.description,
-            command: this.interpolateMessage(suggestion.command, params, result),
-            reason: suggestion.reason
+            description: suggestion.description
+            , command: this.interpolateMessage(suggestion.command, params, result)
+            , reason: suggestion.reason
           });
         }
       }
@@ -328,7 +328,8 @@ export class SemanticRouter implements RouterContext {
       }
     }
     
-    const dirVal = paramStr(params, 'directory');
+    // view.folder carries its scope on `path`.
+    const dirVal = operation === 'view' && action === 'folder' ? paramStr(params, 'path') : undefined;
     if (dirVal) {
       this.context.last_directory = dirVal;
     }
@@ -377,18 +378,18 @@ export class SemanticRouter implements RouterContext {
     const tokens = this.tokenManager.getTokens();
     
     return {
-      current_file: this.context.last_file,
-      current_directory: this.context.last_directory,
-      buffer_available: !!this.context.buffer_content,
-      file_history: this.context.file_history,
-      search_history: this.context.search_history,
+      current_file: this.context.last_file
+      , current_directory: this.context.last_directory
+      , buffer_available: !!this.context.buffer_content
+      , file_history: this.context.file_history
+      , search_history: this.context.search_history
       // Include relevant token states
-      has_file_content: tokens.file_content,
-      has_links: (tokens.file_has_links?.length ?? 0) > 0,
-      has_tags: (tokens.file_has_tags?.length ?? 0) > 0,
-      search_results_available: tokens.search_has_results,
-      linked_files: tokens.file_has_links,
-      tags: tokens.file_has_tags
+      , has_file_content: tokens.file_content
+      , has_links: (tokens.file_has_links?.length ?? 0) > 0
+      , has_tags: (tokens.file_has_tags?.length ?? 0) > 0
+      , search_results_available: tokens.search_has_results
+      , linked_files: tokens.file_has_links
+      , tags: tokens.file_has_tags
     };
   }
   
@@ -401,8 +402,8 @@ export class SemanticRouter implements RouterContext {
       true // isError
     );
 
-    // Extract parent directory from the directory parameter for suggestions
-    const dirParam = paramStr(params, 'directory');
+    // Extract parent directory from the folder path for suggestions
+    const dirParam = paramStr(params, 'path');
     if (operation === 'view' && action === 'folder' && dirParam) {
       const parts = dirParam.split('/');
       if (parts.length > 1) {
@@ -414,9 +415,9 @@ export class SemanticRouter implements RouterContext {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorCode = (error && typeof error === 'object' && 'code' in error) ? String((error as Record<string, unknown>).code) : undefined;
     errorResponse.error = {
-      code: errorCode || 'UNKNOWN_ERROR',
-      message: errorMessage,
-      recovery_hints: errorResponse.workflow?.suggested_next
+      code: errorCode || 'UNKNOWN_ERROR'
+      , message: errorMessage
+      , recovery_hints: errorResponse.workflow?.suggested_next
     };
     
     delete errorResponse.workflow; // Move suggestions to recovery_hints
@@ -430,33 +431,33 @@ export class SemanticRouter implements RouterContext {
     
     if (this.context.last_file) {
       suggestions.push({
-        description: 'Continue working with last file',
-        command: `view(action='read', path='${this.context.last_file}')`,
-        reason: 'Return to previous work'
+        description: 'Continue working with last file'
+        , command: `view(action='read', path='${this.context.last_file}')`
+        , reason: 'Return to previous work'
       });
     }
     
     if (this.context.search_history?.length) {
       const lastSearch = this.context.search_history[this.context.search_history.length - 1];
       suggestions.push({
-        description: 'Refine last search',
-        command: `view(action='search', query='${lastSearch} AND ...')`,
-        reason: 'Narrow down results'
+        description: 'Refine last search'
+        , command: `view(action='search', query='${lastSearch} AND ...')`
+        , reason: 'Narrow down results'
       });
     }
     
     // Always include a default suggestion if no context-specific ones
     if (suggestions.length === 0) {
       suggestions.push({
-        description: 'Use workflow hints from other operations',
-        command: 'view(action="folder") or view(action="read", path="...")',
-        reason: 'Each operation provides contextual workflow suggestions'
+        description: 'Use workflow hints from other operations'
+        , command: 'view(action="folder") or view(action="read", path="...")'
+        , reason: 'Each operation provides contextual workflow suggestions'
       });
     }
     
     return {
-      current_context: this.getCurrentContext(),
-      suggestions
+      current_context: this.getCurrentContext()
+      , suggestions
     };
   }
 
@@ -481,21 +482,21 @@ export class SemanticRouter implements RouterContext {
 
         if (firstResult?.path) {
           suggestions.push({
-            description: 'Explore connections from first result',
-            command: `graph(action='traverse', sourcePath='${firstResult.path}', maxDepth=2)`,
-            reason: 'Discover related files through links and references'
+            description: 'Explore connections from first result'
+            , command: `graph(action='traverse', sourcePath='${firstResult.path}', maxDepth=2)`
+            , reason: 'Discover related files through links and references'
           });
 
           suggestions.push({
-            description: 'Find files linking to this result',
-            command: `graph(action='backlinks', sourcePath='${firstResult.path}')`,
-            reason: 'See what files reference this content'
+            description: 'Find files linking to this result'
+            , command: `graph(action='backlinks', sourcePath='${firstResult.path}')`
+            , reason: 'See what files reference this content'
           });
 
           suggestions.push({
-            description: 'Find files linked from this result',
-            command: `graph(action='forwardlinks', sourcePath='${firstResult.path}')`,
-            reason: 'See what this file references'
+            description: 'Find files linked from this result'
+            , command: `graph(action='forwardlinks', sourcePath='${firstResult.path}')`
+            , reason: 'See what this file references'
           });
         }
 
@@ -503,9 +504,9 @@ export class SemanticRouter implements RouterContext {
           const secondResult = searchResults[1] as SearchResultItem | undefined;
           if (secondResult?.path && firstResult?.path) {
             suggestions.push({
-              description: 'Find connection path between top results',
-              command: `graph(action='path', sourcePath='${firstResult.path}', targetPath='${secondResult.path}')`,
-              reason: 'Discover how these search results are connected'
+              description: 'Find connection path between top results'
+              , command: `graph(action='path', sourcePath='${firstResult.path}', targetPath='${secondResult.path}')`
+              , reason: 'Discover how these search results are connected'
             });
           }
         }
@@ -515,9 +516,9 @@ export class SemanticRouter implements RouterContext {
         if (queryParam && queryParam.includes('#')) {
           const tagQuery = queryParam.replace('#', '');
           suggestions.push({
-            description: 'Explore files with similar tags',
-            command: `graph(action='tag-analysis', tagFilter=['${tagQuery}'])`,
-            reason: 'Find files grouped by similar tags'
+            description: 'Explore files with similar tags'
+            , command: `graph(action='tag-analysis', tagFilter=['${tagQuery}'])`
+            , reason: 'Find files grouped by similar tags'
           });
         }
       }
@@ -531,15 +532,15 @@ export class SemanticRouter implements RouterContext {
         message = 'Explore connections and references for deeper context.';
 
         suggestions.push({
-          description: 'Explore graph connections from this file',
-          command: `graph(action='neighbors', sourcePath='${readPath}')`,
-          reason: 'Find directly connected files'
+          description: 'Explore graph connections from this file'
+          , command: `graph(action='neighbors', sourcePath='${readPath}')`
+          , reason: 'Find directly connected files'
         });
 
         suggestions.push({
-          description: 'Find files that reference this one',
-          command: `graph(action='backlinks', sourcePath='${readPath}')`,
-          reason: 'See where this file is mentioned or linked'
+          description: 'Find files that reference this one'
+          , command: `graph(action='backlinks', sourcePath='${readPath}')`
+          , reason: 'See where this file is mentioned or linked'
         });
 
         // Check if the content suggests it might have many connections
@@ -572,17 +573,17 @@ export class SemanticRouter implements RouterContext {
 
         if (linkCount > 2) {
           suggestions.push({
-            description: 'Traverse the link network from this file',
-            command: `graph(action='traverse', sourcePath='${readPath}', maxDepth=3)`,
-            reason: `This file has ${linkCount} links - explore the broader network`
+            description: 'Traverse the link network from this file'
+            , command: `graph(action='traverse', sourcePath='${readPath}', maxDepth=3)`
+            , reason: `This file has ${linkCount} links - explore the broader network`
           });
         }
 
         if (tagCount > 0) {
           suggestions.push({
-            description: 'Find files with similar tags',
-            command: `graph(action='tag-traverse', startPath='${readPath}', maxDepth=2)`,
-            reason: `This file has ${tagCount} tags - explore related content`
+            description: 'Find files with similar tags'
+            , command: `graph(action='tag-traverse', startPath='${readPath}', maxDepth=2)`
+            , reason: `This file has ${tagCount} tags - explore related content`
           });
         }
       }
@@ -596,15 +597,15 @@ export class SemanticRouter implements RouterContext {
         const mdFiles = result.filter((f): f is string => typeof f === 'string' && f.endsWith('.md'));
         if (mdFiles.length >= 2) {
           suggestions.push({
-            description: 'Find connections between files in this directory',
-            command: `graph(action='path', sourcePath='${mdFiles[0]}', targetPath='${mdFiles[1]}')`,
-            reason: 'Discover how files in this directory relate to each other'
+            description: 'Find connections between files in this directory'
+            , command: `graph(action='path', sourcePath='${mdFiles[0]}', targetPath='${mdFiles[1]}')`
+            , reason: 'Discover how files in this directory relate to each other'
           });
 
           suggestions.push({
-            description: 'Analyze tag relationships in this directory',
-            command: `graph(action='tag-analysis', folderFilter='${paramStr(params, 'directory') || '/'}')`,
-            reason: 'Find common themes and tags among these files'
+            description: 'Analyze tag relationships in this directory'
+            , command: `graph(action='tag-analysis', folderFilter='${paramStr(params, 'path') || '/'}')`
+            , reason: 'Find common themes and tags among these files'
           });
         }
       } else if (resultObj && 'files' in resultObj && Array.isArray(resultObj.files)) {
@@ -616,9 +617,9 @@ export class SemanticRouter implements RouterContext {
           message = 'Consider exploring relationships between these files.';
 
           suggestions.push({
-            description: 'Find connections between files in this directory',
-            command: `graph(action='path', sourcePath='${mdFiles[0].path}', targetPath='${mdFiles[1].path}')`,
-            reason: 'Discover how files in this directory relate to each other'
+            description: 'Find connections between files in this directory'
+            , command: `graph(action='path', sourcePath='${mdFiles[0].path}', targetPath='${mdFiles[1].path}')`
+            , reason: 'Discover how files in this directory relate to each other'
           });
         }
       }
@@ -642,15 +643,15 @@ export class SemanticRouter implements RouterContext {
           const firstPath = sourcePaths[0];
           const secondPath = sourcePaths[1];
           suggestions.push({
-            description: 'Find connections between fragment sources',
-            command: `graph(action='path', sourcePath='${firstPath}', targetPath='${secondPath}')`,
-            reason: 'Explore how documents with similar content are connected'
+            description: 'Find connections between fragment sources'
+            , command: `graph(action='path', sourcePath='${firstPath}', targetPath='${secondPath}')`
+            , reason: 'Explore how documents with similar content are connected'
           });
 
           suggestions.push({
-            description: 'Traverse network from first fragment source',
-            command: `graph(action='traverse', sourcePath='${firstPath}', maxDepth=2)`,
-            reason: 'Discover the broader context around this content'
+            description: 'Traverse network from first fragment source'
+            , command: `graph(action='traverse', sourcePath='${firstPath}', maxDepth=2)`
+            , reason: 'Discover the broader context around this content'
           });
         }
       }

@@ -84,7 +84,7 @@ describe('view.grep', () => {
     expect(response.result.filesScanned).toBe(1);
   });
 
-  test('directory scopes the scan to a subtree', async () => {
+  test('a folder path scopes the scan to a subtree', async () => {
     const { router } = setup({
       'notes/a.md': 'hit',
       'notes/sub/b.md': 'hit',
@@ -93,7 +93,7 @@ describe('view.grep', () => {
     const response: any = await router.route({
       operation: 'view',
       action: 'grep',
-      params: { pattern: 'hit', directory: 'notes' },
+      params: { pattern: 'hit', path: 'notes' },
     });
     const paths = response.result.matches.map((m: any) => m.path).sort();
     expect(paths).toEqual(['notes/a.md', 'notes/sub/b.md']);

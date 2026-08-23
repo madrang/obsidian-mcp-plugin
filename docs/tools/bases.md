@@ -2,9 +2,9 @@
 
 The `bases` tool works with Obsidian Bases: `.base` files that define database-like views over the notes in the vault.
 
-Actions: `list`, `read`, `query`, `export`. To create a base, use `files.create` with `format: "base"`.
+Actions: `list`, `read`, `query`. To create a base, use `files.create` with `format: "base"`. Query with `format` covers export: the result comes back as csv, json, or markdown instead of structured data.
 
-Bases use YAML with expression-based filters, for example `status == "active"` and `file.hasTag("project")`.
+Filters are expression strings that use `&&` and `||`. YAML `and:` or `or:` keys combine them, for example `and: [file.hasTag("project"), 'status != "archived"']`.
 
 ## Actions
 
@@ -23,22 +23,31 @@ Get the YAML configuration of a base.
 ```
 
 ### `query`
-Execute filters on vault notes, optionally for a named view.
+Run a base on vault notes, optionally for a named view. Without `format`, the result is structured data: notes with properties and computed formulas, plus the total count.
+
+Optional parameters:
+
+- `filters` — extra filters on the results. Every filter must pass, on top of the base and view filters. Each item is `{ property, operator, value }`. The property is a frontmatter key, `file.*` metadata (`file.name`, `file.mtime`, `file.tags`), or `formula.NAME`. Operators: `equals`, `not_equals`, `contains`, `not_contains`, `starts_with`, `ends_with`, `gt`, `gte`, `lt`, `lte`, `between`, `in`, `not_in`, `is_empty`, `is_not_empty`. String comparison ignores case unless `caseSensitive` is true. This is the model of the in-app filter builder.
+- `sortBy` and `sortOrder` — order the results by one property, `asc` or `desc`. Default `asc`. Refines the view's own `sort:`; ties keep the view order.
+- `page` and `pageSize` — return one page of the results. Defaults 1 and 20. Pages apply after the view limit. The response carries `page`, `pageSize`, and the total count.
+- `properties` — keep only these properties in each note. A name matches its full key or its last segment, so `status` also keeps `file.status`.
 
 ```json
-{ "action": "query", "path": "views/projects.base", "viewName": "Active" }
+{
+  "action": "query",
+  "path": "views/projects.base",
+  "filters": [{ "property": "status", "operator": "equals", "value": "active" }],
+  "sortBy": "priority",
+  "sortOrder": "desc"
+}
 ```
 
-Optional parameters: `filters` (property, operator, value), `sort`, `pagination`, `properties`, and `includeContent` to include note content in the results.
-
-### `export`
-Export a base as CSV, JSON, or Markdown.
+### Export a query
+Add `format` (`csv`, `json`, or `markdown`) to `query`. The same query runs, and the result comes back as a formatted string in the response. The tool writes no file. The old `export` action merged into `query`.
 
 ```json
-{ "action": "export", "path": "views/projects.base", "format": "csv" }
+{ "action": "query", "path": "views/projects.base", "format": "csv" }
 ```
-
-`dateFormat` controls how dates render (for example `YYYY-MM-DD`).
 
 ## Creating a base
 

@@ -35,12 +35,12 @@ export interface ValidationConfig {
 }
 
 export const DEFAULT_VALIDATION_CONFIG: ValidationConfig = {
-  maxFileSize: 10 * 1024 * 1024, // 10MB
-  maxBatchSize: 100,
-  maxPathLength: 255,
-  maxRegexComplexity: 100,
-  strictMode: false,
-  allowedFileTypes: undefined // Allow all by default
+  maxFileSize: 10 * 1024 * 1024 // 10MB
+  , maxBatchSize: 100
+  , maxPathLength: 255
+  , maxRegexComplexity: 100
+  , strictMode: false
+  , allowedFileTypes: undefined // Allow all by default
 };
 
 /**
@@ -62,28 +62,28 @@ export class InputValidator {
   private initializeValidators(): void {
     // File creation validators
     this.validators.set('file.create', [
-      new PathSafetyValidator(this.config),
-      new FileSizeValidator(this.config),
-      new ContentValidator(this.config)
+      new PathSafetyValidator(this.config)
+      , new FileSizeValidator(this.config)
+      , new ContentValidator(this.config)
     ]);
 
     // File update validators
     this.validators.set('file.update', [
-      new PathSafetyValidator(this.config),
-      new FileSizeValidator(this.config),
-      new ContentValidator(this.config)
+      new PathSafetyValidator(this.config)
+      , new FileSizeValidator(this.config)
+      , new ContentValidator(this.config)
     ]);
 
     // File append validators
     this.validators.set('file.append', [
-      new FileSizeValidator(this.config),
-      new ContentValidator(this.config)
+      new FileSizeValidator(this.config)
+      , new ContentValidator(this.config)
     ]);
 
     // Search validators
     this.validators.set('search.query', [
-      new SafeRegexValidator(this.config),
-      new QueryLengthValidator(this.config)
+      new SafeRegexValidator(this.config)
+      , new QueryLengthValidator(this.config)
     ]);
 
     // Edit batch validators (edit.multi pair count)
@@ -93,8 +93,8 @@ export class InputValidator {
 
     // Batch operation validators
     this.validators.set('batch.combine', [
-      new BatchLimitValidator(this.config),
-      new PathArrayValidator(this.config)
+      new BatchLimitValidator(this.config)
+      , new PathArrayValidator(this.config)
     ]);
 
     this.validators.set('batch.split', [
@@ -123,8 +123,8 @@ export class InputValidator {
     }
 
     return {
-      valid: errors.length === 0,
-      errors: errors.length > 0 ? errors : undefined
+      valid: errors.length === 0
+      , errors: errors.length > 0 ? errors : undefined
     };
   }
 
@@ -199,12 +199,12 @@ export class FileSizeValidator implements Validator {
 
     if (sizeInBytes > this.config.maxFileSize) {
       return {
-        valid: false,
-        errors: [{
-          field: 'content',
-          message: `File size ${this.formatBytes(sizeInBytes)} exceeds maximum allowed size ${this.formatBytes(this.config.maxFileSize)}`,
-          code: 'FILE_SIZE_EXCEEDED',
-          value: sizeInBytes
+        valid: false
+        , errors: [{
+          field: 'content'
+          , message: `File size ${this.formatBytes(sizeInBytes)} exceeds maximum allowed size ${this.formatBytes(this.config.maxFileSize)}`
+          , code: 'FILE_SIZE_EXCEEDED'
+          , value: sizeInBytes
         }]
       };
     }
@@ -231,12 +231,12 @@ export class PathSafetyValidator implements Validator {
 
     if (!path || typeof path !== 'string') {
       return {
-        valid: false,
-        errors: [{
-          field: 'path',
-          message: 'Path is required and must be a string',
-          code: 'INVALID_PATH',
-          value: path
+        valid: false
+        , errors: [{
+          field: 'path'
+          , message: 'Path is required and must be a string'
+          , code: 'INVALID_PATH'
+          , value: path
         }]
       };
     }
@@ -246,40 +246,40 @@ export class PathSafetyValidator implements Validator {
     // Check path length
     if (path.length > this.config.maxPathLength) {
       errors.push({
-        field: 'path',
-        message: `Path length ${path.length} exceeds maximum ${this.config.maxPathLength}`,
-        code: 'PATH_TOO_LONG',
-        value: path.length
+        field: 'path'
+        , message: `Path length ${path.length} exceeds maximum ${this.config.maxPathLength}`
+        , code: 'PATH_TOO_LONG'
+        , value: path.length
       });
     }
 
     // Check for path traversal attempts
     if (path.includes('..')) {
       errors.push({
-        field: 'path',
-        message: 'Path traversal detected (..)',
-        code: 'PATH_TRAVERSAL',
-        value: path
+        field: 'path'
+        , message: 'Path traversal detected (..)'
+        , code: 'PATH_TRAVERSAL'
+        , value: path
       });
     }
 
     // Check for absolute paths
     if (path.startsWith('/') || /^[A-Z]:\\/i.test(path)) {
       errors.push({
-        field: 'path',
-        message: 'Absolute paths are not allowed',
-        code: 'ABSOLUTE_PATH',
-        value: path
+        field: 'path'
+        , message: 'Absolute paths are not allowed'
+        , code: 'ABSOLUTE_PATH'
+        , value: path
       });
     }
 
     // Check for null bytes
     if (path.includes('\x00')) {
       errors.push({
-        field: 'path',
-        message: 'Path contains null bytes',
-        code: 'NULL_BYTE_IN_PATH',
-        value: path
+        field: 'path'
+        , message: 'Path contains null bytes'
+        , code: 'NULL_BYTE_IN_PATH'
+        , value: path
       });
     }
 
@@ -288,16 +288,16 @@ export class PathSafetyValidator implements Validator {
     const invalidChars = /[<>:"|?*\x00-\x1f]/;
     if (invalidChars.test(path)) {
       errors.push({
-        field: 'path',
-        message: 'Path contains invalid characters',
-        code: 'INVALID_CHARACTERS',
-        value: path
+        field: 'path'
+        , message: 'Path contains invalid characters'
+        , code: 'INVALID_CHARACTERS'
+        , value: path
       });
     }
 
     return {
-      valid: errors.length === 0,
-      errors: errors.length > 0 ? errors : undefined
+      valid: errors.length === 0
+      , errors: errors.length > 0 ? errors : undefined
     };
   }
 }
@@ -328,28 +328,28 @@ export class SafeRegexValidator implements Validator {
       new RegExp(query);
     } catch {
       errors.push({
-        field: 'query',
-        message: 'Invalid regular expression syntax',
-        code: 'INVALID_REGEX',
-        value: query
+        field: 'query'
+        , message: 'Invalid regular expression syntax'
+        , code: 'INVALID_REGEX'
+        , value: query
       });
       return { valid: false, errors };
     }
 
     // Check for patterns known to cause exponential complexity
     const dangerousPatterns = [
-      /\([^)]*[+*][^)]*\)[+*]/,  // Nested quantifiers like (a+)+ or (a*)*
-      /(.+)\+/,                   // Greedy quantifiers on captures like (.+)+
-      /(\w+\|\w+)\+/              // Alternation with quantifiers like (a|b)+
+      /\([^)]*[+*][^)]*\)[+*]/  // Nested quantifiers like (a+)+ or (a*)*
+      , /(.+)\+/                   // Greedy quantifiers on captures like (.+)+
+      , /(\w+\|\w+)\+/              // Alternation with quantifiers like (a|b)+
     ];
 
     for (const pattern of dangerousPatterns) {
       if (pattern.test(query)) {
         errors.push({
-          field: 'query',
-          message: 'Regular expression has exponential complexity (potential ReDoS)',
-          code: 'REGEX_TOO_COMPLEX',
-          value: query
+          field: 'query'
+          , message: 'Regular expression has exponential complexity (potential ReDoS)'
+          , code: 'REGEX_TOO_COMPLEX'
+          , value: query
         });
         break;
       }
@@ -359,16 +359,16 @@ export class SafeRegexValidator implements Validator {
     const complexityScore = this.calculateComplexity(query);
     if (complexityScore > this.config.maxRegexComplexity) {
       errors.push({
-        field: 'query',
-        message: `Regular expression complexity ${complexityScore} exceeds maximum ${this.config.maxRegexComplexity}`,
-        code: 'REGEX_COMPLEXITY_EXCEEDED',
-        value: complexityScore
+        field: 'query'
+        , message: `Regular expression complexity ${complexityScore} exceeds maximum ${this.config.maxRegexComplexity}`
+        , code: 'REGEX_COMPLEXITY_EXCEEDED'
+        , value: complexityScore
       });
     }
 
     return {
-      valid: errors.length === 0,
-      errors: errors.length > 0 ? errors : undefined
+      valid: errors.length === 0
+      , errors: errors.length > 0 ? errors : undefined
     };
   }
 
@@ -428,12 +428,12 @@ export class BatchLimitValidator implements Validator {
     if (params.paths && Array.isArray(params.paths)) {
       if (params.paths.length > this.config.maxBatchSize) {
         return {
-          valid: false,
-          errors: [{
-            field: 'paths',
-            message: `Batch size ${params.paths.length} exceeds maximum ${this.config.maxBatchSize}`,
-            code: 'BATCH_SIZE_EXCEEDED',
-            value: params.paths.length
+          valid: false
+          , errors: [{
+            field: 'paths'
+            , message: `Batch size ${params.paths.length} exceeds maximum ${this.config.maxBatchSize}`
+            , code: 'BATCH_SIZE_EXCEEDED'
+            , value: params.paths.length
           }]
         };
       }
@@ -443,12 +443,12 @@ export class BatchLimitValidator implements Validator {
     if (params.edits && Array.isArray(params.edits)) {
       if (params.edits.length > this.config.maxBatchSize) {
         return {
-          valid: false,
-          errors: [{
-            field: 'edits',
-            message: `Batch size ${params.edits.length} exceeds maximum ${this.config.maxBatchSize}`,
-            code: 'BATCH_SIZE_EXCEEDED',
-            value: params.edits.length
+          valid: false
+          , errors: [{
+            field: 'edits'
+            , message: `Batch size ${params.edits.length} exceeds maximum ${this.config.maxBatchSize}`
+            , code: 'BATCH_SIZE_EXCEEDED'
+            , value: params.edits.length
           }]
         };
       }
@@ -458,12 +458,12 @@ export class BatchLimitValidator implements Validator {
     const maxFiles = typeof params.maxFiles === 'number' ? params.maxFiles : 0;
     if (maxFiles > this.config.maxBatchSize) {
       return {
-        valid: false,
-        errors: [{
-          field: 'maxFiles',
-          message: `Maximum files ${maxFiles} exceeds limit ${this.config.maxBatchSize}`,
-          code: 'MAX_FILES_EXCEEDED',
-          value: maxFiles
+        valid: false
+        , errors: [{
+          field: 'maxFiles'
+          , message: `Maximum files ${maxFiles} exceeds limit ${this.config.maxBatchSize}`
+          , code: 'MAX_FILES_EXCEEDED'
+          , value: maxFiles
         }]
       };
     }
@@ -491,10 +491,10 @@ export class ContentValidator implements Validator {
     // Check if content is a string
     if (typeof content !== 'string') {
       errors.push({
-        field: 'content',
-        message: 'Content must be a string',
-        code: 'INVALID_CONTENT_TYPE',
-        value: typeof content
+        field: 'content'
+        , message: 'Content must be a string'
+        , code: 'INVALID_CONTENT_TYPE'
+        , value: typeof content
       });
       return { valid: false, errors };
     }
@@ -504,16 +504,16 @@ export class ContentValidator implements Validator {
       Buffer.from(content, 'utf8');
     } catch {
       errors.push({
-        field: 'content',
-        message: 'Content contains invalid UTF-8 sequences',
-        code: 'INVALID_UTF8',
-        value: content.substring(0, 100)
+        field: 'content'
+        , message: 'Content contains invalid UTF-8 sequences'
+        , code: 'INVALID_UTF8'
+        , value: content.substring(0, 100)
       });
     }
 
     return {
-      valid: errors.length === 0,
-      errors: errors.length > 0 ? errors : undefined
+      valid: errors.length === 0
+      , errors: errors.length > 0 ? errors : undefined
     };
   }
 }
@@ -536,12 +536,12 @@ export class QueryLengthValidator implements Validator {
 
     if (query.length > this.MAX_QUERY_LENGTH) {
       return {
-        valid: false,
-        errors: [{
-          field: 'query',
-          message: `Query length ${query.length} exceeds maximum ${this.MAX_QUERY_LENGTH}`,
-          code: 'QUERY_TOO_LONG',
-          value: query.length
+        valid: false
+        , errors: [{
+          field: 'query'
+          , message: `Query length ${query.length} exceeds maximum ${this.MAX_QUERY_LENGTH}`
+          , code: 'QUERY_TOO_LONG'
+          , value: query.length
         }]
       };
     }
@@ -572,17 +572,17 @@ export class PathArrayValidator implements Validator {
       if (!result.valid && result.errors) {
         for (const error of result.errors) {
           errors.push({
-            ...error,
-            field: `paths[${i}]`,
-            value: paths[i]
+            ...error
+            , field: `paths[${i}]`
+            , value: paths[i]
           });
         }
       }
     }
 
     return {
-      valid: errors.length === 0,
-      errors: errors.length > 0 ? errors : undefined
+      valid: errors.length === 0
+      , errors: errors.length > 0 ? errors : undefined
     };
   }
 }

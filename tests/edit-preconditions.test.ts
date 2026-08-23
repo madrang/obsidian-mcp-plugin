@@ -78,7 +78,7 @@ describe('edit write preconditions', () => {
     const response: any = await router.route({
       operation: 'edit',
       action: 'append',
-      params: { path: 'note.md', content: 'gamma', ifHash: contentHash('alpha\nbeta') },
+      params: { path: 'note.md', newText: 'gamma', ifHash: contentHash('alpha\nbeta') },
     });
     expect(response.error).toBeUndefined();
     expect(api.mutations).toEqual([{ kind: 'append', path: 'note.md', content: 'gamma' }]);
@@ -88,7 +88,7 @@ describe('edit write preconditions', () => {
     const response: any = await router.route({
       operation: 'edit',
       action: 'append',
-      params: { path: 'note.md', content: 'gamma', ifHash: 'deadbeefdeadbeef' },
+      params: { path: 'note.md', newText: 'gamma', ifHash: 'deadbeefdeadbeef' },
     });
     expect(response.error?.code).toBe('PRECONDITION_FAILED');
     expect(api.mutations).toEqual([]);
@@ -120,7 +120,7 @@ describe('edit write preconditions', () => {
     const response: any = await router.route({
       operation: 'edit',
       action: 'append',
-      params: { path: 'ghost.md', content: 'x', ifHash: 'deadbeefdeadbeef' },
+      params: { path: 'ghost.md', newText: 'x', ifHash: 'deadbeefdeadbeef' },
     });
     expect(response.error?.code).toBe('PRECONDITION_FAILED');
     expect(api.mutations).toEqual([]);
@@ -130,7 +130,7 @@ describe('edit write preconditions', () => {
     const response: any = await router.route({
       operation: 'edit',
       action: 'append',
-      params: { path: 'note.md', content: 'gamma', ifHash: { nested: true } },
+      params: { path: 'note.md', newText: 'gamma', ifHash: { nested: true } },
     });
     expect(response.error?.code).toBe('PRECONDITION_FAILED');
     expect(api.mutations).toEqual([]);
@@ -140,7 +140,7 @@ describe('edit write preconditions', () => {
     const response: any = await router.route({
       operation: 'edit',
       action: 'append',
-      params: { path: 'note.md', content: 'gamma' },
+      params: { path: 'note.md', newText: 'gamma' },
     });
     expect(response.error).toBeUndefined();
     expect(api.mutations).toEqual([{ kind: 'append', path: 'note.md', content: 'gamma' }]);
@@ -160,7 +160,7 @@ describe('edit write preconditions', () => {
     const second: any = await router.route({
       operation: 'edit',
       action: 'append',
-      params: { path: 'note.md', content: '\nepsilon', ifHash: first.result.hash },
+      params: { path: 'note.md', newText: '\nepsilon', ifHash: first.result.hash },
     });
     expect(second.error).toBeUndefined();
     expect(api.mutations.length).toBe(2);
@@ -169,7 +169,7 @@ describe('edit write preconditions', () => {
     const stale: any = await router.route({
       operation: 'edit',
       action: 'append',
-      params: { path: 'note.md', content: '\nzeta', ifHash: contentHash('alpha\nbeta') },
+      params: { path: 'note.md', newText: '\nzeta', ifHash: contentHash('alpha\nbeta') },
     });
     expect(stale.error?.code).toBe('PRECONDITION_FAILED');
     expect(api.mutations.length).toBe(2);

@@ -14,14 +14,14 @@ export interface ImageProcessingConfig {
 }
 
 export const IMAGE_EXTENSIONS = [
-  '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', 
-  '.webp', '.ico', '.tiff', '.tif', '.avif'
+  '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg' 
+  , '.webp', '.ico', '.tiff', '.tif', '.avif'
 ];
 
 export const IMAGE_PROCESSING_PRESETS: Record<string, ImageProcessingConfig> = {
-  none: { mode: 'none' },
-  casual: { mode: 'casual', maxDimension: 2048, quality: 0.8 },
-  aggressive: { mode: 'aggressive', maxDimension: 1024, quality: 0.6 }
+  none: { mode: 'none' }
+  , casual: { mode: 'casual', maxDimension: 2048, quality: 0.8 }
+  , aggressive: { mode: 'aggressive', maxDimension: 1024, quality: 0.6 }
 };
 
 export function isImageFile(filePath: string): boolean {
@@ -32,17 +32,17 @@ export function isImageFile(filePath: string): boolean {
 export function getMimeType(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
   const mimeTypes: Record<string, string> = {
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.gif': 'image/gif',
-    '.bmp': 'image/bmp',
-    '.svg': 'image/svg+xml',
-    '.webp': 'image/webp',
-    '.ico': 'image/x-icon',
-    '.tiff': 'image/tiff',
-    '.tif': 'image/tiff',
-    '.avif': 'image/avif'
+    '.png': 'image/png'
+    , '.jpg': 'image/jpeg'
+    , '.jpeg': 'image/jpeg'
+    , '.gif': 'image/gif'
+    , '.bmp': 'image/bmp'
+    , '.svg': 'image/svg+xml'
+    , '.webp': 'image/webp'
+    , '.ico': 'image/x-icon'
+    , '.tiff': 'image/tiff'
+    , '.tif': 'image/tiff'
+    , '.avif': 'image/avif'
   };
   return mimeTypes[ext] || 'application/octet-stream';
 }
@@ -60,9 +60,9 @@ export async function processImageResponse(
   // Skip processing if mode is 'none'
   if (config.mode === 'none') {
     return {
-      path: filePath,
-      mimeType: getMimeType(filePath),
-      base64Data: buffer.toString('base64')
+      path: filePath
+      , mimeType: getMimeType(filePath)
+      , base64Data: buffer.toString('base64')
     };
   }
   
@@ -75,18 +75,18 @@ export async function processImageResponse(
     Debug.log(`Successfully resized image from ${buffer.length} to ${resizedBuffer.length} bytes`);
     
     return {
-      path: filePath,
-      mimeType: mimeType,
-      base64Data: resizedBuffer.toString('base64')
+      path: filePath
+      , mimeType: mimeType
+      , base64Data: resizedBuffer.toString('base64')
     };
   } catch (error) {
     // If processing fails, return original
     Debug.warn('Failed to process image with Canvas:', error);
     Debug.log(`Returning original image (${buffer.length} bytes)`);
     return {
-      path: filePath,
-      mimeType: mimeType,
-      base64Data: buffer.toString('base64')
+      path: filePath
+      , mimeType: mimeType
+      , base64Data: buffer.toString('base64')
     };
   }
 }

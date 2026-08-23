@@ -224,19 +224,19 @@ describe('moved tool-surface actions', () => {
         return { files: [], totalFiles: 0, totalFolders: 0, page: args[1], pageSize: args[2], totalPages: 0 };
       }) as never;
 
-      await byName('view')!.handler(api, { action: 'folder', directory: 'notes', page: 2, pageSize: 5 });
+      await byName('view')!.handler(api, { action: 'folder', path: 'notes', page: 2, pageSize: 5 });
 
       // MCP clients send JSON numbers. A paramStr read here collapsed them to
       // the defaults and made pagination a no-op.
       expect(calls).toEqual([['notes', 2, 5, true]]);
     });
 
-    it('view.folder translates directory "/" to the vault root', async () => {
+    it('view.folder translates path "/" to the vault root', async () => {
       const { byName, api } = setup(undefined);
       const calls: unknown[][] = [];
       api.listFiles = (async (...args: unknown[]) => { calls.push(args); return []; }) as never;
 
-      await byName('view')!.handler(api, { action: 'folder', directory: '/' });
+      await byName('view')!.handler(api, { action: 'folder', path: '/' });
 
       expect(calls).toEqual([[undefined]]);
     });

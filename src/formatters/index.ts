@@ -270,10 +270,10 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
       const moveResp = resp as MoveRenameResponse;
       if (moveResp.oldPath !== undefined || moveResp.newPath !== undefined) {
         return {
-          source: moveResp.oldPath ?? moveResp.sourcePath,
-          destination: moveResp.newPath ?? moveResp.destination,
-          success: moveResp.success ?? true,
-          operation: 'move'
+          source: moveResp.oldPath ?? moveResp.sourcePath
+          , destination: moveResp.newPath ?? moveResp.destination
+          , success: moveResp.success ?? true
+          , operation: 'move'
         };
       }
       return resp;
@@ -284,10 +284,10 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
       const copyResp = resp as CopyResponse;
       if (copyResp.sourcePath !== undefined || copyResp.copiedTo !== undefined) {
         return {
-          source: copyResp.sourcePath ?? copyResp.source,
-          destination: copyResp.copiedTo ?? copyResp.destination,
-          success: copyResp.success ?? true,
-          operation: 'copy'
+          source: copyResp.sourcePath ?? copyResp.source
+          , destination: copyResp.copiedTo ?? copyResp.destination
+          , success: copyResp.success ?? true
+          , operation: 'copy'
         };
       }
       return resp;
@@ -305,10 +305,10 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
       if (Array.isArray(listResp.files)) {
         const items = listResp.files as Array<Record<string, unknown>>;
         return {
-          ...resp,
-          files: items.map(item => ({
-            ...item,
-            isFolder: item.type === 'folder',
+          ...resp
+          , files: items.map(item => ({
+            ...item
+            , isFolder: item.type === 'folder',
           })),
         };
       }
@@ -328,22 +328,22 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
             byFile.set(path, []);
           }
           byFile.get(path)!.push({
-            content: frag.content,
-            lineStart: frag.lineStart,
-            lineEnd: frag.lineEnd,
-            score: frag.score,
-            heading: frag.heading
+            content: frag.content
+            , lineStart: frag.lineStart
+            , lineEnd: frag.lineEnd
+            , score: frag.score
+            , heading: frag.heading
           });
         }
         // Return as array of file results
         return {
           files: Array.from(byFile.entries()).map(([path, fragments]) => ({
-            path,
-            fragments,
-            totalFragments: fragments.length
-          })),
-          totalResults: fragResp.result.length,
-          query: fragResp.query
+            path
+            , fragments
+            , totalFragments: fragments.length
+          }))
+          , totalResults: fragResp.result.length
+          , query: fragResp.query
         };
       }
       return resp;
@@ -364,12 +364,12 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
       };
       const inner = dvResp.result;
       return {
-        ...resp,
-        successful: dvResp.success ?? true,
-        type: inner?.type ?? dvResp.type ?? 'list',
-        values: inner?.values,
-        headers: inner?.headers,
-        error: dvResp.error
+        ...resp
+        , successful: dvResp.success ?? true
+        , type: inner?.type ?? dvResp.type ?? 'list'
+        , values: inner?.values
+        , headers: inner?.headers
+        , error: dvResp.error
       };
     }
 
@@ -388,21 +388,20 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
         version?: string;
       };
       return {
-        available: s.available ?? s.apiReady ?? (Boolean(s.installed) && Boolean(s.enabled)),
-        version: s.version
+        available: s.available ?? s.apiReady ?? (Boolean(s.installed) && Boolean(s.enabled))
+        , version: s.version
       };
     }
 
     // edit.replace: router returns {isError, content}, formatter expects {success, path}
-    case 'edit.replace':
-    case 'edit.from_buffer': {
+    case 'edit.replace': {
       const editResp = resp as EditResponse2;
       if (editResp.isError !== undefined) {
         return {
-          success: !editResp.isError,
-          path: editResp.path ?? 'file',
-          operation: 'replace',
-          content: editResp.content
+          success: !editResp.isError
+          , path: editResp.path ?? 'file'
+          , operation: 'replace'
+          , content: editResp.content
         };
       }
       return resp;
@@ -412,11 +411,11 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
     case 'edit.at_line': {
       const lineResp = resp as EditResponse2;
       return {
-        success: lineResp.success ?? true,
-        path: lineResp.path ?? 'file',
-        operation: 'at_line',
-        line: lineResp.line,
-        mode: lineResp.mode
+        success: lineResp.success ?? true
+        , path: lineResp.path ?? 'file'
+        , operation: 'at_line'
+        , line: lineResp.line
+        , mode: lineResp.mode
       };
     }
 
@@ -436,23 +435,23 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
       const edges = (resp.edges as Array<Record<string, unknown>>) || [];
       if (traverseNodes && Array.isArray(traverseNodes)) {
         return {
-          sourcePath: resp.sourcePath ?? resp.message ?? '',
-          maxDepth: graphStats?.maxDepthReached ?? 3,
-          totalNodes: graphStats?.totalNodes ?? traverseNodes.length,
-          nodes: traverseNodes.map(n => {
+          sourcePath: resp.sourcePath ?? resp.message ?? ''
+          , maxDepth: graphStats?.maxDepthReached ?? 3
+          , totalNodes: graphStats?.totalNodes ?? traverseNodes.length
+          , nodes: traverseNodes.map(n => {
             const outgoing = edges
               .filter(e => e.source === n.path)
               .map(e => (e.target as string).split('/').pop() || e.target);
             return {
-              path: n.path,
-              title: n.title,
-              depth: 0, // depth per node not tracked in this response shape
-              links: outgoing.length > 0 ? outgoing : undefined,
-              tags: n.tags
+              path: n.path
+              , title: n.title
+              , depth: 0 // depth per node not tracked in this response shape
+              , links: outgoing.length > 0 ? outgoing : undefined
+              , tags: n.tags
             };
-          }),
-          edges: resp.edges,
-          graphStats
+          })
+          , edges: resp.edges
+          , graphStats
         };
       }
       return resp;
@@ -470,23 +469,23 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
       const chain = details?.traversalChain as Array<Record<string, unknown>> | undefined;
       if (details && chain) {
         return {
-          summary: resp.summary,
-          traversalPath: resp.traversalPath,
-          details: {
-            startNode: details.startNode,
-            searchQuery: details.searchQuery ?? (details.searchQueries as string[] | undefined)?.join(', ') ?? '',
-            maxDepth: details.maxDepth,
-            totalNodesVisited: details.totalNodesVisited,
-            nodesWithMatches: chain.length,
-            executionTime: details.executionTime
-          },
-          snippetChain: chain.map(node => ({
-            file: node.path,
-            depth: node.depth ?? 0,
-            parent: node.parentPath,
-            snippet: node.snippet ?? { text: '', score: '0', lineNumber: 0, preview: '' }
-          })),
-          workflowSuggestions: resp.workflowSuggestions ?? []
+          summary: resp.summary
+          , traversalPath: resp.traversalPath
+          , details: {
+            startNode: details.startNode
+            , searchQuery: details.searchQuery ?? (details.searchQueries as string[] | undefined)?.join(', ') ?? ''
+            , maxDepth: details.maxDepth
+            , totalNodesVisited: details.totalNodesVisited
+            , nodesWithMatches: chain.length
+            , executionTime: details.executionTime
+          }
+          , snippetChain: chain.map(node => ({
+            file: node.path
+            , depth: node.depth ?? 0
+            , parent: node.parentPath
+            , snippet: node.snippet ?? { text: '', score: '0', lineNumber: 0, preview: '' }
+          }))
+          , workflowSuggestions: resp.workflowSuggestions ?? []
         };
       }
       return resp;
@@ -505,11 +504,11 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
           return { tag, count: files.length, files };
         });
         return {
-          sourcePath: resp.file,
-          totalTags: fileTags.length,
-          totalFiles: allFiles.size,
-          tags: formattedTags,
-          summary: resp.summary
+          sourcePath: resp.file
+          , totalTags: fileTags.length
+          , totalFiles: allFiles.size
+          , tags: formattedTags
+          , summary: resp.summary
         };
       }
       return resp;
@@ -521,15 +520,15 @@ function normalizeResponse(key: string, response: unknown): NormalizedResponse {
       const sharedTags = resp.sharedTags as string[] | undefined;
       if (resp.source !== undefined && resp.target !== undefined) {
         return {
-          sourcePath: resp.source,
-          totalMatches: sharedTags?.length ?? 0,
-          results: sharedTags && sharedTags.length > 0 ? [{
-            file1: resp.source as string,
-            file2: resp.target as string,
-            sharedTags,
-            similarity: sharedTags.length > 0 ? 1.0 : 0
-          }] : [],
-          summary: resp.summary
+          sourcePath: resp.source
+          , totalMatches: sharedTags?.length ?? 0
+          , results: sharedTags && sharedTags.length > 0 ? [{
+            file1: resp.source as string
+            , file2: resp.target as string
+            , sharedTags
+            , similarity: sharedTags.length > 0 ? 1.0 : 0
+          }] : []
+          , summary: resp.summary
         };
       }
       return resp;
@@ -637,15 +636,18 @@ export function formatResponse(
       case 'dataview.metadata':
         return formatDataviewMetadata(normalized as DataviewMetadataResponse);
 
-      // Bases operations
+      // Bases operations. query covers the old export too: the serialized
+      // shape ({ success, data, format }) routes to the export formatter.
       case 'bases.list':
         return formatBasesList(normalized as BasesListResponse);
       case 'bases.read':
         return formatBasesRead(normalized as BasesReadResponse);
-      case 'bases.query':
-        return formatBasesQuery(normalized as BasesQueryResponse);
-      case 'bases.export':
-        return formatBasesExport(normalized as BasesExportResponse);
+      case 'bases.query': {
+        const resp = normalized as Record<string, unknown>;
+        return resp.format !== undefined && resp.data !== undefined
+          ? formatBasesExport(normalized as BasesExportResponse)
+          : formatBasesQuery(normalized as BasesQueryResponse);
+      }
 
       // System operations
       case 'system.info':
@@ -660,7 +662,6 @@ export function formatResponse(
 
       // Edit operations
       case 'edit.replace':
-      case 'edit.from_buffer':
       case 'edit.append':
       case 'edit.patch':
       case 'edit.at_line':

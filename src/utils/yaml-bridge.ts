@@ -55,8 +55,8 @@ export function parseYaml(content: string): unknown {
  */
 export function stringifyBaseConfig(config: unknown): string {
   return stringify(config, {
-    lineWidth: 0,
-    aliasDuplicateObjects: false,
-    singleQuote: false,
+    lineWidth: 0
+    , aliasDuplicateObjects: false
+    , singleQuote: false,
   });
 }

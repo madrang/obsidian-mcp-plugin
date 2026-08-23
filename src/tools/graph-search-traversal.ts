@@ -104,10 +104,10 @@ export class GraphSearchTraversal {
             if (highScoreSnippets.length > 0) {
                 // Add the best snippet to the traversal chain
                 traversalChain.push({
-                    path: currentPath,
-                    depth,
-                    snippet: highScoreSnippets[0],
-                    parentPath
+                    path: currentPath
+                    , depth
+                    , snippet: highScoreSnippets[0]
+                    , parentPath
                 });
 
                 // Only continue traversal from nodes with good matches
@@ -125,12 +125,12 @@ export class GraphSearchTraversal {
         const executionTime = performance.now() - startTime;
 
         return {
-            startNode: startPath === '/' || startPath === '' ? '/' : startPath,
-            searchQuery,
-            maxDepth,
-            traversalChain,
-            totalNodesVisited,
-            executionTime
+            startNode: startPath === '/' || startPath === '' ? '/' : startPath
+            , searchQuery
+            , maxDepth
+            , traversalChain
+            , totalNodesVisited
+            , executionTime
         };
     }
 
@@ -175,10 +175,10 @@ export class GraphSearchTraversal {
                 const context = lines.slice(contextStart, contextEnd + 1).join('\n');
                 
                 snippets.push({
-                    text: line.trim(),
-                    score,
-                    context,
-                    lineNumber: i + 1
+                    text: line.trim()
+                    , score
+                    , context
+                    , lineNumber: i + 1
                 });
             }
         }
@@ -249,8 +249,8 @@ export class GraphSearchTraversal {
         );
 
         return {
-            ...result,
-            strategies: [strategy]
+            ...result
+            , strategies: [strategy]
         };
     }
 }

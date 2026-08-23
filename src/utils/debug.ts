@@ -51,10 +51,10 @@ export class Debug {
 
     static createLogger(module: string): DebugLogger {
         return {
-            log: (message: string, ...args: unknown[]) => Debug.log(`[${module}] ${message}`, ...args),
-            error: (message: string, ...args: unknown[]) => Debug.error(`[${module}] ${message}`, ...args),
-            warn: (message: string, ...args: unknown[]) => Debug.warn(`[${module}] ${message}`, ...args),
-            info: (message: string, ...args: unknown[]) => Debug.info(`[${module}] ${message}`, ...args)
+            log: (message: string, ...args: unknown[]) => Debug.log(`[${module}] ${message}`, ...args)
+            , error: (message: string, ...args: unknown[]) => Debug.error(`[${module}] ${message}`, ...args)
+            , warn: (message: string, ...args: unknown[]) => Debug.warn(`[${module}] ${message}`, ...args)
+            , info: (message: string, ...args: unknown[]) => Debug.info(`[${module}] ${message}`, ...args)
         };
     }
 }

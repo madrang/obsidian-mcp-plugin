@@ -88,11 +88,11 @@ export function findFuzzyMatches(
     if (normalizedLine.includes(normalizedSearch)) {
       const startIndex = normalizedLine.indexOf(normalizedSearch);
       matches.push({
-        line,
-        lineNumber: i + 1,
-        similarity: 1.0,
-        startIndex,
-        endIndex: startIndex + searchText.length
+        line
+        , lineNumber: i + 1
+        , similarity: 1.0
+        , startIndex
+        , endIndex: startIndex + searchText.length
       });
       continue;
     }
@@ -140,11 +140,11 @@ export function findFuzzyMatches(
     
     if (bestSimilarity >= threshold) {
       matches.push({
-        line,
-        lineNumber: i + 1,
-        similarity: bestSimilarity,
-        startIndex: bestStart,
-        endIndex: bestEnd
+        line
+        , lineNumber: i + 1
+        , similarity: bestSimilarity
+        , startIndex: bestStart
+        , endIndex: bestEnd
       });
     }
   }
@@ -168,8 +168,8 @@ export function extractContext(
   const endLine = Math.min(allLines.length, lineNumber + contextLines);
   
   return {
-    lines: allLines.slice(startLine - 1, endLine),
-    startLine,
-    endLine
+    lines: allLines.slice(startLine - 1, endLine)
+    , startLine
+    , endLine
   };
 }

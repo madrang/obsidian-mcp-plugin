@@ -9,6 +9,7 @@ import {
   EvaluatedNote,
   FileProperties
 } from '../types/bases-yaml';
+import { BaseQueryOptions, BaseFilter } from '../types/bases';
 import { Debug } from './debug';
 import { ExpressionEvaluator } from './expression-evaluator';
 import { FormulaEngine } from './formula-engine';
@@ -51,9 +52,9 @@ export class BasesAPI {
           const baseConfig = parseYaml(content) as BaseYAML;
           
           bases.push({
-            path: file.path,
-            name: file.basename,
-            views: baseConfig.views?.map(v => v.name) || []
+            path: file.path
+            , name: file.basename
+            , views: baseConfig.views?.map(v => v.name) || []
           });
         } catch (error) {
           Debug.log(`Failed to parse base file ${file.path}:`, error);
@@ -101,9 +102,9 @@ export class BasesAPI {
   /**
    * Query a base with optional view
    */
-  async queryBase(basePath: string, viewName?: string): Promise<BaseQueryResult> {
+  async queryBase(basePath: string, viewName?: string, options?: BaseQueryOptions): Promise<BaseQueryResult> {
     const baseConfig = await this.readBase(basePath);
-    
+
     // Get the specified view or the first one
     let view: ViewConfig | undefined;
     if (viewName) {
@@ -128,7 +129,7 @@ export class BasesAPI {
     // Process each file
     for (const file of files) {
       const context = await this.createNoteContext(file, baseConfig);
-      
+
       // Apply global filters
       if (baseConfig.filters && !await this.evaluateFilter(baseConfig.filters, context)) {
         continue;
@@ -141,12 +142,33 @@ export class BasesAPI {
 
       // Create evaluated note
       const evaluatedNote = this.createEvaluatedNote(file, context, baseConfig);
+
+      // Caller filters narrow the base and view filters: every filter must
+      // pass. They run against the evaluated properties, so file.* and
+      // formula.* keys are addressable too.
+      if (options?.filters && !options.filters.every(filter => this.matchesFilter(evaluatedNote, filter))) {
+        continue;
+      }
+
       notes.push(evaluatedNote);
     }
 
-    // Apply sorting
-    if (view?.order && view.order.length > 0) {
-      notes = this.sortNotes(notes, view.order);
+    // Native sort: the view `sort:` key orders the rows, one direction per
+    // entry. `order:` is the column list, never a sort. Entries written by
+    // older Obsidian versions spell the key `column:` instead of `property:`.
+    if (view?.sort && view.sort.length > 0) {
+      const keys = view.sort
+        .map(entry => entry as { property?: string; column?: string; direction?: string })
+        .map(entry => ({
+          property: entry.property ?? entry.column ?? ''
+          , order: String(entry.direction ?? 'ASC').toLowerCase() === 'desc' ? ('desc' as const) : ('asc' as const),
+        }));
+      notes = this.sortNotesBy(notes, keys);
+    }
+
+    // Caller sort refines the view sort: it runs last, ties keep the view order.
+    if (options?.sort) {
+      notes = this.sortNotesBy(notes, [options.sort]);
     }
 
     // Apply limit
@@ -154,18 +176,46 @@ export class BasesAPI {
       notes = notes.slice(0, view.limit);
     }
 
+    // Pagination pages the final list. The total stays the pre-page count.
+    const total = notes.length;
+    let page: number | undefined;
+    let pageSize: number | undefined;
+    if (options?.pagination) {
+      page = options.pagination.page;
+      pageSize = options.pagination.pageSize;
+      const start = (page - 1) * pageSize;
+      notes = notes.slice(start, start + pageSize);
+    }
+
+    // Property projection trims each note to the requested keys. A name
+    // matches its full key or its last segment: "status" keeps "file.status".
+    if (options?.properties && options.properties.length > 0) {
+      const wanted = new Set(options.properties);
+      notes = notes.map(note => {
+        const properties: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(note.properties)) {
+          if (wanted.has(key) || wanted.has(key.split('.').pop()!)) {
+            properties[key] = value;
+          }
+        }
+        return { ...note, properties };
+      });
+    }
+
     return {
-      notes,
-      total: notes.length,
-      view
+      notes
+      , total
+      , ...(page !== undefined && pageSize !== undefined ? { page, pageSize } : {})
+      , view
     };
   }
 
   /**
-   * Export base data in various formats
+   * Export base data in various formats. Runs the same query as queryBase,
+   * with the same options, and serializes the result.
    */
-  async exportBase(basePath: string, format: 'csv' | 'json' | 'markdown', viewName?: string): Promise<string> {
-    const result = await this.queryBase(basePath, viewName);
+  async exportBase(basePath: string, format: 'csv' | 'json' | 'markdown', viewName?: string, options?: BaseQueryOptions): Promise<string> {
+    const result = await this.queryBase(basePath, viewName, options);
 
     switch (format) {
       case 'csv':
@@ -218,11 +268,11 @@ export class BasesAPI {
     // Debug logging to understand what's in the cache
     if (Debug.isDebugMode()) {
       Debug.log(`Cache for ${file.path}:`, {
-        hasCache: !!cache,
-        hasFrontmatter: !!(cache?.frontmatter),
-        frontmatterKeys: cache?.frontmatter ? Object.keys(cache.frontmatter) : [],
-        hasFrontmatterPosition: !!(cache?.frontmatterPosition),
-        cacheStructure: cache ? Object.keys(cache) : []
+        hasCache: !!cache
+        , hasFrontmatter: !!(cache?.frontmatter)
+        , frontmatterKeys: cache?.frontmatter ? Object.keys(cache.frontmatter) : []
+        , hasFrontmatterPosition: !!(cache?.frontmatterPosition)
+        , cacheStructure: cache ? Object.keys(cache) : []
       });
     }
     
@@ -248,9 +298,9 @@ export class BasesAPI {
     }
 
     const context: NoteContext = {
-      file,
-      frontmatter,
-      cache: cache ?? undefined
+      file
+      , frontmatter
+      , cache: cache ?? undefined
     };
 
     // Evaluate formulas if defined
@@ -327,12 +377,12 @@ export class BasesAPI {
     }
 
     return {
-      path: file.path,
-      name: file.basename,
-      properties,
-      frontmatter: context.frontmatter,
-      file: fileProps,
-      formulas: context.formulas
+      path: file.path
+      , name: file.basename
+      , properties
+      , frontmatter: context.frontmatter
+      , file: fileProps
+      , formulas: context.formulas
     };
   }
 
@@ -341,35 +391,118 @@ export class BasesAPI {
     const links: string[] = cache?.links?.map((l: LinkCache) => l.link) || [];
 
     return {
-      name: file.basename,
-      path: file.path,
-      folder: file.parent?.path || '',
-      ext: file.extension,
-      size: file.stat.size,
-      ctime: file.stat.ctime,
-      mtime: file.stat.mtime,
-      tags,
-      links,
+      name: file.basename
+      , path: file.path
+      , folder: file.parent?.path || ''
+      , ext: file.extension
+      , size: file.stat.size
+      , ctime: file.stat.ctime
+      , mtime: file.stat.mtime
+      , tags
+      , links,
       // Note: backlinks are expensive, only compute if needed
       // backlinks: this.getBacklinks(file)
     };
   }
 
-  private sortNotes(notes: EvaluatedNote[], order: string[]): EvaluatedNote[] {
+  /**
+   * Direction-aware sort over one or more keys, first key primary. Nulls
+   * sort last in both directions. Used by the native view `sort:` key and
+   * by the caller's sortBy/sortOrder.
+   */
+  private sortNotesBy(notes: EvaluatedNote[], keys: Array<{ property: string; order: 'asc' | 'desc' }>): EvaluatedNote[] {
     return notes.sort((a, b) => {
-      for (const prop of order) {
-        const aVal = this.getPropertyValue(a, prop);
-        const bVal = this.getPropertyValue(b, prop);
-
+      for (const key of keys) {
+        const aVal = this.getPropertyValue(a, key.property);
+        const bVal = this.getPropertyValue(b, key.property);
         if (aVal === bVal) continue;
         if (aVal == null) return 1;
         if (bVal == null) return -1;
-
-        if (aVal < bVal) return -1;
-        if (aVal > bVal) return 1;
+        const direction = key.order === 'desc' ? -1 : 1;
+        return this.compareValues(aVal, bVal) * direction;
       }
       return 0;
     });
+  }
+
+  /** Numeric comparison when both sides are numbers, string comparison otherwise. */
+  private compareValues(a: unknown, b: unknown): number {
+    if (typeof a === 'number' && typeof b === 'number') return a - b;
+    const aStr = String(a);
+    const bStr = String(b);
+    return aStr < bStr ? -1 : aStr > bStr ? 1 : 0;
+  }
+
+  /**
+   * Structured caller filter from BaseQueryOptions: { property, operator,
+   * value }. This is the model of the in-app filter builder, not the raw
+   * expression syntax of the .base file. String comparison ignores case
+   * unless caseSensitive is true.
+   */
+  private matchesFilter(note: EvaluatedNote, filter: BaseFilter): boolean {
+    const actual = this.getPropertyValue(note, filter.property);
+    const { operator, value } = filter;
+    const asString = (v: unknown): string =>
+      filter.caseSensitive === true ? String(v) : String(v).toLowerCase();
+
+    const equals = (): boolean => {
+      if (typeof actual === 'string' && typeof value === 'string') {
+        return asString(actual) === asString(value);
+      }
+      return actual === value;
+    };
+
+    const contains = (): boolean => {
+      if (Array.isArray(actual)) {
+        return actual.some(item => item === value || String(item) === String(value));
+      }
+      return actual != null && value != null && asString(actual).includes(asString(value));
+    };
+
+    const inList = (): boolean =>
+      Array.isArray(value) && value.some(v => v === actual || String(v) === String(actual));
+
+    const isEmpty = (): boolean =>
+      actual == null || actual === '' || (Array.isArray(actual) && actual.length === 0);
+
+    switch (operator) {
+      case 'equals':
+        return equals();
+      case 'not_equals':
+        return !equals();
+      case 'contains':
+        return contains();
+      case 'not_contains':
+        return !contains();
+      case 'starts_with':
+        return actual != null && value != null && asString(actual).startsWith(asString(value));
+      case 'ends_with':
+        return actual != null && value != null && asString(actual).endsWith(asString(value));
+      case 'gt':
+        return actual != null && this.compareValues(actual, value) > 0;
+      case 'gte':
+        return actual != null && this.compareValues(actual, value) >= 0;
+      case 'lt':
+        return actual != null && this.compareValues(actual, value) < 0;
+      case 'lte':
+        return actual != null && this.compareValues(actual, value) <= 0;
+      case 'between': {
+        if (!Array.isArray(value) || value.length < 2) return false;
+        return actual != null
+          && this.compareValues(actual, value[0]) >= 0
+          && this.compareValues(actual, value[1]) <= 0;
+      }
+      case 'in':
+        return inList();
+      case 'not_in':
+        return !inList();
+      case 'is_empty':
+        return isEmpty();
+      case 'is_not_empty':
+        return !isEmpty();
+      default:
+        return false;
+    }
   }
 
   private getPropertyValue(note: EvaluatedNote, path: string): unknown {
@@ -392,9 +525,11 @@ export class BasesAPI {
   private exportToCSV(result: BaseQueryResult): string {
     if (result.notes.length === 0) return '';
 
-    // Get columns from view or use all properties
-    const columns = result.view?.columns || 
-      Object.keys(result.notes[0].properties);
+    // Columns come from the view `order:` key — the native column list.
+    // Fall back to every property when the view does not order columns.
+    const columns = (result.view?.order && result.view.order.length > 0)
+      ? result.view.order
+      : Object.keys(result.notes[0].properties);
 
     // Build CSV
     const rows: string[] = [];
@@ -429,7 +564,9 @@ export class BasesAPI {
 
     // Table
     if (result.notes.length > 0) {
-      const columns = result.view?.columns || Object.keys(result.notes[0].properties);
+      const columns = (result.view?.order && result.view.order.length > 0)
+        ? result.view.order
+        : Object.keys(result.notes[0].properties);
       
       // Header row
       lines.push('| ' + columns.join(' | ') + ' |');

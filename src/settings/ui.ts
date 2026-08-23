@@ -22,7 +22,8 @@
 import { ButtonComponent, FileSystemAdapter, Notice, Setting, setIcon, TFolder } from 'obsidian';
 import type { SettingDefinitionItem, SettingGroupItem, SettingDefinitionGroup, SettingDefinitionList } from 'obsidian';
 import { FolderScopeSuggest } from './folder-suggest';
-import { ALL_OPERATIONS, getActionsForOperation, getOperationDescription } from '../tools/semantic-tools';
+import { ALL_OPERATIONS, getActionsForOperation } from '../tools/semantic-tools';
+import { getActionDescriptionLines, getStaticDescriptionLines, getOperationDefinition } from '../tools/tool-registry';
 import { classifyFromSettings } from '../utils/network-classifier';
 import { Debug } from '../utils/debug';
 import type { MCPPluginSettings } from './plugin-settings';
@@ -105,6 +106,34 @@ function validateRateLimit(value: number): string | void {
   }
 }
 
+/**
+ * One div per line. An empty div has no line box, so blank separator lines
+ * use a no-break space to keep the paragraph gap without CSS. The framework
+ * reads the fragment's textContent for search.
+ */
+function multilineDesc(lines: string[]): DocumentFragment {
+  const frag = createFragment();
+  for (const line of lines) {
+    frag.appendChild(createDiv({ text: line === '' ? '\u00A0' : line }));
+  }
+  return frag;
+}
+
+/**
+ * A switch's description: the permanent one-line summary first, the
+ * tool-level or action-owned description lines boxed below it. The box keeps
+ * the wall of text off the summary line while the description stays one
+ * keystroke away.
+ */
+function boxedDesc(intro: string, lines: string[]): DocumentFragment {
+  const frag = createFragment();
+  frag.appendChild(createDiv({ text: intro }));
+  const box = createDiv({ cls: 'mcp-action-desc-box' });
+  box.appendChild(multilineDesc(lines));
+  frag.appendChild(box);
+  return frag;
+}
+
 /** Getting started: the connect-a-client guide. A display, not a setting. */
 
 /**
@@ -128,20 +157,20 @@ function resetRenderRow(setting: Setting): HTMLElement {
 
 function gettingStartedGroup(host: SettingsUIHost): Group {
   return {
-    type: 'group',
-    heading: 'Getting started — connect a client',
-    items: [{
-      name: 'Connection guide',
-      searchable: false,
-      render: (setting: Setting) => {
+    type: 'group'
+    , heading: 'Getting started — connect a client'
+    , items: [{
+      name: 'Connection guide'
+      , searchable: false
+      , render: (setting: Setting) => {
         const s = host.settings;
         const info = resetRenderRow(setting);
         const block = info.createDiv('mcp-protocol-info');
 
         if (s.dangerouslyDisableAuth) {
           block.createDiv({
-            text: '⚠️ warning: authentication is disabled. Your vault is accessible without credentials!',
-            cls: 'mcp-warning-box'
+            text: '⚠️ warning: authentication is disabled. Your vault is accessible without credentials!'
+            , cls: 'mcp-warning-box'
           });
         }
 
@@ -149,14 +178,14 @@ function gettingStartedGroup(host: SettingsUIHost): Group {
         const visibility = s.toolVisibility;
         const dataviewAvailable = host.isDataviewAvailable();
         const toolEntries = [
-          { name: 'files', emoji: '🗂️', desc: 'File management: create, delete, move, copy, split, concat' },
-          { name: 'edit', emoji: '✏️', desc: 'Smart editing with content buffers' },
-          { name: 'view', emoji: '👁️', desc: 'Folder listing, reading, and search' },
-          { name: 'graph', emoji: '🕸️', desc: 'Graph traversal and link analysis' },
-          { name: 'system', emoji: '⚙️', desc: 'System info, commands, hints, and web fetch' },
-          { name: 'bases', emoji: '🗃️', desc: 'Bases query and management' },
-          { name: 'dataview', emoji: '📊', desc: 'Query vault data with DQL' },
-        ];
+          { name: 'files', emoji: '🗂️', desc: 'File management: create, delete, move, copy, split, concat' }
+          , { name: 'edit', emoji: '✏️', desc: 'Smart editing with content buffers' }
+          , { name: 'view', emoji: '👁️', desc: 'Folder listing, reading, and search' }
+          , { name: 'graph', emoji: '🕸️', desc: 'Graph traversal and link analysis' }
+          , { name: 'system', emoji: '⚙️', desc: 'System info, commands, hints, and web fetch' }
+          , { name: 'bases', emoji: '🗃️', desc: 'Bases query and management' }
+          , { name: 'dataview', emoji: '📊', desc: 'Query vault data with DQL' }
+        ,];
         const toolsListEl = block.createEl('ul');
         for (const entry of toolEntries) {
           if (entry.name === 'dataview' && !dataviewAvailable) continue;
@@ -174,8 +203,8 @@ function gettingStartedGroup(host: SettingsUIHost): Group {
         block.createEl('p', {
           text: dataviewAvailable
             ? `🔌 Plugin Integrations: Dataview v${host.dataviewVersion()} (enabled)`
-            : '🔌 Plugin integrations: none detected (install dataview for additional functionality)',
-          cls: 'plugin-integration-status'
+            : '🔌 Plugin integrations: none detected (install dataview for additional functionality)'
+          , cls: 'plugin-integration-status'
         });
 
         const resourcesList = block.createEl('ul');
@@ -196,9 +225,9 @@ function gettingStartedGroup(host: SettingsUIHost): Group {
         const mcpbUrl = 'https://github.com/madrang/obsidian-mcp-plugin/releases/latest/download/scoped-vault-mcp.mcpb';
         const downloadEl = block.createDiv('mcpb-download');
         const downloadLink = downloadEl.createEl('a', {
-          text: '⬇ Scoped-vault-mcp.mcpb',
-          href: mcpbUrl,
-          cls: 'mcp-mcpb-download',
+          text: '⬇ Scoped-vault-mcp.mcpb'
+          , href: mcpbUrl
+          , cls: 'mcp-mcpb-download',
         });
         downloadLink.setAttribute('target', '_blank');
         downloadLink.setAttribute('rel', 'noopener');
@@ -238,12 +267,12 @@ function gettingStartedGroup(host: SettingsUIHost): Group {
 /** Live server status grid. A display, not a setting. */
 function connectionStatusGroup(host: SettingsUIHost): Group {
   return {
-    type: 'group',
-    heading: 'Connection status',
-    items: [{
-      name: 'Server status display',
-      searchable: false,
-      render: (setting: Setting) => {
+    type: 'group'
+    , heading: 'Connection status'
+    , items: [{
+      name: 'Server status display'
+      , searchable: false
+      , render: (setting: Setting) => {
         const statusEl = resetRenderRow(setting);
         const grid = statusEl.createDiv('mcp-status-section');
         const info = host.getServerInfo();
@@ -288,51 +317,51 @@ function connectionStatusGroup(host: SettingsUIHost): Group {
 function serverConfigGroup(host: SettingsUIHost): Group {
   const s = host.settings;
   return {
-    type: 'group',
-    heading: 'Server configuration',
-    items: [
+    type: 'group'
+    , heading: 'Server configuration'
+    , items: [
       {
-        name: 'Enable HTTP server',
-        desc: `Enable HTTP server on port ${s.httpPort}` + (s.httpsEnabled ? ' (can be disabled when HTTPS is enabled)' : ' (required - at least one protocol must be enabled)'),
-        aliases: ['http', 'server'],
-        control: { type: 'toggle', key: 'httpEnabled', disabled: () => !host.settings.httpsEnabled }
-      },
-      {
-        name: 'Server port',
-        desc: 'Port for the server (default: 3011). Applies on change; restarts the server when it is running.',
-        aliases: ['http', 'port'],
-        control: { type: 'number', key: 'httpPort', placeholder: '3011', validate: validatePort }
-      },
-      {
-        name: 'Auto-detect port conflicts',
-        desc: 'Automatically detect and warn about port conflicts',
-        aliases: ['port'],
-        control: { type: 'toggle', key: 'autoDetectPortConflicts' }
-      },
-      {
-        name: 'Sessions never expire',
-        desc: 'Keep sessions valid until the client disconnects or a session limit evicts them. An old session ID can resume at any time. Turn off to expire idle sessions after a timespan.',
-        aliases: ['session', 'expire', 'timeout'],
-        control: { type: 'toggle', key: 'sessionsNeverExpire' }
-      },
-      {
-        name: 'Session timeout in minutes',
-        desc: 'Idle time after which a session expires',
-        aliases: ['session', 'expire', 'timeout'],
-        visible: () => host.settings.sessionTimeoutMs > 0,
-        control: { type: 'number', key: 'sessionTimeoutMinutes', placeholder: '60', validate: validateMinutes }
-      },
-      {
-        name: 'Sessions per token',
-        desc: 'How many sessions one credential can hold at once, including the main key. A new session past the limit invalidates the oldest session of that credential.',
-        aliases: ['session', 'token', 'limit'],
-        control: { type: 'number', key: 'sessionsPerToken', placeholder: '1', validate: validateSessionCap }
-      },
-      {
-        name: 'Tool call rate limit',
-        desc: "Maximum tool calls per credential per minute, across all of that credential's sessions. 0 disables the limit (default). Takes effect immediately; a refused call returns the RATE_LIMITED error with a retry delay.",
-        aliases: ['rate', 'limit', 'throttle', 'per minute', 'calls'],
-        control: { type: 'number', key: 'rateLimitPerMinute', placeholder: '0', validate: validateRateLimit }
+        name: 'Enable HTTP server'
+        , desc: `Enable HTTP server on port ${s.httpPort}` + (s.httpsEnabled ? ' (can be disabled when HTTPS is enabled)' : ' (required - at least one protocol must be enabled)')
+        , aliases: ['http', 'server']
+        , control: { type: 'toggle', key: 'httpEnabled', disabled: () => !host.settings.httpsEnabled }
+      }
+      , {
+        name: 'Server port'
+        , desc: 'Port for the server (default: 3011). Applies on change; restarts the server when it is running.'
+        , aliases: ['http', 'port']
+        , control: { type: 'number', key: 'httpPort', placeholder: '3011', validate: validatePort }
+      }
+      , {
+        name: 'Auto-detect port conflicts'
+        , desc: 'Automatically detect and warn about port conflicts'
+        , aliases: ['port']
+        , control: { type: 'toggle', key: 'autoDetectPortConflicts' }
+      }
+      , {
+        name: 'Sessions never expire'
+        , desc: 'Keep sessions valid until the client disconnects or a session limit evicts them. An old session ID can resume at any time. Turn off to expire idle sessions after a timespan.'
+        , aliases: ['session', 'expire', 'timeout']
+        , control: { type: 'toggle', key: 'sessionsNeverExpire' }
+      }
+      , {
+        name: 'Session timeout in minutes'
+        , desc: 'Idle time after which a session expires'
+        , aliases: ['session', 'expire', 'timeout']
+        , visible: () => host.settings.sessionTimeoutMs > 0
+        , control: { type: 'number', key: 'sessionTimeoutMinutes', placeholder: '60', validate: validateMinutes }
+      }
+      , {
+        name: 'Sessions per token'
+        , desc: 'How many sessions one credential can hold at once, including the main key. A new session past the limit invalidates the oldest session of that credential.'
+        , aliases: ['session', 'token', 'limit']
+        , control: { type: 'number', key: 'sessionsPerToken', placeholder: '1', validate: validateSessionCap }
+      }
+      , {
+        name: 'Tool call rate limit'
+        , desc: "Maximum tool calls per credential per minute, across all of that credential's sessions. 0 disables the limit (default). Takes effect immediately; a refused call returns the RATE_LIMITED error with a retry delay."
+        , aliases: ['rate', 'limit', 'throttle', 'per minute', 'calls']
+        , control: { type: 'number', key: 'rateLimitPerMinute', placeholder: '0', validate: validateRateLimit }
       }
     ]
   };
@@ -340,19 +369,19 @@ function serverConfigGroup(host: SettingsUIHost): Group {
 
 function networkBindingGroup(host: SettingsUIHost): Group {
   return {
-    type: 'group',
-    heading: 'Network binding',
-    items: [
+    type: 'group'
+    , heading: 'Network binding'
+    , items: [
       {
-        name: 'Network exposure display',
-        searchable: false,
-        render: (setting: Setting) => {
+        name: 'Network exposure display'
+        , searchable: false
+        , render: (setting: Setting) => {
           const s = host.settings;
           const verdict = classifyFromSettings({
-            httpsEnabled: s.httpsEnabled,
-            bindMode: s.bindMode,
-            customBindHost: s.customBindHost,
-            userSuppliedCert: !!(s.certificateConfig?.certPath && s.certificateConfig?.keyPath)
+            httpsEnabled: s.httpsEnabled
+            , bindMode: s.bindMode
+            , customBindHost: s.customBindHost
+            , userSuppliedCert: !!(s.certificateConfig?.certPath && s.certificateConfig?.keyPath)
           });
           const container = resetRenderRow(setting);
           const badgeEmoji = verdict.class === 'ok' ? '🟢' : verdict.class === 'warn' ? '🟡' : '🔴';
@@ -363,8 +392,8 @@ function networkBindingGroup(host: SettingsUIHost): Group {
           if (verdict.class === 'jail') {
             badgeEl.createEl('br');
             badgeEl.createSpan({
-              text: 'Reconfigure: switch the bind address below to Loopback, or enable HTTPS.',
-              cls: 'mcp-network-badge-hint'
+              text: 'Reconfigure: switch the bind address below to Loopback, or enable HTTPS.'
+              , cls: 'mcp-network-badge-hint'
             });
           }
           if (s.bindMode === 'all') {
@@ -381,33 +410,33 @@ function networkBindingGroup(host: SettingsUIHost): Group {
             empty.createSpan({ text: 'No custom address entered yet — server will fall back to loopback (127.0.0.1) until you enter one.' });
           }
         }
-      },
-      {
-        name: 'Bind address',
-        desc: 'Which network interface the MCP server listens on. Loopback only is recommended.',
-        aliases: ['bind', 'loopback', 'interface', 'host'],
-        control: {
-          type: 'dropdown',
-          key: 'bindMode',
-          options: {
-            'loopback': 'Loopback only — local machine',
-            'all': 'All interfaces — anyone on the network can attempt to connect',
-            'custom': 'Custom address…'
+      }
+      , {
+        name: 'Bind address'
+        , desc: 'Which network interface the MCP server listens on. Loopback only is recommended.'
+        , aliases: ['bind', 'loopback', 'interface', 'host']
+        , control: {
+          type: 'dropdown'
+          , key: 'bindMode'
+          , options: {
+            'loopback': 'Loopback only — local machine'
+            , 'all': 'All interfaces — anyone on the network can attempt to connect'
+            , 'custom': 'Custom address…'
           }
         }
-      },
-      {
-        name: 'Custom bind address',
-        desc: 'IPv4/IPv6/hostname to bind to. Typing only stores the value; the Apply row below normalizes it and restarts the server.',
-        aliases: ['bind', 'host', 'ip'],
-        visible: () => host.settings.bindMode === 'custom',
-        control: { type: 'text', key: 'customBindHost', placeholder: 'e.g. 192.168.1.50' }
-      },
-      {
-        name: 'Apply custom bind address',
-        desc: 'Normalize and apply the address. A loopback address switches the mode to loopback; a wildcard switches to all interfaces.',
-        visible: () => host.settings.bindMode === 'custom',
-        action: () => { void host.applyCustomBindHost(); }
+      }
+      , {
+        name: 'Custom bind address'
+        , desc: 'IPv4/IPv6/hostname to bind to. Typing only stores the value; the Apply row below normalizes it and restarts the server.'
+        , aliases: ['bind', 'host', 'ip']
+        , visible: () => host.settings.bindMode === 'custom'
+        , control: { type: 'text', key: 'customBindHost', placeholder: 'e.g. 192.168.1.50' }
+      }
+      , {
+        name: 'Apply custom bind address'
+        , desc: 'Normalize and apply the address. A loopback address switches the mode to loopback; a wildcard switches to all interfaces.'
+        , visible: () => host.settings.bindMode === 'custom'
+        , action: () => { void host.applyCustomBindHost(); }
       }
     ]
   };
@@ -417,63 +446,63 @@ function secureTransportGroup(host: SettingsUIHost): Group {
   const s = host.settings;
   const httpsOn = () => host.settings.httpsEnabled;
   return {
-    type: 'group',
-    heading: 'Secure transport',
-    items: [
+    type: 'group'
+    , heading: 'Secure transport'
+    , items: [
       {
-        name: 'Enable HTTPS server',
-        desc: `Enable HTTPS server on port ${s.httpsPort}` + (s.httpEnabled ? ' (optional when HTTP is enabled)' : ' (required - cannot be disabled when HTTP is disabled)'),
-        aliases: ['https', 'tls', 'certificate'],
-        control: {
-          type: 'toggle',
-          key: 'httpsEnabled',
-          disabled: () => !host.settings.httpEnabled && host.settings.httpsEnabled
+        name: 'Enable HTTPS server'
+        , desc: `Enable HTTPS server on port ${s.httpsPort}` + (s.httpEnabled ? ' (optional when HTTP is enabled)' : ' (required - cannot be disabled when HTTP is disabled)')
+        , aliases: ['https', 'tls', 'certificate']
+        , control: {
+          type: 'toggle'
+          , key: 'httpsEnabled'
+          , disabled: () => !host.settings.httpEnabled && host.settings.httpsEnabled
         }
-      },
-      {
-        name: 'Secure port',
-        desc: 'Port for secure connections (default: 3444)',
-        aliases: ['https', 'port'],
-        visible: httpsOn,
-        control: { type: 'number', key: 'httpsPort', placeholder: '3444', validate: validatePort }
-      },
-      {
-        name: 'Auto-generate certificate',
-        desc: 'Automatically generate a self-signed certificate if none exists',
-        aliases: ['https', 'tls', 'certificate'],
-        visible: httpsOn,
-        control: { type: 'toggle', key: 'certAutoGenerate' }
-      },
-      {
-        name: 'Certificate path',
-        desc: 'Path to a custom certificate file (.crt) - leave empty for auto-generated',
-        aliases: ['https', 'tls', 'certificate'],
-        visible: httpsOn,
-        control: { type: 'text', key: 'certPath', placeholder: 'Leave empty for auto-generated' }
-      },
-      {
-        name: 'Key path',
-        desc: 'Path to the private key file (.key) - leave empty for auto-generated',
-        aliases: ['https', 'tls', 'certificate', 'key'],
-        visible: httpsOn,
-        control: { type: 'text', key: 'certKeyPath', placeholder: 'Leave empty for auto-generated' }
-      },
-      {
-        name: 'Minimum TLS version',
-        desc: 'Minimum TLS version to accept',
-        aliases: ['https', 'tls'],
-        visible: httpsOn,
-        control: {
-          type: 'dropdown',
-          key: 'certMinTLSVersion',
-          options: { 'TLSv1.2': 'TLS 1.2', 'TLSv1.3': 'TLS 1.3' }
+      }
+      , {
+        name: 'Secure port'
+        , desc: 'Port for secure connections (default: 3444)'
+        , aliases: ['https', 'port']
+        , visible: httpsOn
+        , control: { type: 'number', key: 'httpsPort', placeholder: '3444', validate: validatePort }
+      }
+      , {
+        name: 'Auto-generate certificate'
+        , desc: 'Automatically generate a self-signed certificate if none exists'
+        , aliases: ['https', 'tls', 'certificate']
+        , visible: httpsOn
+        , control: { type: 'toggle', key: 'certAutoGenerate' }
+      }
+      , {
+        name: 'Certificate path'
+        , desc: 'Path to a custom certificate file (.crt) - leave empty for auto-generated'
+        , aliases: ['https', 'tls', 'certificate']
+        , visible: httpsOn
+        , control: { type: 'text', key: 'certPath', placeholder: 'Leave empty for auto-generated' }
+      }
+      , {
+        name: 'Key path'
+        , desc: 'Path to the private key file (.key) - leave empty for auto-generated'
+        , aliases: ['https', 'tls', 'certificate', 'key']
+        , visible: httpsOn
+        , control: { type: 'text', key: 'certKeyPath', placeholder: 'Leave empty for auto-generated' }
+      }
+      , {
+        name: 'Minimum TLS version'
+        , desc: 'Minimum TLS version to accept'
+        , aliases: ['https', 'tls']
+        , visible: httpsOn
+        , control: {
+          type: 'dropdown'
+          , key: 'certMinTLSVersion'
+          , options: { 'TLSv1.2': 'TLS 1.2', 'TLSv1.3': 'TLS 1.3' }
         }
-      },
-      {
-        name: 'Certificate status display',
-        searchable: false,
-        visible: httpsOn,
-        render: (setting: Setting) => {
+      }
+      , {
+        name: 'Certificate status display'
+        , searchable: false
+        , visible: httpsOn
+        , render: (setting: Setting) => {
           const container = resetRenderRow(setting);
           const statusEl = container.createDiv('mcp-cert-status');
           statusEl.createEl('p', { text: 'Checking certificate…', cls: 'setting-item-description mcp-security-note' });
@@ -487,21 +516,21 @@ function secureTransportGroup(host: SettingsUIHost): Group {
                 const info = certManager.getCertificateInfo(loaded.cert);
                 if (info) {
                   statusEl.createEl('p', {
-                    text: `✅ Certificate valid until: ${info.validTo.toLocaleDateString()}`,
-                    cls: 'setting-item-description mcp-security-note'
+                    text: `✅ Certificate valid until: ${info.validTo.toLocaleDateString()}`
+                    , cls: 'setting-item-description mcp-security-note'
                   });
                   if (info.daysUntilExpiry < 30) {
                     statusEl.createEl('p', {
-                      text: `⚠️ Certificate expires in ${info.daysUntilExpiry} days`,
-                      cls: 'setting-item-description mod-warning'
+                      text: `⚠️ Certificate expires in ${info.daysUntilExpiry} days`
+                      , cls: 'setting-item-description mod-warning'
                     });
                   }
                 }
               }
             } else {
               statusEl.createEl('p', {
-                text: '📝 No certificate found - will auto-generate on server start',
-                cls: 'setting-item-description mcp-security-note'
+                text: '📝 No certificate found - will auto-generate on server start'
+                , cls: 'setting-item-description mcp-security-note'
               });
             }
           });
@@ -513,14 +542,14 @@ function secureTransportGroup(host: SettingsUIHost): Group {
 
 function authenticationGroup(host: SettingsUIHost): Group {
   return {
-    type: 'group',
-    heading: 'Authentication',
-    items: [
+    type: 'group'
+    , heading: 'Authentication'
+    , items: [
       {
-        name: 'Authentication key',
-        desc: 'Secure key for authenticating MCP clients',
-        aliases: ['api key', 'token', 'bearer', 'scoped token'],
-        render: (setting: Setting) => {
+        name: 'Authentication key'
+        , desc: 'Secure key for authenticating MCP clients'
+        , aliases: ['api key', 'token', 'bearer', 'scoped token']
+        , render: (setting: Setting) => {
           const s = host.settings;
           const notes = resetRenderRow(setting);
           setting.addText(text => {
@@ -553,25 +582,25 @@ function authenticationGroup(host: SettingsUIHost): Group {
               );
             }));
           notes.createEl('p', {
-            text: 'Note: the API key is stored in the plugin settings file. Anyone with access to your vault can read it.',
-            cls: 'setting-item-description mcp-security-note'
+            text: 'Note: the API key is stored in the plugin settings file. Anyone with access to your vault can read it.'
+            , cls: 'setting-item-description mcp-security-note'
           });
           notes.createEl('p', {
-            text: 'Supports both bearer token (recommended) and basic authentication.',
-            cls: 'setting-item-description mcp-security-note'
+            text: 'Supports both bearer token (recommended) and basic authentication.'
+            , cls: 'setting-item-description mcp-security-note'
           });
         }
-      },
-      {
-        name: 'Disable authentication',
-        desc: '⚠️ dangerous: disable authentication entirely. Only use for testing or if you fully trust your local environment.',
-        aliases: ['auth', 'dangerously'],
-        control: { type: 'toggle', key: 'dangerouslyDisableAuth' }
-      },
-      {
-        name: 'Scoped tokens',
-        desc: 'Extra keys for mcp clients. Each key can be limited to one folder of the vault and to read-only access. A key without a folder has the same access as the main key. Scope changes apply to new sessions.',
-        aliases: ['scoped token', 'token', 'folder', 'read-only']
+      }
+      , {
+        name: 'Disable authentication'
+        , desc: '⚠️ dangerous: disable authentication entirely. Only use for testing or if you fully trust your local environment.'
+        , aliases: ['auth', 'dangerously']
+        , control: { type: 'toggle', key: 'dangerouslyDisableAuth' }
+      }
+      , {
+        name: 'Scoped tokens'
+        , desc: 'Extra keys for mcp clients. Each key can be limited to one folder of the vault and to read-only access. A key without a folder has the same access as the main key. Scope changes apply to new sessions.'
+        , aliases: ['scoped token', 'token', 'folder', 'read-only']
       }
     ]
   };
@@ -580,14 +609,14 @@ function authenticationGroup(host: SettingsUIHost): Group {
 /** The scoped tokens list: framework-rendered add/delete affordances. */
 function scopedTokensList(host: SettingsUIHost): SettingDefinitionList {
   return {
-    type: 'list',
-    heading: 'Scoped tokens',
-    emptyState: 'No scoped tokens. The main key above has full access.',
-    items: host.settings.scopedTokens.map((token): SettingGroupItem => ({
-      name: token.name || 'Scoped token',
-      desc: `Folder: ${token.folder ?? 'whole vault'}${token.readOnly === true ? ' — read-only' : ''}`,
-      searchable: false,
-      render: (setting: Setting) => {
+    type: 'list'
+    , heading: 'Scoped tokens'
+    , emptyState: 'No scoped tokens. The main key above has full access.'
+    , items: host.settings.scopedTokens.map((token): SettingGroupItem => ({
+      name: token.name || 'Scoped token'
+      , desc: `Folder: ${token.folder ?? 'whole vault'}${token.readOnly === true ? ' — read-only' : ''}`
+      , searchable: false
+      , render: (setting: Setting) => {
         const block = resetRenderRow(setting);
         // The framework's delete stays in the control area, top right. The
         // editable fields live in the full-width block below: as
@@ -653,9 +682,9 @@ function scopedTokensList(host: SettingsUIHost): SettingDefinitionList {
         // thing it copies, like the Authentication key row.
         const valueRow = block.createDiv('mcp-token-value-row');
         const tokenDisplay = valueRow.createEl('input', {
-          type: 'text',
-          cls: 'mcp-monospace-input mcp-token-display',
-          attr: { 'aria-label': 'Scoped token value (read-only)' }
+          type: 'text'
+          , cls: 'mcp-monospace-input mcp-token-display'
+          , attr: { 'aria-label': 'Scoped token value (read-only)' }
         });
         tokenDisplay.value = token.token;
         tokenDisplay.disabled = true;
@@ -671,15 +700,15 @@ function scopedTokensList(host: SettingsUIHost): SettingDefinitionList {
         });
         valueRow.appendChild(copyButton!.buttonEl);
       }
-    })),
-    addItem: {
-      name: 'Add scoped token',
-      action: () => {
+    }))
+    , addItem: {
+      name: 'Add scoped token'
+      , action: () => {
         host.settings.scopedTokens.push({ name: '', token: host.generateApiKey() });
         void host.saveSettings().then(() => host.update());
       }
-    },
-    onDelete: (index: number) => {
+    }
+    , onDelete: (index: number) => {
       host.confirm(
         'Are you sure you want to delete this token? MCP clients using it lose access on their next request.',
         async () => {
@@ -696,39 +725,39 @@ function scopedTokensList(host: SettingsUIHost): SettingDefinitionList {
 function securityGroup(host: SettingsUIHost): Group {
   const exclusionsOn = () => host.settings.pathExclusionsEnabled;
   return {
-    type: 'group',
-    heading: 'Security',
-    items: [
+    type: 'group'
+    , heading: 'Security'
+    , items: [
       {
-        name: 'Read-only mode',
-        desc: 'Blocks every operation that changes the vault. Reads, searches, graph queries and opening notes still work. Takes effect immediately — no restart needed.',
-        aliases: ['readonly', 'read only', 'writes'],
-        control: { type: 'toggle', key: 'readOnlyMode' }
-      },
-      {
-        name: 'Allow outbound web fetch',
-        desc: 'Lets connected agents fetch web pages (system.fetch_web). Off: the plugin makes no outbound connections at all. On: internal addresses (localhost, local network, cloud metadata) are always blocked, but an agent reading untrusted notes could still be tricked into leaking vault data inside a URL to a public site — read-only mode does not prevent that. Enforcement takes effect immediately; agents see the tool appear on their next connection.',
-        aliases: ['web', 'fetch', 'fetch_web', 'internet'],
-        control: { type: 'toggle', key: 'enableWebFetch' }
-      },
-      {
-        name: 'Path exclusions',
-        desc: 'Exclude files and directories from MCP operations using .gitignore-style patterns',
-        aliases: ['mcpignore', 'ignore', 'exclude'],
-        control: { type: 'toggle', key: 'pathExclusionsEnabled' }
-      },
-      {
-        name: 'Enable right-click context menu',
-        desc: 'Add an "add to .mcpignore" option to file and folder context menus',
-        aliases: ['context menu', 'mcpignore'],
-        visible: exclusionsOn,
-        control: { type: 'toggle', key: 'enableIgnoreContextMenu' }
-      },
-      {
-        name: '.mcpignore file management',
-        searchable: false,
-        visible: exclusionsOn,
-        render: (setting: Setting) => {
+        name: 'Read-only mode'
+        , desc: 'Blocks every operation that changes the vault. Reads, searches, graph queries and opening notes still work. Takes effect immediately — no restart needed.'
+        , aliases: ['readonly', 'read only', 'writes']
+        , control: { type: 'toggle', key: 'readOnlyMode' }
+      }
+      , {
+        name: 'Allow outbound web fetch'
+        , desc: 'Lets connected agents fetch web pages (system.fetch_web). Off: the plugin makes no outbound connections at all. On: internal addresses (localhost, local network, cloud metadata) are always blocked, but an agent reading untrusted notes could still be tricked into leaking vault data inside a URL to a public site — read-only mode does not prevent that. Enforcement takes effect immediately; agents see the tool appear on their next connection.'
+        , aliases: ['web', 'fetch', 'fetch_web', 'internet']
+        , control: { type: 'toggle', key: 'enableWebFetch' }
+      }
+      , {
+        name: 'Path exclusions'
+        , desc: 'Exclude files and directories from MCP operations using .gitignore-style patterns'
+        , aliases: ['mcpignore', 'ignore', 'exclude']
+        , control: { type: 'toggle', key: 'pathExclusionsEnabled' }
+      }
+      , {
+        name: 'Enable right-click context menu'
+        , desc: 'Add an "add to .mcpignore" option to file and folder context menus'
+        , aliases: ['context menu', 'mcpignore']
+        , visible: exclusionsOn
+        , control: { type: 'toggle', key: 'enableIgnoreContextMenu' }
+      }
+      , {
+        name: '.mcpignore file management'
+        , searchable: false
+        , visible: exclusionsOn
+        , render: (setting: Setting) => {
           const ignoreManager = host.ignoreManager;
           const container = resetRenderRow(setting);
           if (!ignoreManager) return;
@@ -737,17 +766,17 @@ function securityGroup(host: SettingsUIHost): Group {
 
           const statusEl = exclusionSection.createDiv('mcp-exclusion-status');
           statusEl.createEl('p', {
-            text: `Current exclusions: ${stats.patternCount} patterns active`,
-            cls: 'setting-item-description mcp-security-note'
+            text: `Current exclusions: ${stats.patternCount} patterns active`
+            , cls: 'setting-item-description mcp-security-note'
           });
           statusEl.createEl('p', {
-            text: 'Save patterns in .mcpignore file before reloading',
-            cls: 'setting-item-description mcp-security-note'
+            text: 'Save patterns in .mcpignore file before reloading'
+            , cls: 'setting-item-description mcp-security-note'
           });
           if (stats.lastModified > 0) {
             statusEl.createEl('p', {
-              text: `Last modified: ${new Date(stats.lastModified).toLocaleString()}`,
-              cls: 'setting-item-description mcp-security-note'
+              text: `Last modified: ${new Date(stats.lastModified).toLocaleString()}`
+              , cls: 'setting-item-description mcp-security-note'
             });
           }
 
@@ -828,18 +857,18 @@ function securityGroup(host: SettingsUIHost): Group {
           const examplesList = helpEl.createEl('ul');
           const configDir = host.app.vault.configDir;
           const examples = [
-            'private/ - exclude entire directory',
-            '*.secret - exclude files by extension',
-            'temp/** - exclude deeply nested paths',
-            '!file.md - include exception (whitelist)',
-            `${configDir}/workspace* - exclude workspace files`
+            'private/ - exclude entire directory'
+            , '*.secret - exclude files by extension'
+            , 'temp/** - exclude deeply nested paths'
+            , '!file.md - include exception (whitelist)'
+            , `${configDir}/workspace* - exclude workspace files`
           ];
           examples.forEach(example => {
             examplesList.createEl('li', { text: example, cls: 'setting-item-description mcp-security-note' });
           });
           helpEl.createEl('p', {
-            text: 'Full syntax documentation: https://Git-scm.com/docs/gitignore',
-            cls: 'setting-item-description mcp-security-note'
+            text: 'Full syntax documentation: https://Git-scm.com/docs/gitignore'
+            , cls: 'setting-item-description mcp-security-note'
           });
         }
       }
@@ -847,55 +876,76 @@ function securityGroup(host: SettingsUIHost): Group {
   };
 }
 
-function toolVisibilityGroup(host: SettingsUIHost): Group {
+function toolVisibilityGroups(host: SettingsUIHost): Group[] {
   const visibilityOps = ALL_OPERATIONS.filter(op => op !== 'dataview' || host.isDataviewAvailable());
-  const items: SettingGroupItem[] = [];
-  for (const op of visibilityOps) {
+  return visibilityOps.flatMap(op => {
     const actions = getActionsForOperation(op).filter(a => !(op === 'system' && a === 'fetch_web'));
-    if (actions.length === 0) continue;
-    const desc = getOperationDescription(op).replace(/^[^\s]+\s/, ''); // strip leading emoji
+    if (actions.length === 0) return [];
+    // One section per tool. The heading carries the tool name at section
+    // weight, above its actions, and the section ends at the tool's last
+    // row — the next tool opens a section of its own. The tool row carries
+    // only the tool-level text. Every action-owned description line moves
+    // down to its own switch, so no row repeats the whole surface as one
+    // wall of text. Fragments keep the line structure (a string desc
+    // collapses its newlines), and the framework indexes a fragment's
+    // textContent for search.
+    const items: SettingGroupItem[] = [];
+    const toolLines = getStaticDescriptionLines(op).map(line =>
+      line.replace(/^[^\s]+\s/, '') // strip leading emoji on the intro line
+    );
+    while (toolLines[toolLines.length - 1] === '') toolLines.pop();
     items.push({
-      name: op,
-      desc: `Show or hide the ${op} tool and all its actions. ${desc}`,
-      aliases: ['tool', 'visibility'],
-      control: { type: 'toggle', key: `vis.${op}` }
+      name: op
+      , desc: boxedDesc(`Show or hide the ${op} tool and all its actions.`, toolLines)
+      , aliases: ['tool', 'visibility']
+      , control: { type: 'toggle', key: `vis.${op}` }
     });
+    const gateKeys: ReadonlySet<string> = new Set(
+      host.settings.allowCreateOverwrite === true ? ['gate:overwrite'] : []
+    );
     for (const action of actions) {
+      const actionLines = getActionDescriptionLines(op, action, gateKeys)
+        .map(line => line.replace(/^- `[\w-]+` — /, '').replace(/^\s+/, ''))
+        .filter(line => line !== '');
+      // The summary line is permanent. The boxed description below it is
+      // extra: it appears only when the action owns description lines.
+      const intro = `Show or hide the ${action} action of the ${op} tool`;
       items.push({
-        name: `${op}.${action}`,
-        desc: `Show or hide the ${action} action of the ${op} tool`,
-        aliases: ['tool', 'visibility', op, action],
-        control: { type: 'toggle', key: `vis.${op}.${action}` }
+        name: `${op}.${action}`
+        , desc: actionLines.length > 0 ? boxedDesc(intro, actionLines) : intro
+        , aliases: ['tool', 'visibility', op, action]
+        , control: { type: 'toggle', key: `vis.${op}.${action}` }
       });
     }
     if (op === 'files') {
       items.push({
-        name: 'Allow overwrite',
-        desc: 'Let files actions replace existing content (overwrite=true)',
-        aliases: ['files', 'overwrite'],
-        control: { type: 'toggle', key: 'allowCreateOverwrite' }
+        name: 'Allow overwrite'
+        , desc: 'Let files actions replace existing content (overwrite=true)'
+        , aliases: ['files', 'overwrite']
+        , control: { type: 'toggle', key: 'allowCreateOverwrite' }
       });
     }
-  }
-  return { type: 'group', heading: 'Tool visibility', items };
+    const title = getOperationDefinition(op)?.title ?? op;
+    return [{ type: 'group' as const, heading: `${op} — ${title}`, items }];
+  });
 }
 
 function interfaceGroup(): Group {
   return {
-    type: 'group',
-    heading: 'Interface',
-    items: [
+    type: 'group'
+    , heading: 'Interface'
+    , items: [
       {
-        name: 'Show connection status',
-        desc: 'Show MCP server status in the status bar',
-        aliases: ['status bar'],
-        control: { type: 'toggle', key: 'showConnectionStatus' }
-      },
-      {
-        name: 'Debug logging',
-        desc: 'Enable detailed debug logging in console',
-        aliases: ['debug', 'logs'],
-        control: { type: 'toggle', key: 'debugLogging' }
+        name: 'Show connection status'
+        , desc: 'Show MCP server status in the status bar'
+        , aliases: ['status bar']
+        , control: { type: 'toggle', key: 'showConnectionStatus' }
+      }
+      , {
+        name: 'Debug logging'
+        , desc: 'Enable detailed debug logging in console'
+        , aliases: ['debug', 'logs']
+        , control: { type: 'toggle', key: 'debugLogging' }
       }
     ]
   };
@@ -903,15 +953,15 @@ function interfaceGroup(): Group {
 
 export function buildSettingsUI(host: SettingsUIHost): SettingDefinitionItem[] {
   return [
-    gettingStartedGroup(host),
-    connectionStatusGroup(host),
-    serverConfigGroup(host),
-    networkBindingGroup(host),
-    secureTransportGroup(host),
-    authenticationGroup(host),
-    scopedTokensList(host),
-    securityGroup(host),
-    toolVisibilityGroup(host),
-    interfaceGroup()
+    gettingStartedGroup(host)
+    , connectionStatusGroup(host)
+    , serverConfigGroup(host)
+    , networkBindingGroup(host)
+    , secureTransportGroup(host)
+    , authenticationGroup(host)
+    , scopedTokensList(host)
+    , securityGroup(host)
+    , ...toolVisibilityGroups(host)
+    , interfaceGroup()
   ];
 }

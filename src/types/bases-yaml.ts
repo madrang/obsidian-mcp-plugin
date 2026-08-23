@@ -64,21 +64,27 @@ export interface ViewConfig {
   filters?: FilterExpression;
   
   /**
-   * Sort order - array of property paths
+   * Column order for table views. Not a sort: rows are ordered by `sort`.
    */
   order?: string[];
+
+  /**
+   * Row sort, as written by the Obsidian app UI. Older app versions spell
+   * the entry key `column:` instead of `property:`; consumers normalize.
+   */
+  sort?: Array<{ property: string; direction: 'ASC' | 'DESC' }>;
+
+  /**
+   * Group rows by one property, in the given direction. Officially
+   * documented in Bases syntax. Not implemented by this plugin.
+   */
+  groupBy?: { property: string; direction: 'ASC' | 'DESC' };
   
   /**
    * Limit number of results
    */
   limit?: number;
-  
-  // Table-specific properties
-  /**
-   * Columns to display (table view)
-   */
-  columns?: string[];
-  
+
   // Cards-specific properties
   /**
    * Property containing image for card cover
@@ -127,6 +133,9 @@ export interface NoteContext {
 export interface BaseQueryResult {
   notes: EvaluatedNote[];
   total: number;
+  // Present when the caller paged the query (BaseQueryOptions.pagination).
+  page?: number;
+  pageSize?: number;
   view?: ViewConfig;
 }
 

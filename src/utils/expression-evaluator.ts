@@ -135,41 +135,41 @@ export class ExpressionEvaluator {
     
     // File properties object
     const fileObj = {
-      name: file.basename,
-      path: file.path,
-      folder: file.parent?.path || '',
-      ext: file.extension,
-      size: file.stat.size,
-      ctime: new Date(file.stat.ctime),
-      mtime: new Date(file.stat.mtime),
-      tags: cache ? (getAllTags(cache) || []) : [],
-      links: cache?.links?.map((l: LinkCache) => l.link) || [],
+      name: file.basename
+      , path: file.path
+      , folder: file.parent?.path || ''
+      , ext: file.extension
+      , size: file.stat.size
+      , ctime: new Date(file.stat.ctime)
+      , mtime: new Date(file.stat.mtime)
+      , tags: cache ? (getAllTags(cache) || []) : []
+      , links: cache?.links?.map((l: LinkCache) => l.link) || []
 
       // File functions
-      hasTag: (...tags: string[]) => {
+      , hasTag: (...tags: string[]) => {
         const fileTags = cache ? (getAllTags(cache) || []) : [];
         return tags.some(tag => {
           // Handle both with and without # prefix
           const normalizedTag = tag.startsWith('#') ? tag : `#${tag}`;
           return fileTags.includes(normalizedTag);
         });
-      },
+      }
       
-      inFolder: (folder: string) => {
+      , inFolder: (folder: string) => {
         const filePath = file.path;
         // Handle both with and without trailing slash
         const normalizedFolder = folder.endsWith('/') ? folder : folder + '/';
         return filePath.startsWith(normalizedFolder);
-      },
+      }
       
-      hasLink: (target: string) => {
+      , hasLink: (target: string) => {
         const links: LinkCache[] = cache?.links || [];
         // Handle both [[Link]] and Link formats
         const normalizedTarget = target.replace(/^\[\[|\]\]$/g, '');
         return links.some((link: LinkCache) => link.link === normalizedTarget);
-      },
+      }
       
-      hasProperty: (name: string) => {
+      , hasProperty: (name: string) => {
         return name in frontmatter;
       }
     };
@@ -187,37 +187,37 @@ export class ExpressionEvaluator {
           return null;
         }
         return parsed;
-      },
-      now: () => new Date(),
-      today: () => {
+      }
+      , now: () => new Date()
+      , today: () => {
         const d = new Date();
         d.setHours(0, 0, 0, 0);
         return d;
-      },
+      }
       
       // Type conversion
-      number: (val: unknown) => Number(val),
-      string: (val: unknown) => String(val),
+      , number: (val: unknown) => Number(val)
+      , string: (val: unknown) => String(val)
       
       // Utility functions - renamed to avoid reserved word conflicts
-      iff: (condition: unknown, trueVal: unknown, falseVal: unknown = null) => {
+      , iff: (condition: unknown, trueVal: unknown, falseVal: unknown = null) => {
         return condition ? trueVal : falseVal;
-      },
-      choice: (condition: unknown, trueVal: unknown, falseVal: unknown = null) => {
+      }
+      , choice: (condition: unknown, trueVal: unknown, falseVal: unknown = null) => {
         return condition ? trueVal : falseVal;
-      },
+      }
       
       // Math functions
-      min: (...values: number[]) => Math.min(...values),
-      max: (...values: number[]) => Math.max(...values),
-      abs: (n: number) => Math.abs(n),
-      round: (n: number, digits: number = 0) => {
+      , min: (...values: number[]) => Math.min(...values)
+      , max: (...values: number[]) => Math.max(...values)
+      , abs: (n: number) => Math.abs(n)
+      , round: (n: number, digits: number = 0) => {
         const factor = Math.pow(10, digits);
         return Math.round(n * factor) / factor;
-      },
+      }
       
       // List functions
-      list: (val: unknown): unknown[] => Array.isArray(val) ? val as unknown[] : [val]
+      , list: (val: unknown): unknown[] => Array.isArray(val) ? val as unknown[] : [val]
     };
 
     // Pre-process frontmatter to auto-convert date-like strings
@@ -242,13 +242,13 @@ export class ExpressionEvaluator {
 
     // Build the complete context
     const evalContext: Record<string, unknown> = {
-      ...globalFunctions,
-      file: fileObj,
-      note: processedFrontmatter, // note properties with dates parsed
-      formula: formulas || {}, // formula results
+      ...globalFunctions
+      , file: fileObj
+      , note: processedFrontmatter // note properties with dates parsed
+      , formula: formulas || {} // formula results
       
       // Allow direct access to frontmatter properties
-      ...processedFrontmatter
+      , ...processedFrontmatter
     };
 
     return evalContext;

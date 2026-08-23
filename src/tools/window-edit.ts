@@ -3,7 +3,7 @@ import { findFuzzyMatches } from '../utils/fuzzy-match';
 import { ContentBufferManager } from '../utils/content-buffer';
 import { isImageFile } from '../types/obsidian';
 
-// Shared edit logic behind edit.replace and edit.from_buffer, imported
+// Shared edit logic behind edit.replace, imported
 // dynamically by the router to avoid circular references.
 
 /** Non-overlapping occurrence count — the same semantics split/join replace
@@ -51,24 +51,24 @@ export async function performWindowEdit(
     const target = expected ?? 1;
     if (count !== target) {
       buffer.store(newText, undefined, {
-        filePath: path,
-        searchText: oldText
+        filePath: path
+        , searchText: oldText
       });
       return {
         content: [{
-          type: 'text',
-          text: JSON.stringify({
+          type: 'text'
+          , text: JSON.stringify({
             error: {
-              code: 'MATCH_COUNT_MISMATCH',
-              message:
+              code: 'MATCH_COUNT_MISMATCH'
+              , message:
                 `Match count mismatch in ${path}: expected ${target}, found ${count}. ` +
                 `Nothing was written. The replacement content has been buffered. ` +
                 `Check the occurrences with view.grep or a complete view.read, then retry ` +
                 `with the right expected value or a narrower oldText.`
             }
           }, null, 2)
-        }],
-        isError: true
+        }]
+        , isError: true
       };
     }
     const newContent = target === 1
@@ -78,21 +78,21 @@ export async function performWindowEdit(
 
     return {
       content: [{
-        type: 'text',
-        text: `Successfully replaced ${target === 1 ? 'the match' : `${target} occurrences`} (exact) in ${path}`
-      }],
+        type: 'text'
+        , text: `Successfully replaced ${target === 1 ? 'the match' : `${target} occurrences`} (exact) in ${path}`
+      }]
       // Post-write stat for write chaining: echo it back as
       // ifUnmodifiedSince / ifHash on the next edit, no re-read needed.
-      path,
-      mtime: write.mtime,
-      hash: write.hash
+      , path
+      , mtime: write.mtime
+      , hash: write.hash
     };
   }
 
   // Buffer the new content for potential recovery
   buffer.store(newText, undefined, {
-    filePath: path,
-    searchText: oldText
+    filePath: path
+    , searchText: oldText
   });
 
   // Try fuzzy matching
@@ -102,12 +102,13 @@ export async function performWindowEdit(
     // No matches found, provide helpful feedback
     return {
       content: [{
-        type: 'text',
-        text: `No matches found for "${oldText}" in ${path}. ` +
-              `Content has been buffered. You can use edit(action='from_buffer') to retry ` +
-              `with different search text or edit(action='at_line') to insert at a specific line.`
-      }],
-      isError: true
+        type: 'text'
+        , text: `No matches found for "${oldText}" in ${path}. ` +
+              `The replacement has been buffered (one slot, 30 minutes). ` +
+              `Retry with different search text and omit newText to reuse the buffered replacement, ` +
+              `or use edit(action='at_line') to insert at a specific line.`
+      }]
+      , isError: true
     };
   }
 
@@ -119,11 +120,11 @@ export async function performWindowEdit(
 
     return {
       content: [{
-        type: 'text',
-        text: `Found ${matches.length} potential matches:\n\n${matchList}\n\n` +
+        type: 'text'
+        , text: `Found ${matches.length} potential matches:\n\n${matchList}\n\n` +
               `Content has been buffered. Use edit(action='at_line') with the specific line number.`
-      }],
-      isError: true
+      }]
+      , isError: true
     };
   }
 
@@ -137,12 +138,12 @@ export async function performWindowEdit(
 
   return {
     content: [{
-      type: 'text',
-      text: `Successfully replaced line ${match.lineNumber} (${Math.round(match.similarity * 100)}% match) in ${path}`
-    }],
+      type: 'text'
+      , text: `Successfully replaced line ${match.lineNumber} (${Math.round(match.similarity * 100)}% match) in ${path}`
+    }]
     // Post-write stat for write chaining (see the exact-match branch).
-    path,
-    mtime: write.mtime,
-    hash: write.hash
+    , path
+    , mtime: write.mtime
+    , hash: write.hash
   };
 }

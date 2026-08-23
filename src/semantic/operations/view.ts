@@ -27,21 +27,36 @@ export async function executeViewOperation(ctx: RouterContext, action: string, p
       }
 
       const maxResults = paramNum(params, 'maxResults') ?? 200;
-      const singlePath = paramStr(params, 'path');
-      const directory = paramStr(params, 'directory');
+      // `path` names one file or a folder subtree; a file probe tells them
+      // apart (a folder never resolves as a file — same probe files.copy
+      // uses).
+      const scope = paramStr(params, 'path');
       if (!ctx.app) {
         throw new Error('view.grep requires the Obsidian app context');
       }
 
       let paths: string[];
-      if (singlePath) {
-        paths = [singlePath];
+      if (scope) {
+        let isFile = false;
+        try {
+          await ctx.api.getFile(scope);
+          isFile = true;
+        } catch {
+          isFile = false;
+        }
+        if (isFile) {
+          paths = [scope];
+        } else {
+          paths = ctx.app.vault.getMarkdownFiles().map(f => f.path);
+          if (scope !== '/') {
+            const prefix = scope.endsWith('/') ? scope : `${scope}/`;
+            paths = paths.filter(p => p.startsWith(prefix));
+          }
+          const ignore = ctx.api.getIgnoreManager();
+          if (ignore) paths = ignore.filterPaths(paths);
+        }
       } else {
         paths = ctx.app.vault.getMarkdownFiles().map(f => f.path);
-        if (directory && directory !== '/') {
-          const prefix = directory.endsWith('/') ? directory : `${directory}/`;
-          paths = paths.filter(p => p.startsWith(prefix));
-        }
         const ignore = ctx.api.getIgnoreManager();
         if (ignore) paths = ignore.filterPaths(paths);
       }
@@ -76,11 +91,11 @@ export async function executeViewOperation(ctx: RouterContext, action: string, p
       }
 
       return {
-        pattern,
-        matches,
-        totalMatches: matches.length,
-        truncated,
-        filesScanned
+        pattern
+        , matches
+        , totalMatches: matches.length
+        , truncated
+        , filesScanned
       };
     }
 
@@ -121,11 +136,11 @@ export async function executeViewOperation(ctx: RouterContext, action: string, p
       const clampedEnd = Math.min(endLine, allLines.length);
 
       return {
-        path: linesPath,
-        lines: allLines.slice(startLine - 1, clampedEnd),
-        startLine,
-        endLine: clampedEnd,
-        totalLines: allLines.length
+        path: linesPath
+        , lines: allLines.slice(startLine - 1, clampedEnd)
+        , startLine
+        , endLine: clampedEnd
+        , totalLines: allLines.length
       };
     }
 
@@ -158,13 +173,13 @@ export async function executeViewOperation(ctx: RouterContext, action: string, p
       const endLine = Math.min(lines.length, centerLine + halfWindow);
 
       return {
-        path: viewPath,
-        lines: lines.slice(startLine - 1, endLine),
-        startLine,
-        endLine,
-        totalLines: lines.length,
-        centerLine,
-        searchText
+        path: viewPath
+        , lines: lines.slice(startLine - 1, endLine)
+        , startLine
+        , endLine
+        , totalLines: lines.length
+        , centerLine
+        , searchText
       };
     }
 
@@ -175,8 +190,8 @@ export async function executeViewOperation(ctx: RouterContext, action: string, p
           window.setTimeout(() => reject(new Error('Timeout: No active file in Obsidian. Please open a file first.')), 5000)
         );
         const activeResult = await Promise.race([
-          ctx.api.getActiveFile(),
-          timeoutPromise
+          ctx.api.getActiveFile()
+          , timeoutPromise
         ]);
         return activeResult;
       } catch (error: unknown) {

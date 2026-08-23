@@ -23,11 +23,11 @@ export class AdaptiveTextIndex {
     
     // Store document
     this.documents.set(docId, {
-      id: docId,
-      content,
-      metadata: { ...metadata, lineCount: lines.length },
-      length: tokens.length,
-      uniqueTermCount: uniqueTerms.size
+      id: docId
+      , content
+      , metadata: { ...metadata, lineCount: lines.length }
+      , length: tokens.length
+      , uniqueTermCount: uniqueTerms.size
     });
     
     // Store file path mapping
@@ -92,15 +92,15 @@ export class AdaptiveTextIndex {
       );
       
       fragments.push(...docFragments.map((f, idx) => ({
-        id: `${docId}:frag${idx}`,
-        docId,
-        docPath: filePath,
-        content: f.text,
-        score: docScore > 0 ? docScore * f.localScore : f.localScore,
-        localScore: f.localScore,
-        lineStart: this.getLineNumber(doc.content, f.start),
-        lineEnd: this.getLineNumber(doc.content, f.end),
-        metadata: doc.metadata
+        id: `${docId}:frag${idx}`
+        , docId
+        , docPath: filePath
+        , content: f.text
+        , score: docScore > 0 ? docScore * f.localScore : f.localScore
+        , localScore: f.localScore
+        , lineStart: this.getLineNumber(doc.content, f.start)
+        , lineEnd: this.getLineNumber(doc.content, f.end)
+        , metadata: doc.metadata
       })));
     }
     
@@ -122,10 +122,10 @@ export class AdaptiveTextIndex {
       const score = this.scorePassage(content, queryTokens);
       if (score > 0) {
         return [{
-          text: content.trim(),
-          start: 0,
-          end: content.length,
-          localScore: score
+          text: content.trim()
+          , start: 0
+          , end: content.length
+          , localScore: score
         }];
       }
       return [];
@@ -145,10 +145,10 @@ export class AdaptiveTextIndex {
       const score = this.scorePassage(window, queryTokens);
       if (score > 0) {
         windows.push({
-          text: window,
-          start: windowStart,
-          end: sentences[Math.min(j - 1, sentences.length - 1)].end,
-          localScore: score
+          text: window
+          , start: windowStart
+          , end: sentences[Math.min(j - 1, sentences.length - 1)].end
+          , localScore: score
         });
       }
     }
@@ -250,9 +250,9 @@ export class AdaptiveTextIndex {
     
     while ((match = regex.exec(content)) !== null) {
       sentences.push({
-        text: match[0].trim(),
-        start: match.index,
-        end: match.index + match[0].length
+        text: match[0].trim()
+        , start: match.index
+        , end: match.index + match[0].length
       });
     }
     
@@ -262,9 +262,9 @@ export class AdaptiveTextIndex {
       const lastText = content.substring(lastStart).trim();
       if (lastText) {
         sentences.push({
-          text: lastText,
-          start: lastStart,
-          end: content.length
+          text: lastText
+          , start: lastStart
+          , end: content.length
         });
       }
     }
@@ -298,9 +298,9 @@ export class AdaptiveTextIndex {
     
     if (!this.termStats.has(term)) {
       this.termStats.set(term, {
-        documentFrequency: 0,
-        totalFrequency: 0,
-        averagePosition: 0
+        documentFrequency: 0
+        , totalFrequency: 0
+        , averagePosition: 0
       });
     }
     

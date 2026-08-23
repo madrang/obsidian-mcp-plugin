@@ -86,9 +86,9 @@ export function ensureStringContent(content: unknown, context?: string): string 
     
   } catch (error) {
     Debug.warn(`Content conversion failed${context ? ` in ${context}` : ''}:`, {
-      contentType: typeof content,
-      contentConstructor: content?.constructor?.name,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      contentType: typeof content
+      , contentConstructor: content?.constructor?.name
+      , error: error instanceof Error ? error.message : 'Unknown error'
     });
     return '';
   }
@@ -114,8 +114,8 @@ export function safeContentMatch(
     
   } catch (error) {
     Debug.warn(`Match operation failed${context ? ` in ${context}` : ''}:`, {
-      pattern: pattern.toString(),
-      error: error instanceof Error ? error.message : 'Unknown error'
+      pattern: pattern.toString()
+      , error: error instanceof Error ? error.message : 'Unknown error'
     });
     return null;
   }
@@ -165,9 +165,9 @@ export function countFragmentMatches(
     
   } catch (error) {
     Debug.warn(`Fragment match counting failed${context ? ` in ${context}` : ''}:`, {
-      fragmentsLength: Array.isArray(fragments) ? fragments.length : 'not array',
-      pattern: pattern.toString(),
-      error: error instanceof Error ? error.message : 'Unknown error'
+      fragmentsLength: Array.isArray(fragments) ? fragments.length : 'not array'
+      , pattern: pattern.toString()
+      , error: error instanceof Error ? error.message : 'Unknown error'
     });
     return 0;
   }

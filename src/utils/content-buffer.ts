@@ -30,9 +30,9 @@ export class ContentBufferManager {
   store(content: string, key?: string, metadata?: { filePath?: string; searchText?: string }): void {
     const bufferKey = key || this.defaultKey;
     this.buffer.set(bufferKey, {
-      content,
-      timestamp: Date.now(),
-      ...metadata
+      content
+      , timestamp: Date.now()
+      , ...metadata
     });
     
     // Clean old entries

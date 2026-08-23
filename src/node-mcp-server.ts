@@ -114,19 +114,19 @@ export class NodeMCPServer {
       Debug.error('Request handling error:', error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error'
+        error: 'Internal server error'
+        , message: error instanceof Error ? error.message : 'Unknown error'
       }));
     }
   }
 
   private handleHealthCheck(_req: IncomingMessage, res: ServerResponse): void {
     const response = {
-      name: 'Scoped Vault MCP',
-      version: '0.1.4',
-      status: 'running',
-      vault: this.app.vault.getName(),
-      timestamp: new Date().toISOString()
+      name: 'Scoped Vault MCP'
+      , version: '0.1.4'
+      , status: 'running'
+      , vault: this.app.vault.getName()
+      , timestamp: new Date().toISOString()
     };
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -159,10 +159,10 @@ export class NodeMCPServer {
           default:
             response = {
               error: {
-                code: -32601,
-                message: `Method not found: ${request.method}`
-              },
-              id: request.id
+                code: -32601
+                , message: `Method not found: ${request.method}`
+              }
+              , id: request.id
             };
         }
 
@@ -175,8 +175,8 @@ export class NodeMCPServer {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           error: {
-            code: -32700,
-            message: 'Parse error: ' + (error instanceof Error ? error.message : 'Invalid JSON')
+            code: -32700
+            , message: 'Parse error: ' + (error instanceof Error ? error.message : 'Invalid JSON')
           }
         }));
       }
@@ -188,22 +188,22 @@ export class NodeMCPServer {
       result: {
         tools: [
           {
-            name: 'echo',
-            description: 'Echo back the input message with Obsidian context',
-            inputSchema: {
-              type: 'object',
-              properties: {
+            name: 'echo'
+            , description: 'Echo back the input message with Obsidian context'
+            , inputSchema: {
+              type: 'object'
+              , properties: {
                 message: {
-                  type: 'string',
-                  description: 'Message to echo back'
+                  type: 'string'
+                  , description: 'Message to echo back'
                 }
-              },
-              required: ['message']
+              }
+              , required: ['message']
             }
           }
         ]
-      },
-      id: request.id
+      }
+      , id: request.id
     };
   }
 
@@ -222,8 +222,8 @@ export class NodeMCPServer {
         result: {
           content: [
             {
-              type: 'text',
-              text: `🎉 Echo from Obsidian MCP Plugin!
+              type: 'text'
+              , text: `🎉 Echo from Obsidian MCP Plugin!
 
 📝 Original message: ${message}
 📚 Vault name: ${vaultName}
@@ -238,17 +238,17 @@ export class NodeMCPServer {
 🎯 Status: Connected and operational`
             }
           ]
-        },
-        id: request.id
+        }
+        , id: request.id
       };
     }
 
     return {
       error: {
-        code: -32602,
-        message: `Unknown tool: ${name}`
-      },
-      id: request.id
+        code: -32602
+        , message: `Unknown tool: ${name}`
+      }
+      , id: request.id
     };
   }
 

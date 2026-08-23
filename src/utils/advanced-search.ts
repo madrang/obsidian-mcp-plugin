@@ -38,9 +38,9 @@ export class AdvancedSearchService {
    */
   private isTextFile(file: TFile): boolean {
     const textExtensions = new Set([
-      'md', 'txt', 'json', 'js', 'ts', 'css', 'html', 'xml', 'yaml', 'yml', 
-      'csv', 'log', 'py', 'java', 'cpp', 'c', 'h', 'php', 'rb', 'go', 'rs',
-      'sql', 'sh', 'bat', 'ps1', 'ini', 'conf', 'config', 'env'
+      'md', 'txt', 'json', 'js', 'ts', 'css', 'html', 'xml', 'yaml', 'yml' 
+      , 'csv', 'log', 'py', 'java', 'cpp', 'c', 'h', 'php', 'rb', 'go', 'rs'
+      , 'sql', 'sh', 'bat', 'ps1', 'ini', 'conf', 'config', 'env'
     ]);
     return textExtensions.has(file.extension.toLowerCase());
   }
@@ -111,16 +111,16 @@ export class AdvancedSearchService {
     }
     
     const result: SearchResult = {
-      path: file.path,
-      title: file.basename,
-      score: score * 2 // Boost filename matches
+      path: file.path
+      , title: file.basename
+      , score: score * 2 // Boost filename matches
     };
     
     if (includeMetadata) {
       result.metadata = {
-        size: file.stat.size,
-        modified: file.stat.mtime,
-        extension: file.extension
+        size: file.stat.size
+        , modified: file.stat.mtime
+        , extension: file.extension
       };
     }
     
@@ -154,17 +154,17 @@ export class AdvancedSearchService {
       const snippet = this.extractBestSnippet(content, queryTokens, snippetLength);
       
       const result: SearchResult = {
-        path: file.path,
-        title: file.basename,
-        score,
-        snippet
+        path: file.path
+        , title: file.basename
+        , score
+        , snippet
       };
       
       if (includeMetadata) {
         result.metadata = {
-          size: file.stat.size,
-          modified: file.stat.mtime,
-          extension: file.extension
+          size: file.stat.size
+          , modified: file.stat.mtime
+          , extension: file.extension
         };
       }
       
@@ -198,9 +198,9 @@ export class AdvancedSearchService {
     const combinedScore = filenameScore * 1.5 + contentScore;
     
     const result: SearchResult = {
-      path: file.path,
-      title: file.basename,
-      score: combinedScore
+      path: file.path
+      , title: file.basename
+      , score: combinedScore
     };
     
     // Include snippet from content search if available
@@ -210,9 +210,9 @@ export class AdvancedSearchService {
     
     if (includeMetadata) {
       result.metadata = {
-        size: file.stat.size,
-        modified: file.stat.mtime,
-        extension: file.extension
+        size: file.stat.size
+        , modified: file.stat.mtime
+        , extension: file.extension
       };
     }
     
@@ -247,10 +247,10 @@ export class AdvancedSearchService {
       
       if (score > 0) {
         windows.push({
-          text: window,
-          start: windowStart,
-          end: j - 1,
-          score
+          text: window
+          , start: windowStart
+          , end: j - 1
+          , score
         });
       }
     }
@@ -259,10 +259,10 @@ export class AdvancedSearchService {
       // Fallback: return first chunk of content
       const truncatedContent = truncateContent(content, maxLength);
       return {
-        content: truncatedContent,
-        lineStart: 1,
-        lineEnd: Math.min(10, lines.length),
-        score: 0.1
+        content: truncatedContent
+        , lineStart: 1
+        , lineEnd: Math.min(10, lines.length)
+        , score: 0.1
       };
     }
     
@@ -270,10 +270,10 @@ export class AdvancedSearchService {
     const bestWindow = windows.sort((a, b) => b.score - a.score)[0];
     
     return {
-      content: truncateContent(bestWindow.text, maxLength),
-      lineStart: bestWindow.start + 1, // 1-indexed
-      lineEnd: bestWindow.end + 1,
-      score: bestWindow.score
+      content: truncateContent(bestWindow.text, maxLength)
+      , lineStart: bestWindow.start + 1 // 1-indexed
+      , lineEnd: bestWindow.end + 1
+      , score: bestWindow.score
     };
   }
 
@@ -334,11 +334,11 @@ export class AdvancedSearchService {
    */
   private isStopWord(word: string): boolean {
     const stopWords = new Set([
-      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 
-      'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'be', 
-      'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 
-      'could', 'should', 'may', 'might', 'can', 'this', 'that', 'these', 
-      'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they'
+      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for' 
+      , 'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'be' 
+      , 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would' 
+      , 'could', 'should', 'may', 'might', 'can', 'this', 'that', 'these' 
+      , 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they'
     ]);
     return stopWords.has(word.toLowerCase());
   }

@@ -9,6 +9,7 @@ import {
 import { MCPIgnoreManager } from './mcp-ignore-manager';
 import { ObsidianConfig, ObsidianFile, ObsidianFileResponse, FileStatResponse } from '../types/obsidian';
 import { BaseYAML } from '../types/bases-yaml';
+import { BaseQueryOptions } from '../types/bases';
 import { Debug } from '../utils/debug';
 
 /** Minimal plugin interface for security-relevant properties.
@@ -69,9 +70,9 @@ export class SecureObsidianAPI extends ObsidianAPI {
 
 	async getFile(path: string): Promise<ObsidianFileResponse> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.READ,
-			path: path,
-			context: { method: 'getFile' }
+			type: OperationType.READ
+			, path: path
+			, context: { method: 'getFile' }
 		});
 
 		return super.getFile(validated.path!);
@@ -79,9 +80,9 @@ export class SecureObsidianAPI extends ObsidianAPI {
 
 	async getFileStat(path: string): Promise<FileStatResponse> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.READ,
-			path: path,
-			context: { method: 'getFileStat' }
+			type: OperationType.READ
+			, path: path
+			, context: { method: 'getFileStat' }
 		});
 
 		return super.getFileStat(validated.path!);
@@ -89,9 +90,9 @@ export class SecureObsidianAPI extends ObsidianAPI {
 
 	async listFiles(directory?: string): Promise<string[]> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.READ,
-			path: directory || '.',
-			context: { method: 'listFiles' }
+			type: OperationType.READ
+			, path: directory || '.'
+			, context: { method: 'listFiles' }
 		});
 
 		// Use validated path if directory was provided, undefined for vault root
@@ -99,16 +100,16 @@ export class SecureObsidianAPI extends ObsidianAPI {
 		return super.listFiles(listPath);
 	}
 
-	async listFilesPaginated(directory?: string, page: number = 1, pageSize: number = 20, recursive: boolean = false): ReturnType<ObsidianAPI['listFilesPaginated']> {
+	async listFilesPaginated(directory?: string, page: number = 1, pageSize: number = 20, recursive: boolean = false, pattern?: string): ReturnType<ObsidianAPI['listFilesPaginated']> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.READ,
-			path: directory || '.',
-			context: { method: 'listFilesPaginated', page, pageSize, recursive }
+			type: OperationType.READ
+			, path: directory || '.'
+			, context: { method: 'listFilesPaginated', page, pageSize, recursive, pattern }
 		});
 
 		// Use validated path if directory was provided, undefined for vault root
 		const listPath = !validated.path || validated.path === '.' ? undefined : validated.path;
-		return super.listFilesPaginated(listPath, page, pageSize, recursive);
+		return super.listFilesPaginated(listPath, page, pageSize, recursive, pattern);
 	}
 
 	async getActiveFile(): Promise<ObsidianFile> {
@@ -117,9 +118,9 @@ export class SecureObsidianAPI extends ObsidianAPI {
 		// (ADR-110). With no active file the path is undefined, path checks skip,
 		// and the base class throws 'No active file' as before.
 		await this.security.validateOperation({
-			type: OperationType.READ,
-			path: this.getApp().workspace.getActiveFile()?.path,
-			context: { method: 'getActiveFile' }
+			type: OperationType.READ
+			, path: this.getApp().workspace.getActiveFile()?.path
+			, context: { method: 'getActiveFile' }
 		});
 
 		return super.getActiveFile();
@@ -132,9 +133,9 @@ export class SecureObsidianAPI extends ObsidianAPI {
 
 	async createFile(path: string, content: string): ReturnType<ObsidianAPI['createFile']> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.CREATE,
-			path: path,
-			context: { method: 'createFile', contentSize: content.length }
+			type: OperationType.CREATE
+			, path: path
+			, context: { method: 'createFile', contentSize: content.length }
 		});
 		
 		return super.createFile(validated.path!, content);
@@ -147,9 +148,9 @@ export class SecureObsidianAPI extends ObsidianAPI {
 
 	async updateFile(path: string, content: string): ReturnType<ObsidianAPI['updateFile']> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.UPDATE,
-			path: path,
-			context: { method: 'updateFile', contentSize: content.length }
+			type: OperationType.UPDATE
+			, path: path
+			, context: { method: 'updateFile', contentSize: content.length }
 		});
 		
 		return super.updateFile(validated.path!, content);
@@ -157,9 +158,9 @@ export class SecureObsidianAPI extends ObsidianAPI {
 
 	async appendToFile(path: string, content: string): ReturnType<ObsidianAPI['appendToFile']> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.UPDATE,
-			path: path,
-			context: { method: 'appendToFile', contentSize: content.length }
+			type: OperationType.UPDATE
+			, path: path
+			, context: { method: 'appendToFile', contentSize: content.length }
 		});
 		
 		return super.appendToFile(validated.path!, content);
@@ -167,9 +168,9 @@ export class SecureObsidianAPI extends ObsidianAPI {
 
 	async patchVaultFile(path: string, params: PatchParams): ReturnType<ObsidianAPI['patchVaultFile']> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.UPDATE,
-			path: path,
-			context: { method: 'patchVaultFile', params }
+			type: OperationType.UPDATE
+			, path: path
+			, context: { method: 'patchVaultFile', params }
 		});
 		
 		return super.patchVaultFile(validated.path!, params);
@@ -179,9 +180,9 @@ export class SecureObsidianAPI extends ObsidianAPI {
 
 	async deleteFile(path: string): ReturnType<ObsidianAPI['deleteFile']> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.DELETE,
-			path: path,
-			context: { method: 'deleteFile' }
+			type: OperationType.DELETE
+			, path: path
+			, context: { method: 'deleteFile' }
 		});
 		
 		return super.deleteFile(validated.path!);
@@ -204,10 +205,10 @@ export class SecureObsidianAPI extends ObsidianAPI {
 	 */
 	async moveFile(path: string, newPath: string): ReturnType<ObsidianAPI['moveFile']> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.MOVE,
-			path: path,
-			targetPath: newPath,
-			context: { method: 'moveFile' }
+			type: OperationType.MOVE
+			, path: path
+			, targetPath: newPath
+			, context: { method: 'moveFile' }
 		});
 
 		return super.moveFile(validated.path!, validated.targetPath!);
@@ -225,8 +226,8 @@ export class SecureObsidianAPI extends ObsidianAPI {
 	 */
 	async executeCommand(commandId: string): ReturnType<ObsidianAPI['executeCommand']> {
 		await this.security.validateOperation({
-			type: OperationType.EXECUTE,
-			context: { method: 'executeCommand', commandId }
+			type: OperationType.EXECUTE
+			, context: { method: 'executeCommand', commandId }
 		});
 
 		return super.executeCommand(commandId);
@@ -248,9 +249,9 @@ export class SecureObsidianAPI extends ObsidianAPI {
 	 */
 	async createBase(path: string, config: BaseYAML): Promise<void> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.CREATE,
-			path: path,
-			context: { method: 'createBase' }
+			type: OperationType.CREATE
+			, path: path
+			, context: { method: 'createBase' }
 		});
 
 		return super.createBase(validated.path!, config);
@@ -265,32 +266,32 @@ export class SecureObsidianAPI extends ObsidianAPI {
 
 	async readBase(path: string): Promise<BaseYAML> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.READ,
-			path: path,
-			context: { method: 'readBase' }
+			type: OperationType.READ
+			, path: path
+			, context: { method: 'readBase' }
 		});
 
 		return super.readBase(validated.path!);
 	}
 
-	async queryBase(path: string, viewName?: string): ReturnType<ObsidianAPI['queryBase']> {
+	async queryBase(path: string, viewName?: string, options?: BaseQueryOptions): ReturnType<ObsidianAPI['queryBase']> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.READ,
-			path: path,
-			context: { method: 'queryBase', viewName }
+			type: OperationType.READ
+			, path: path
+			, context: { method: 'queryBase', viewName }
 		});
 
-		return super.queryBase(validated.path!, viewName);
+		return super.queryBase(validated.path!, viewName, options);
 	}
 
-	async exportBase(path: string, format: 'csv' | 'json' | 'markdown', viewName?: string): ReturnType<ObsidianAPI['exportBase']> {
+	async exportBase(path: string, format: 'csv' | 'json' | 'markdown', viewName?: string, options?: BaseQueryOptions): ReturnType<ObsidianAPI['exportBase']> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.READ,
-			path: path,
-			context: { method: 'exportBase', format }
+			type: OperationType.READ
+			, path: path
+			, context: { method: 'exportBase', format }
 		});
 
-		return super.exportBase(validated.path!, format, viewName);
+		return super.exportBase(validated.path!, format, viewName, options);
 	}
 
 	// Active-file writes
@@ -302,9 +303,9 @@ export class SecureObsidianAPI extends ObsidianAPI {
 
 	async updateActiveFile(content: string): ReturnType<ObsidianAPI['updateActiveFile']> {
 		await this.security.validateOperation({
-			type: OperationType.UPDATE,
-			path: this.getApp().workspace.getActiveFile()?.path,
-			context: { method: 'updateActiveFile', contentSize: content.length }
+			type: OperationType.UPDATE
+			, path: this.getApp().workspace.getActiveFile()?.path
+			, context: { method: 'updateActiveFile', contentSize: content.length }
 		});
 
 		return super.updateActiveFile(content);
@@ -312,9 +313,9 @@ export class SecureObsidianAPI extends ObsidianAPI {
 
 	async appendToActiveFile(content: string): ReturnType<ObsidianAPI['appendToActiveFile']> {
 		await this.security.validateOperation({
-			type: OperationType.UPDATE,
-			path: this.getApp().workspace.getActiveFile()?.path,
-			context: { method: 'appendToActiveFile', contentSize: content.length }
+			type: OperationType.UPDATE
+			, path: this.getApp().workspace.getActiveFile()?.path
+			, context: { method: 'appendToActiveFile', contentSize: content.length }
 		});
 
 		return super.appendToActiveFile(content);
@@ -322,9 +323,9 @@ export class SecureObsidianAPI extends ObsidianAPI {
 
 	async deleteActiveFile(): ReturnType<ObsidianAPI['deleteActiveFile']> {
 		await this.security.validateOperation({
-			type: OperationType.DELETE,
-			path: this.getApp().workspace.getActiveFile()?.path,
-			context: { method: 'deleteActiveFile' }
+			type: OperationType.DELETE
+			, path: this.getApp().workspace.getActiveFile()?.path
+			, context: { method: 'deleteActiveFile' }
 		});
 
 		return super.deleteActiveFile();
@@ -349,9 +350,9 @@ export class SecureObsidianAPI extends ObsidianAPI {
 	 */
 	async openFile(path: string): ReturnType<ObsidianAPI['openFile']> {
 		const validated = await this.security.validateOperation({
-			type: OperationType.READ,
-			path: path,
-			context: { method: 'openFile' }
+			type: OperationType.READ
+			, path: path
+			, context: { method: 'openFile' }
 		});
 
 		return super.openFile(validated.path!);

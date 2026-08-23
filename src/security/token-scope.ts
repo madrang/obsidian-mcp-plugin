@@ -54,10 +54,10 @@ export class FolderScopedIgnoreManager extends MCPIgnoreManager {
 
   override getStats(): { enabled: boolean; patternCount: number; lastModified: number; filePath: string } {
     return this.base?.getStats() ?? {
-      enabled: true,
-      patternCount: 0,
-      lastModified: 0,
-      filePath: ''
+      enabled: true
+      , patternCount: 0
+      , lastModified: 0
+      , filePath: ''
     };
   }
 

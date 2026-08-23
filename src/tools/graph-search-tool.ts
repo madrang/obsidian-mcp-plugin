@@ -57,28 +57,28 @@ export class GraphSearchTool {
 
         // Format the result for MCP response
         return {
-            summary: this.generateSummary(result),
-            traversalPath: this.formatTraversalPath(result.traversalChain),
-            details: {
-                startNode: result.startNode,
-                searchQuery: result.searchQuery,
-                maxDepth: result.maxDepth,
-                totalNodesVisited: result.totalNodesVisited,
-                nodesWithMatches: result.traversalChain.length,
-                executionTime: `${result.executionTime.toFixed(2)}ms`
-            },
-            snippetChain: result.traversalChain.map(node => ({
-                file: node.path,
-                depth: node.depth,
-                parent: node.parentPath,
-                snippet: {
-                    text: node.snippet.text,
-                    score: node.snippet.score.toFixed(3),
-                    lineNumber: node.snippet.lineNumber,
-                    preview: this.truncateText(node.snippet.context, 200)
+            summary: this.generateSummary(result)
+            , traversalPath: this.formatTraversalPath(result.traversalChain)
+            , details: {
+                startNode: result.startNode
+                , searchQuery: result.searchQuery
+                , maxDepth: result.maxDepth
+                , totalNodesVisited: result.totalNodesVisited
+                , nodesWithMatches: result.traversalChain.length
+                , executionTime: `${result.executionTime.toFixed(2)}ms`
+            }
+            , snippetChain: result.traversalChain.map(node => ({
+                file: node.path
+                , depth: node.depth
+                , parent: node.parentPath
+                , snippet: {
+                    text: node.snippet.text
+                    , score: node.snippet.score.toFixed(3)
+                    , lineNumber: node.snippet.lineNumber
+                    , preview: this.truncateText(node.snippet.context, 200)
                 }
-            })),
-            workflowSuggestions: this.generateWorkflowSuggestions(result)
+            }))
+            , workflowSuggestions: this.generateWorkflowSuggestions(result)
         };
     }
 
@@ -91,23 +91,23 @@ export class GraphSearchTool {
             params.startPath,
             params.searchQueries,
             {
-                maxDepth: params.maxDepth,
-                strategy: params.strategy,
-                beamWidth: params.beamWidth,
-                includeOrphans: params.includeOrphans,
-                followTags: params.followTags,
-                filePattern: params.filePattern
+                maxDepth: params.maxDepth
+                , strategy: params.strategy
+                , beamWidth: params.beamWidth
+                , includeOrphans: params.includeOrphans
+                , followTags: params.followTags
+                , filePattern: params.filePattern
             }
         );
 
         return {
-            summary: this.generateSummary(result),
-            traversalPath: this.formatTraversalPath(result.traversalChain),
-            details: {
-                ...result,
-                executionTime: `${result.executionTime.toFixed(2)}ms`
-            },
-            workflowSuggestions: this.generateWorkflowSuggestions(result)
+            summary: this.generateSummary(result)
+            , traversalPath: this.formatTraversalPath(result.traversalChain)
+            , details: {
+                ...result
+                , executionTime: `${result.executionTime.toFixed(2)}ms`
+            }
+            , workflowSuggestions: this.generateWorkflowSuggestions(result)
         };
     }
 
@@ -171,55 +171,55 @@ export class GraphSearchTool {
     getParameters() {
         return {
             action: {
-                type: 'string',
-                enum: ['search-traverse', 'advanced-traverse'],
-                description: 'The graph search operation to perform'
-            },
-            startPath: {
-                type: 'string',
-                description: 'Starting document path for traversal'
-            },
-            searchQuery: {
-                type: 'string',
-                description: 'Search query to apply at each node (for search-traverse)'
-            },
-            searchQueries: {
-                type: 'array',
-                items: { type: 'string' },
-                description: 'Multiple search queries (for advanced-traverse)'
-            },
-            maxDepth: {
-                type: 'number',
-                description: 'Maximum traversal depth (default: 3)'
-            },
-            maxSnippetsPerNode: {
-                type: 'number',
-                description: 'Maximum snippets to extract per node (default: 2)'
-            },
-            scoreThreshold: {
-                type: 'number',
-                description: 'Minimum score threshold for including nodes (0-1, default: 0.5)'
-            },
-            strategy: {
-                type: 'string',
-                enum: ['breadth-first', 'best-first', 'beam-search'],
-                description: 'Traversal strategy (for advanced-traverse)'
-            },
-            beamWidth: {
-                type: 'number',
-                description: 'Beam width for beam-search strategy'
-            },
-            includeOrphans: {
-                type: 'boolean',
-                description: 'Include orphaned notes in traversal'
-            },
-            followTags: {
-                type: 'boolean',
-                description: 'Follow tag connections in addition to links'
-            },
-            filePattern: {
-                type: 'string',
-                description: 'Filter traversal to files matching this pattern'
+                type: 'string'
+                , enum: ['search-traverse', 'advanced-traverse']
+                , description: 'The graph search operation to perform'
+            }
+            , startPath: {
+                type: 'string'
+                , description: 'Starting document path for traversal'
+            }
+            , searchQuery: {
+                type: 'string'
+                , description: 'Search query to apply at each node (for search-traverse)'
+            }
+            , searchQueries: {
+                type: 'array'
+                , items: { type: 'string' }
+                , description: 'Multiple search queries (for advanced-traverse)'
+            }
+            , maxDepth: {
+                type: 'number'
+                , description: 'Maximum traversal depth (default: 3)'
+            }
+            , maxSnippetsPerNode: {
+                type: 'number'
+                , description: 'Maximum snippets to extract per node (default: 2)'
+            }
+            , scoreThreshold: {
+                type: 'number'
+                , description: 'Minimum score threshold for including nodes (0-1, default: 0.5)'
+            }
+            , strategy: {
+                type: 'string'
+                , enum: ['breadth-first', 'best-first', 'beam-search']
+                , description: 'Traversal strategy (for advanced-traverse)'
+            }
+            , beamWidth: {
+                type: 'number'
+                , description: 'Beam width for beam-search strategy'
+            }
+            , includeOrphans: {
+                type: 'boolean'
+                , description: 'Include orphaned notes in traversal'
+            }
+            , followTags: {
+                type: 'boolean'
+                , description: 'Follow tag connections in addition to links'
+            }
+            , filePattern: {
+                type: 'string'
+                , description: 'Filter traversal to files matching this pattern'
             }
         };
     }

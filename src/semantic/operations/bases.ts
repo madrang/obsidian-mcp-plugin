@@ -4,8 +4,9 @@
  * bases tool itself.
  */
 import { RouterContext } from './router-context';
-import { Params, paramStr } from './shared';
+import { Params, paramStr, paramNum } from './shared';
 import { BaseYAML } from '../../types/bases-yaml';
+import { BaseQueryOptions, BaseFilter } from '../../types/bases';
 
 export async function executeBasesOperation(ctx: RouterContext, action: string, params: Params): Promise<unknown> {
   switch (action) {
@@ -32,26 +33,48 @@ export async function executeBasesOperation(ctx: RouterContext, action: string, 
       return { success: true, path: basePath };
     }
 
+    // One action covers both needs. Without `format` the caller gets the
+    // structured result. With `format` the same query runs and the result
+    // comes back serialized — the old export action, merged in.
     case 'query': {
       const basePath = paramStr(params, 'path');
       if (!basePath) {
         throw new Error('Path parameter is required for querying a base');
       }
-      return await ctx.api.queryBase(basePath, paramStr(params, 'viewName'));
-    }
-
-    case 'export': {
-      const basePath = paramStr(params, 'path');
+      const viewName = paramStr(params, 'viewName');
       const format = paramStr(params, 'format') as 'csv' | 'json' | 'markdown' | undefined;
-      if (!basePath || !format) {
-        throw new Error('Path and format parameters are required for exporting a base');
+
+      // Flat surface params build the internal options object. The shape
+      // follows the surface standards: page/pageSize as on view.folder,
+      // sortBy/sortOrder as on files.concat.
+      const sortBy = paramStr(params, 'sortBy');
+      const sortOrder = paramStr(params, 'sortOrder');
+      const page = paramNum(params, 'page');
+      const pageSize = paramNum(params, 'pageSize');
+      const options: BaseQueryOptions | undefined = (
+        params.filters !== undefined
+        || sortBy !== undefined
+        || page !== undefined
+        || pageSize !== undefined
+        || params.properties !== undefined
+      )
+        ? {
+            filters: params.filters as BaseFilter[] | undefined
+            , ...(sortBy !== undefined ? { sort: { property: sortBy, order: sortOrder === 'desc' ? 'desc' : 'asc' } } : {})
+            , ...((page !== undefined || pageSize !== undefined) ? { pagination: { page: page ?? 1, pageSize: pageSize ?? 20 } } : {})
+            , properties: params.properties as string[] | undefined
+          }
+        : undefined;
+
+      if (format) {
+        const exportData = await ctx.api.exportBase(basePath, format, viewName, options);
+        return {
+          success: true
+          , data: exportData
+          , format
+        };
       }
-      const exportData = await ctx.api.exportBase(basePath, format, paramStr(params, 'viewName'));
-      return {
-        success: true,
-        data: exportData,
-        format
-      };
+      return await ctx.api.queryBase(basePath, viewName, options);
     }
 
     default:

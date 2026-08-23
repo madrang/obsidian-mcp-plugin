@@ -76,23 +76,23 @@ export class CertificateManager {
     
     // Set certificate attributes
     const attrs = [{
-      name: 'commonName',
-      value: commonName
+      name: 'commonName'
+      , value: commonName
     }, {
-      name: 'countryName',
-      value: 'US'
+      name: 'countryName'
+      , value: 'US'
     }, {
-      shortName: 'ST',
-      value: 'State'
+      shortName: 'ST'
+      , value: 'State'
     }, {
-      name: 'localityName',
-      value: 'City'
+      name: 'localityName'
+      , value: 'City'
     }, {
-      name: 'organizationName',
-      value: 'Obsidian MCP Plugin'
+      name: 'organizationName'
+      , value: 'Obsidian MCP Plugin'
     }, {
-      shortName: 'OU',
-      value: 'Development'
+      shortName: 'OU'
+      , value: 'Development'
     }];
     
     cert.setSubject(attrs);
@@ -100,45 +100,45 @@ export class CertificateManager {
     
     // Add extensions
     cert.setExtensions([{
-      name: 'basicConstraints',
-      cA: true
+      name: 'basicConstraints'
+      , cA: true
     }, {
-      name: 'keyUsage',
-      keyCertSign: true,
-      digitalSignature: true,
-      nonRepudiation: true,
-      keyEncipherment: true,
-      dataEncipherment: true
+      name: 'keyUsage'
+      , keyCertSign: true
+      , digitalSignature: true
+      , nonRepudiation: true
+      , keyEncipherment: true
+      , dataEncipherment: true
     }, {
-      name: 'extKeyUsage',
-      serverAuth: true,
-      clientAuth: true,
-      codeSigning: true,
-      emailProtection: true,
-      timeStamping: true
+      name: 'extKeyUsage'
+      , serverAuth: true
+      , clientAuth: true
+      , codeSigning: true
+      , emailProtection: true
+      , timeStamping: true
     }, {
-      name: 'nsCertType',
-      client: true,
-      server: true,
-      email: true,
-      objsign: true,
-      sslCA: true,
-      emailCA: true,
-      objCA: true
+      name: 'nsCertType'
+      , client: true
+      , server: true
+      , email: true
+      , objsign: true
+      , sslCA: true
+      , emailCA: true
+      , objCA: true
     }, {
-      name: 'subjectAltName',
-      altNames: [{
-        type: 2, // DNS
-        value: 'localhost'
+      name: 'subjectAltName'
+      , altNames: [{
+        type: 2 // DNS
+        , value: 'localhost'
       }, {
-        type: 2,
-        value: '*.localhost'
+        type: 2
+        , value: '*.localhost'
       }, {
-        type: 7, // IP
-        ip: '127.0.0.1'
+        type: 7 // IP
+        , ip: '127.0.0.1'
       }, {
-        type: 7,
-        ip: '::1'
+        type: 7
+        , ip: '::1'
       }]
     }, {
       name: 'subjectKeyIdentifier'
@@ -154,8 +154,8 @@ export class CertificateManager {
     Debug.log('✅ Self-signed certificate generated');
     
     return {
-      cert: pemCert,
-      key: pemKey
+      cert: pemCert
+      , key: pemKey
     };
   }
   
@@ -229,14 +229,14 @@ export class CertificateManager {
         .toHex();
       
       return {
-        subject,
-        issuer,
-        validFrom,
-        validTo,
-        fingerprint,
-        isValid: now >= validFrom && now <= validTo,
-        isSelfSigned: subject === issuer,
-        daysUntilExpiry
+        subject
+        , issuer
+        , validFrom
+        , validTo
+        , fingerprint
+        , isValid: now >= validFrom && now <= validTo
+        , isSelfSigned: subject === issuer
+        , daysUntilExpiry
       };
     } catch (error) {
       Debug.log('❌ Failed to parse certificate:', error);
@@ -294,15 +294,15 @@ export class CertificateManager {
     
     // Create HTTPS server options
     const httpsOptions: ServerOptions = {
-      cert,
-      key,
-      ca,
-      passphrase: config.passphrase,
-      rejectUnauthorized: config.rejectUnauthorized !== false,
+      cert
+      , key
+      , ca
+      , passphrase: config.passphrase
+      , rejectUnauthorized: config.rejectUnauthorized !== false
       // minVersion sets a floor. The legacy `secureProtocol` method-string API pins one
       // exact version, and OpenSSL never shipped a TLSv1_3_method, so selecting TLS 1.3
       // through it threw "Unknown method: TLSv1_3_method" at context creation.
-      minVersion: config.minTLSVersion ?? 'TLSv1.2'
+      , minVersion: config.minTLSVersion ?? 'TLSv1.2'
     };
     
     Debug.log('🔒 Creating HTTPS server with certificate');
@@ -326,8 +326,8 @@ export class CertificateManager {
    */
   public getDefaultPaths(): { certPath: string; keyPath: string } {
     return {
-      certPath: join(this.certDir, 'default.crt'),
-      keyPath: join(this.certDir, 'default.key')
+      certPath: join(this.certDir, 'default.crt')
+      , keyPath: join(this.certDir, 'default.key')
     };
   }
   

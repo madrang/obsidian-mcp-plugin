@@ -10,6 +10,7 @@
  * bullet, for every tool on every visibility shape tested here.
  */
 import { createSemanticTools, getOperationDescription, getActionsForOperation, ALL_OPERATIONS, SemanticTool } from '../src/tools/semantic-tools';
+import { getActionDescriptionLines, getStaticDescriptionLines } from '../src/tools/tool-registry';
 
 type EnumHolder = { enum: string[] };
 
@@ -27,6 +28,59 @@ function byName(tools: SemanticTool[], name: string): SemanticTool {
   if (!tool) throw new Error(`tool not built: ${name}`);
   return tool;
 }
+
+describe('description partition: static vs action-owned lines', () => {
+  it('getActionDescriptionLines returns the lines owned by the action', () => {
+    const lines = getActionDescriptionLines('view', 'lines');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('`lines`');
+
+    // A multi-key line names create AND the gate. Without a visible set the
+    // getter is a raw accessor: every line naming the action. With a set,
+    // the companion key must pass — gate off drops the overwrite sentence.
+    expect(getActionDescriptionLines('files', 'create')).toHaveLength(2);
+    expect(getActionDescriptionLines('files', 'create', new Set())).toHaveLength(1);
+    expect(getActionDescriptionLines('files', 'create', new Set(['gate:overwrite']))).toHaveLength(2);
+  });
+
+  it('getStaticDescriptionLines drops action bullets and emptied headings', () => {
+    const view = getStaticDescriptionLines('view');
+    expect(view.join('\n')).toContain('View, read, and search vault content');
+    expect(view.join('\n')).not.toContain('`window`');
+    expect(view.join('\n')).not.toContain('## Actions');
+    expect(view.join('\n')).not.toContain('## Guidance');
+
+    const edit = getStaticDescriptionLines('edit');
+    expect(edit.join('\n')).toContain('## Rules');
+    expect(edit.join('\n')).toContain('ifUnmodifiedSince');
+    expect(edit.join('\n')).not.toContain('## Actions');
+
+    const graph = getStaticDescriptionLines('graph');
+    expect(graph.join('\n')).toContain('## When to use');
+    expect(graph.join('\n')).not.toContain('## Actions');
+  });
+
+  it('action-owned guidance travels with its action under visibility', () => {
+    // The fold puts guidance lines inside the action's conditional block.
+    // The property that matters: hiding the action removes its guidance
+    // too. A guidance line that stayed static would outlive its action —
+    // the stale-mention defect this structure exists to prevent.
+    const hiddenRead = createSemanticTools(undefined, { 'view.read': false })
+      .find(t => t.name === 'view')!;
+    expect(hiddenRead.description).not.toContain('A complete `read` returns the stats');
+    expect(hiddenRead.description).toContain('`window`');
+
+    const full = createSemanticTools().find(t => t.name === 'view')!;
+    expect(full.description).toContain('A complete `read` returns the stats');
+
+    const noPatch = createSemanticTools(undefined, { 'edit.patch': false })
+      .find(t => t.name === 'edit')!;
+    expect(noPatch.description).not.toContain('Warning: `patch`');
+    // The cross-action rules are static on purpose and must survive any
+    // action being hidden.
+    expect(noPatch.description).toContain('ifUnmodifiedSince');
+  });
+});
 
 describe('description parity', () => {
   it('every registered operation advertises every action as a bullet (full surface)', () => {
@@ -68,7 +122,7 @@ describe('description parity', () => {
     const edit = byName(tools, 'edit');
     expect(enumActions(edit)).not.toContain('replace');
     expect(bulletActions(edit.description)).toEqual(
-      expect.arrayContaining(['append', 'patch', 'at_line', 'from_buffer', 'multi'])
+      expect.arrayContaining(['append', 'patch', 'at_line', 'multi'])
     );
   });
 

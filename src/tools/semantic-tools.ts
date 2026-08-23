@@ -123,16 +123,16 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
 
   const properties: SemanticTool['inputSchema']['properties'] = {
     action: {
-      type: 'string',
-      description: 'The specific action to perform',
-      enum: actions
-    },
-    raw: {
-      type: 'boolean',
-      description: 'Return raw JSON instead of the formatted markdown (use when you need complete metadata or structured data for processing)',
-      default: false
-    },
-    ...getParametersForOperation(operation)
+      type: 'string'
+      , description: 'The specific action to perform'
+      , enum: actions
+    }
+    , raw: {
+      type: 'boolean'
+      , description: 'Return raw JSON instead of the formatted markdown (use when you need complete metadata or structured data for processing)'
+      , default: false
+    }
+    , ...getParametersForOperation(operation)
   };
 
   // ADR-109's pattern, applied to create-overwrite: gated by its dedicated
@@ -159,22 +159,22 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
   const allOf = actions
     .filter(action => (requiredParams[action]?.length ?? 0) > 0)
     .map(action => ({
-      if: { properties: { action: { const: action } }, required: ['action'] },
-      then: { required: requiredParams[action] }
+      if: { properties: { action: { const: action } }, required: ['action'] }
+      , then: { required: requiredParams[action] }
     }));
 
   return {
-  name: operation,
-  title: getOperationDefinition(operation)?.title,
-  description,
-  annotations: getAnnotationsForOperation(operation),
-  inputSchema: {
-    type: 'object',
-    properties,
-    required: ['action'],
-    ...(allOf.length > 0 ? { allOf } : {})
-  },
-  handler: async (api: ObsidianAPI, rawArgs: unknown): Promise<MCPToolResult> => {
+  name: operation
+  , title: getOperationDefinition(operation)?.title
+  , description
+  , annotations: getAnnotationsForOperation(operation)
+  , inputSchema: {
+    type: 'object'
+    , properties
+    , required: ['action']
+    , ...(allOf.length > 0 ? { allOf } : {})
+  }
+  , handler: async (api: ObsidianAPI, rawArgs: unknown): Promise<MCPToolResult> => {
     const args = (rawArgs ?? {}) as ToolArgs;
     const app = api.getApp();
 
@@ -193,11 +193,11 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
       const operationDisabled = visibility[operation] === false;
       return {
         content: [{
-          type: 'text' as const,
-          text: JSON.stringify({
+          type: 'text' as const
+          , text: JSON.stringify({
             error: {
-              code: 'ACTION_DISABLED',
-              message: operationDisabled
+              code: 'ACTION_DISABLED'
+              , message: operationDisabled
                 ? `Operation '${operation}' is disabled in tool visibility settings`
                 : `Action '${args.action}' is disabled in tool visibility settings`
             }
@@ -212,15 +212,15 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
     if (!getActionsForOperation(operation).includes(args.action)) {
       return {
         content: [{
-          type: 'text' as const,
-          text: JSON.stringify({
+          type: 'text' as const
+          , text: JSON.stringify({
             error: {
-              code: 'INVALID_ACTION',
-              message: `Unknown action '${args.action}' for '${operation}'. Available: ${getActionsForOperation(operation).join(', ')}`
+              code: 'INVALID_ACTION'
+              , message: `Unknown action '${args.action}' for '${operation}'. Available: ${getActionsForOperation(operation).join(', ')}`
             }
           }, null, 2)
-        }],
-        isError: true
+        }]
+        , isError: true
       };
     }
 
@@ -236,15 +236,15 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
     if (missing.length > 0) {
       return {
         content: [{
-          type: 'text' as const,
-          text: JSON.stringify({
+          type: 'text' as const
+          , text: JSON.stringify({
             error: {
-              code: 'MISSING_PARAMETER',
-              message: `Action '${operation}.${args.action}' requires: ${missing.join(', ')}`
+              code: 'MISSING_PARAMETER'
+              , message: `Action '${operation}.${args.action}' requires: ${missing.join(', ')}`
             }
           }, null, 2)
-        }],
-        isError: true
+        }]
+        , isError: true
       };
     }
 
@@ -264,15 +264,15 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
         plugin?.settings?.allowCreateOverwrite !== true) {
       return {
         content: [{
-          type: 'text' as const,
-          text: JSON.stringify({
+          type: 'text' as const
+          , text: JSON.stringify({
             error: {
-              code: 'OVERWRITE_DISABLED',
-              message: "Overwrite is disabled. Enable 'Allow overwrite' in the files tool options, or use the edit tool for a partial change"
+              code: 'OVERWRITE_DISABLED'
+              , message: "Overwrite is disabled. Enable 'Allow overwrite' in the files tool options, or use the edit tool for a partial change"
             }
           }, null, 2)
-        }],
-        isError: true
+        }]
+        , isError: true
       };
     }
 
@@ -291,13 +291,13 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
       if (result.error) {
         return {
           content: [{
-            type: 'text' as const,
-            text: JSON.stringify({
-              error: result.error,
-              context: result.context
+            type: 'text' as const
+            , text: JSON.stringify({
+              error: result.error
+              , context: result.context
             }, null, 2)
-          }],
-          isError: true
+          }]
+          , isError: true
         };
       }
 
@@ -309,8 +309,8 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
 
       return {
         content: [{
-          type: 'text' as const,
-          text: formattedOutput
+          type: 'text' as const
+          , text: formattedOutput
         }]
       };
     }
@@ -318,9 +318,9 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
     // The tool surface and the router share one naming scheme: view owns
     // folder/read/search/fragments, files owns the structural writes.
     const request: SemanticRequest = {
-      operation,
-      action: args.action,
-      params: args
+      operation
+      , action: args.action
+      , params: args
     };
     
     const response = await router.route(request);
@@ -335,24 +335,24 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
       const error = plugin?.settings?.readOnlyMode &&
         (response.error as { code?: string }).code === 'PERMISSION_DENIED'
         ? {
-            ...response.error,
-            code: 'READ_ONLY_MODE',
+            ...response.error
+            , code: 'READ_ONLY_MODE'
             // Not "write operation" — read-only also denies EXECUTE
             // (executeCommand), which is not a write action.
-            message: `Operation '${args.action}' is blocked - read-only mode is enabled`
+            , message: `Operation '${args.action}' is blocked - read-only mode is enabled`
           }
         : response.error;
 
       return {
         content: [{
-          type: 'text' as const,
-          text: JSON.stringify({
-            error,
-            workflow: response.workflow,
-            context: response.context
+          type: 'text' as const
+          , text: JSON.stringify({
+            error
+            , workflow: response.workflow
+            , context: response.context
           }, null, 2)
-        }],
-        isError: true
+        }]
+        , isError: true
       };
     }
     
@@ -364,9 +364,9 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
         const imageResult = resultObj as unknown as ObsidianImageFile;
         return {
           content: [{
-            type: 'image' as const,
-            data: imageResult.base64Data,
-            mimeType: imageResult.mimeType
+            type: 'image' as const
+            , data: imageResult.base64Data
+            , mimeType: imageResult.mimeType
           }]
         };
       }
@@ -382,17 +382,17 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
       const rawMode = args.raw === true;
       const formattedOutput: string = rawMode
         ? JSON.stringify({
-            result: filteredResult,
-            workflow: response.workflow,
-            context: response.context,
-            efficiency_hints: response.efficiency_hints
+            result: filteredResult
+            , workflow: response.workflow
+            , context: response.context
+            , efficiency_hints: response.efficiency_hints
           }, null, 2)
         : formatResponse(operation, args.action, filteredResult, rawMode);
 
       return {
         content: [{
-          type: 'text' as const,
-          text: formattedOutput
+          type: 'text' as const
+          , text: formattedOutput
         }]
       };
     } catch (error: unknown) {
@@ -400,8 +400,8 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
       Debug.error('JSON serialization failed:', error);
       return {
         content: [{
-          type: 'text' as const,
-          text: `Error: Unable to serialize response. ${error instanceof Error ? error.message : 'Unknown error'}`
+          type: 'text' as const
+          , text: `Error: Unable to serialize response. ${error instanceof Error ? error.message : 'Unknown error'}`
         }]
       };
     }
@@ -415,11 +415,11 @@ export function getOperationDescription(operation: string): string {
   const definition = getOperationDefinition(operation);
   if (!definition) return 'Unknown operation';
   const visible = new Set<string>([
-    operation,
-    ...definition.actions.map(action => `${operation}.${action}`),
-    'gate:overwrite',
-    'gate:webFetch',
-  ]);
+    operation
+    , ...definition.actions.map(action => `${operation}.${action}`)
+    , 'gate:overwrite'
+    , 'gate:webFetch'
+  ,]);
   return buildDescription(definition.descriptionLines, visible);
 }
 

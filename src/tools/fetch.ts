@@ -17,32 +17,32 @@ interface PluginWithWebFetchSetting {
 }
 
 export const fetchTool = {
-  name: 'fetch',
-  description: 'Fetch and convert web content to markdown',
-  inputSchema: {
-    type: 'object',
-    properties: {
+  name: 'fetch'
+  , description: 'Fetch and convert web content to markdown'
+  , inputSchema: {
+    type: 'object'
+    , properties: {
       url: {
-        type: 'string',
-        description: 'The URL to fetch content from'
-      },
-      raw: {
-        type: 'boolean',
-        description: 'Return raw HTML instead of converting to markdown (default: false)',
-        default: false
-      },
-      maxLength: {
-        type: 'number',
-        description: 'Maximum content length to return (optional)'
-      },
-      startIndex: {
-        type: 'number',
-        description: 'Starting index for content pagination (optional)'
+        type: 'string'
+        , description: 'The URL to fetch content from'
       }
-    },
-    required: ['url']
-  },
-  handler: async (api: unknown, args: FetchToolArgs) => {
+      , raw: {
+        type: 'boolean'
+        , description: 'Return raw HTML instead of converting to markdown (default: false)'
+        , default: false
+      }
+      , maxLength: {
+        type: 'number'
+        , description: 'Maximum content length to return (optional)'
+      }
+      , startIndex: {
+        type: 'number'
+        , description: 'Starting index for content pagination (optional)'
+      }
+    }
+    , required: ['url']
+  }
+  , handler: async (api: unknown, args: FetchToolArgs) => {
     // Live predicate (ADR-108 pattern): the security layer consults the
     // setting per call; enumeration hiding elsewhere is presentation only.
     const plugin = (api as { plugin?: PluginWithWebFetchSetting } | undefined)?.plugin;
@@ -61,8 +61,8 @@ export const fetchTool = {
 
       if (!args.raw && typeof content === 'string' && content.includes('<')) {
         const turndown = new TurndownService({
-          headingStyle: 'atx',
-          codeBlockStyle: 'fenced'
+          headingStyle: 'atx'
+          , codeBlockStyle: 'fenced'
         });
         content = turndown.turndown(content);
       }
@@ -75,8 +75,8 @@ export const fetchTool = {
 
       return {
         content: [{
-          type: 'text',
-          text: content
+          type: 'text'
+          , text: content
         }]
       };
     } catch (error: unknown) {
@@ -84,10 +84,10 @@ export const fetchTool = {
       const code = error instanceof OutboundFetchError ? error.code : undefined;
       return {
         content: [{
-          type: 'text',
-          text: code ? `Error fetching URL [${code}]: ${message}` : `Error fetching URL: ${message}`
-        }],
-        isError: true
+          type: 'text'
+          , text: code ? `Error fetching URL [${code}]: ${message}` : `Error fetching URL: ${message}`
+        }]
+        , isError: true
       };
     }
   }

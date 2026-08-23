@@ -71,13 +71,13 @@ describe('read-only mode liveness', () => {
     const s = setup(false);
 
     // Baseline: writes work.
-    await s.edit.handler(s.api, { action: 'append', path: 'note.md', content: 'x' });
+    await s.edit.handler(s.api, { action: 'append', path: 'note.md', newText: 'x' });
     expect(s.writes.length).toBe(1);
 
     // The settings toggle. Nothing is reconstructed.
     s.plugin.settings.readOnlyMode = true;
 
-    const res = await s.edit.handler(s.api, { action: 'append', path: 'note.md', content: 'y' });
+    const res = await s.edit.handler(s.api, { action: 'append', path: 'note.md', newText: 'y' });
 
     // Still 1 — the second append did not reach the vault. This is the exact
     // case that previously returned "Edit successful" and modified the file.
@@ -88,13 +88,13 @@ describe('read-only mode liveness', () => {
   it('allows writes again the moment it is switched OFF, with no restart', async () => {
     const s = setup(true);
 
-    await s.edit.handler(s.api, { action: 'append', path: 'note.md', content: 'x' });
+    await s.edit.handler(s.api, { action: 'append', path: 'note.md', newText: 'x' });
     expect(s.writes).toEqual([]);
 
     // Disabling had the mirror-image bug: writes stayed blocked until restart.
     s.plugin.settings.readOnlyMode = false;
 
-    await s.edit.handler(s.api, { action: 'append', path: 'note.md', content: 'y' });
+    await s.edit.handler(s.api, { action: 'append', path: 'note.md', newText: 'y' });
     expect(s.writes.length).toBe(1);
   });
 
@@ -139,12 +139,12 @@ describe('read-only mode liveness', () => {
     );
     const edit = createSemanticTools(api)!.find(t => t.name === 'edit')!;
 
-    await edit.handler(api, { action: 'append', path: 'note.md', content: 'x' });
+    await edit.handler(api, { action: 'append', path: 'note.md', newText: 'x' });
     expect(writes).toEqual([]);
 
     plugin.settings.readOnlyMode = false;
 
-    await edit.handler(api, { action: 'append', path: 'note.md', content: 'y' });
+    await edit.handler(api, { action: 'append', path: 'note.md', newText: 'y' });
     expect(writes.length).toBe(1);
   });
 
@@ -179,7 +179,7 @@ describe('read-only mode liveness', () => {
     const edit = createSemanticTools(api)!.find(t => t.name === 'edit')!;
 
     plugin.settings.readOnlyMode = false;
-    await edit.handler(api, { action: 'append', path: 'note.md', content: 'y' });
+    await edit.handler(api, { action: 'append', path: 'note.md', newText: 'y' });
 
     expect(writes).toEqual([]);
   });
@@ -214,7 +214,7 @@ describe('read-only mode liveness', () => {
 
     plugin.settings.readOnlyMode = true;
 
-    await edit.handler(sessionApi, { action: 'append', path: 'note.md', content: 'x' });
+    await edit.handler(sessionApi, { action: 'append', path: 'note.md', newText: 'x' });
 
     expect(writes).toEqual([]);
   });

@@ -127,7 +127,7 @@ describe('edit.replace count guard', () => {
     expect(api.mutations).toEqual([]);
   });
 
-  test('a mismatched replace buffers the content for from_buffer recovery', async () => {
+  test('a mismatched replace buffers the content; a bare replace reuses it', async () => {
     const { api, router } = setup({ 'a.md': 'tag one tag two' });
     const refused: any = await router.route({
       operation: 'edit',
@@ -136,14 +136,76 @@ describe('edit.replace count guard', () => {
     });
     expect(refused.error?.code).toBe('MATCH_COUNT_MISMATCH');
 
-    // Retry with the count and the buffered replacement content.
+    // Retry without newText: the buffered replacement is the text, and the
+    // count guard passes with expected. from_buffer used to own this case.
     const retry: any = await router.route({
       operation: 'edit',
-      action: 'from_buffer',
+      action: 'replace',
       params: { path: 'a.md', oldText: 'tag', expected: 2 },
     });
     expect(retry.error).toBeUndefined();
     expect(api.mutations).toEqual([{ path: 'a.md', content: 'label one label two' }]);
     ContentBufferManager.getInstance().clear?.();
+  });
+
+  test('replace without newText and without a buffer refuses, writing nothing', async () => {
+    ContentBufferManager.getInstance().clear?.();
+    const { api, router } = setup({ 'a.md': 'tag one' });
+    const response: any = await router.route({
+      operation: 'edit',
+      action: 'replace',
+      params: { path: 'a.md', oldText: 'tag' },
+    });
+    expect(response.error).toBeDefined();
+    expect(response.error.message).toContain('newText');
+    expect(api.mutations).toEqual([]);
+  });
+
+  test('newText as an empty string is a real value: it deletes the match', async () => {
+    const { api, router } = setup({ 'a.md': 'keep drop keep' });
+    const response: any = await router.route({
+      operation: 'edit',
+      action: 'replace',
+      params: { path: 'a.md', oldText: 'drop', newText: '' },
+    });
+    expect(response.error).toBeUndefined();
+    expect(api.mutations).toEqual([{ path: 'a.md', content: 'keep  keep' }]);
+  });
+
+  test('at_line blanks the line when newText is an empty string', async () => {
+    const { api, router } = setup({ 'a.md': 'one\ntwo\nthree' });
+    const response: any = await router.route({
+      operation: 'edit',
+      action: 'at_line',
+      params: { path: 'a.md', lineNumber: 2, newText: '' },
+    });
+    expect(response.error).toBeUndefined();
+    expect(api.mutations).toEqual([{ path: 'a.md', content: 'one\n\nthree' }]);
+  });
+
+  test('at_line without newText reuses the buffered replacement', async () => {
+    ContentBufferManager.getInstance().store('inserted', undefined, { searchText: 'x' });
+    const { api, router } = setup({ 'a.md': 'one\ntwo\nthree' });
+    const response: any = await router.route({
+      operation: 'edit',
+      action: 'at_line',
+      params: { path: 'a.md', lineNumber: 2, mode: 'after' },
+    });
+    expect(response.error).toBeUndefined();
+    expect(api.mutations).toEqual([{ path: 'a.md', content: 'one\ntwo\ninserted\nthree' }]);
+    ContentBufferManager.getInstance().clear?.();
+  });
+
+  test('at_line without newText and without a buffer refuses, writing nothing', async () => {
+    ContentBufferManager.getInstance().clear?.();
+    const { api, router } = setup({ 'a.md': 'one' });
+    const response: any = await router.route({
+      operation: 'edit',
+      action: 'at_line',
+      params: { path: 'a.md', lineNumber: 1 },
+    });
+    expect(response.error).toBeDefined();
+    expect(response.error.message).toContain('newText');
+    expect(api.mutations).toEqual([]);
   });
 });

@@ -76,16 +76,16 @@ describe('Response Limiter', () => {
     it('should process search results correctly', () => {
       const results = [
         {
-          path: 'file1.md',
-          title: 'File 1',
-          content: 'This is the content of file 1 which is quite long and should be truncated',
-          score: 0.9
-        },
-        {
-          path: 'file2.md',
-          title: 'File 2',
-          content: 'Short content',
-          score: 0.7
+          path: 'file1.md'
+          , title: 'File 1'
+          , content: 'This is the content of file 1 which is quite long and should be truncated'
+          , score: 0.9
+        }
+        , {
+          path: 'file2.md'
+          , title: 'File 2'
+          , content: 'Short content'
+          , score: 0.7
         }
       ];
 
@@ -110,16 +110,16 @@ describe('Response Limiter', () => {
       // Create many large results
       for (let i = 0; i < 1000; i++) {
         results.push({
-          path: `file${i}.md`,
-          title: `File ${i}`,
-          content: 'x'.repeat(5000), // Very large content
-          score: Math.random()
+          path: `file${i}.md`
+          , title: `File ${i}`
+          , content: 'x'.repeat(5000) // Very large content
+          , score: Math.random()
         });
       }
 
       const limited = limitSearchResults(results, { 
-        ...DEFAULT_LIMITER_CONFIG, 
-        maxTokens: 1000 
+        ...DEFAULT_LIMITER_CONFIG 
+        , maxTokens: 1000 
       });
       
       expect(limited.truncated).toBe(true);
@@ -135,14 +135,14 @@ describe('Response Limiter', () => {
     it('should handle missing content gracefully', () => {
       const results = [
         {
-          path: 'file1.md',
-          title: 'File 1'
+          path: 'file1.md'
+          , title: 'File 1'
           // No content
-        },
-        {
-          path: 'file2.md',
-          basename: 'file2', // Different property name
-          context: 'Some context' // Different content property
+        }
+        , {
+          path: 'file2.md'
+          , basename: 'file2' // Different property name
+          , context: 'Some context' // Different content property
         }
       ];
 
@@ -164,14 +164,14 @@ describe('Response Limiter', () => {
 
     it('should limit large object responses', () => {
       const response: unknown = {
-        error: 'test error',
-        message: 'important message',
-        data: 'x'.repeat(100000) // Very large data
+        error: 'test error'
+        , message: 'important message'
+        , data: 'x'.repeat(100000) // Very large data
       };
 
       const limited = limitResponse(response, {
-        ...DEFAULT_LIMITER_CONFIG,
-        maxTokens: 100
+        ...DEFAULT_LIMITER_CONFIG
+        , maxTokens: 100
       }) as TruncatedObjectResponse;
 
       expect(limited.error).toBe('test error');
@@ -192,8 +192,8 @@ describe('Response Limiter', () => {
       }
 
       const limited = limitResponse(response, {
-        ...DEFAULT_LIMITER_CONFIG,
-        maxTokens: 500
+        ...DEFAULT_LIMITER_CONFIG
+        , maxTokens: 500
       }) as unknown[];
 
       expect(Array.isArray(limited)).toBe(true);

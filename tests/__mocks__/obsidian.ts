@@ -152,3 +152,17 @@ export function getAllTags(cache: any): string[] {
 
   return Array.from(out);
 }
+// Obsidian exposes createFragment/createDiv as global functions (they sit in
+// the declare-global block of obsidian.d.ts, not the module exports). The
+// settings UI builds its multi-line descriptions with them, so jsdom suites
+// need them on globalThis. Node-env suites never build settings UI.
+if (typeof document !== 'undefined') {
+  const g = globalThis as { createFragment?: unknown; createDiv?: unknown };
+  g.createFragment ??= (): DocumentFragment => document.createDocumentFragment();
+  g.createDiv ??= (options?: { text?: string; cls?: string }): HTMLDivElement => {
+    const el = document.createElement('div');
+    if (options?.text !== undefined) el.textContent = options.text;
+    if (options?.cls !== undefined) el.className = options.cls;
+    return el;
+  };
+}

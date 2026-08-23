@@ -123,7 +123,7 @@ describe('tool visibility gating', () => {
       const { byName, api, writes } = setup({ 'edit.append': false });
       const edit = byName('edit')!;
 
-      const res = await edit.handler(api, { action: 'append', path: 'note.md', content: 'x' });
+      const res = await edit.handler(api, { action: 'append', path: 'note.md', newText: 'x' });
 
       expect(JSON.stringify(res)).toContain('ACTION_DISABLED');
       expect(writes).toEqual([]);
@@ -189,13 +189,13 @@ describe('tool visibility gating', () => {
 
       // Session built while `edit` was enabled, so it holds a live handler.
       const edit = byName('edit')!;
-      await edit.handler(api, { action: 'append', path: 'note.md', content: 'x' });
+      await edit.handler(api, { action: 'append', path: 'note.md', newText: 'x' });
       expect(writes.length).toBe(1);
 
       // User switches the whole operation off. Nothing is rebuilt.
       visibility.edit = false;
 
-      const res = await edit.handler(api, { action: 'append', path: 'note.md', content: 'y' });
+      const res = await edit.handler(api, { action: 'append', path: 'note.md', newText: 'y' });
 
       expect(writes.length).toBe(1);
       expect(JSON.stringify(res)).toContain('ACTION_DISABLED');
@@ -207,7 +207,7 @@ describe('tool visibility gating', () => {
       const edit = byName('edit')!;
 
       visibility['edit.append'] = false;
-      const res = await edit.handler(api, { action: 'append', path: 'note.md', content: 'x' });
+      const res = await edit.handler(api, { action: 'append', path: 'note.md', newText: 'x' });
 
       expect(writes).toEqual([]);
       expect(JSON.stringify(res)).toContain('ACTION_DISABLED');

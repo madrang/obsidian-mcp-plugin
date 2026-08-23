@@ -2,7 +2,7 @@
 
 The `edit` tool modifies the content of an existing file. Every `edit` action writes. To create or replace a whole file, use `files.create` instead.
 
-Actions: `replace`, `append`, `patch`, `at_line`, `from_buffer`, `multi`.
+Actions: `replace`, `append`, `patch`, `at_line`, `multi`.
 
 ## Write preconditions
 
@@ -28,7 +28,7 @@ Find and replace text, count-guarded.
 ```
 
 - `expected` (default 1) is both the guard and the selector. Exactly one occurrence: that one is replaced. `expected: N` above 1: exactly N occurrences, all replaced.
-- Any other count refuses the edit with `MATCH_COUNT_MISMATCH` and nothing is written. The error names both numbers, and the replacement content is buffered so `from_buffer` can retry.
+- Any other count refuses the edit with `MATCH_COUNT_MISMATCH` and nothing is written. The error names both numbers, and the replacement content is buffered: a retry without `newText` reuses it.
 - Check the count first: `view.grep` lists every occurrence as `path:line:column`, or count them yourself in a complete `view.read`.
 - When the exact text is absent and `expected` was omitted, fuzzy matching applies: `fuzzyThreshold` (0-1, default: 0.7) sets how close the match must be, a single fuzzy match replaces that line, and multiple matches are listed with line numbers instead of written. An explicit `expected` never falls back to fuzzy — it refuses.
 
@@ -36,14 +36,14 @@ Find and replace text, count-guarded.
 Add content to the end of a file.
 
 ```json
-{ "action": "append", "path": "notes/log.md", "content": "\nNew entry" }
+{ "action": "append", "path": "notes/log.md", "newText": "\nNew entry" }
 ```
 
 ### `patch`
 Modify a structural part of a note: a heading, a block, or frontmatter.
 
 ```json
-{ "action": "patch", "path": "a.md", "targetType": "heading", "target": "Tasks", "operation": "append", "content": "- [ ] New task" }
+{ "action": "patch", "path": "a.md", "targetType": "heading", "target": "Tasks", "operation": "append", "newText": "- [ ] New task" }
 ```
 
 - `targetType`: `heading` (use `::` for nesting, for example "Projects::Active"), `block` (by block ID), or `frontmatter` (a field name).
@@ -53,17 +53,10 @@ Modify a structural part of a note: a heading, a block, or frontmatter.
 Insert content at a line number.
 
 ```json
-{ "action": "at_line", "path": "a.md", "lineNumber": 10, "mode": "before", "content": "new line" }
+{ "action": "at_line", "path": "a.md", "lineNumber": 10, "mode": "before", "newText": "new line" }
 ```
 
-`mode`: `before`, `after`, or `replace`. Line numbers are absolute: `view.read` shows them.
-
-### `from_buffer`
-Retry with the content buffered by a failed `replace` call.
-
-```json
-{ "action": "from_buffer", "path": "a.md" }
-```
+`mode`: `before`, `after`, or `replace`. Line numbers are absolute: `view.read` shows them. An empty `newText` blanks the line. Omit `newText` to reuse the replacement buffered by the last failed `replace`.
 
 ### `multi`
 Apply several exact find-and-replace pairs in one write.

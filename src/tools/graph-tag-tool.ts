@@ -73,33 +73,33 @@ export class GraphTagTool {
 
         // Format the result for MCP response
         return {
-            summary: this.generateSummary(result),
-            traversalPath: this.formatTraversalPath(result.traversalChain),
-            details: {
-                startNode: result.startNode,
-                searchQuery: result.searchQuery,
-                maxDepth: result.maxDepth,
-                totalNodesVisited: result.totalNodesVisited,
-                nodesWithMatches: result.traversalChain.length,
-                tagConnectionsFollowed: result.tagConnections,
-                executionTime: `${result.executionTime.toFixed(2)}ms`
-            },
-            snippetChain: result.traversalChain.map((node: TraversalNode) => {
+            summary: this.generateSummary(result)
+            , traversalPath: this.formatTraversalPath(result.traversalChain)
+            , details: {
+                startNode: result.startNode
+                , searchQuery: result.searchQuery
+                , maxDepth: result.maxDepth
+                , totalNodesVisited: result.totalNodesVisited
+                , nodesWithMatches: result.traversalChain.length
+                , tagConnectionsFollowed: result.tagConnections
+                , executionTime: `${result.executionTime.toFixed(2)}ms`
+            }
+            , snippetChain: result.traversalChain.map((node: TraversalNode) => {
                 const tagNode = node as TagTraversalNode;
                 return {
-                    file: tagNode.path,
-                    depth: tagNode.depth,
-                    parent: tagNode.parentPath,
-                    connectionType: tagNode.connectionType || 'link',
-                    snippet: {
-                        text: tagNode.snippet.text,
-                        score: tagNode.snippet.score.toFixed(3),
-                        lineNumber: tagNode.snippet.lineNumber,
-                        preview: this.truncateText(tagNode.snippet.context, 200)
+                    file: tagNode.path
+                    , depth: tagNode.depth
+                    , parent: tagNode.parentPath
+                    , connectionType: tagNode.connectionType || 'link'
+                    , snippet: {
+                        text: tagNode.snippet.text
+                        , score: tagNode.snippet.score.toFixed(3)
+                        , lineNumber: tagNode.snippet.lineNumber
+                        , preview: this.truncateText(tagNode.snippet.context, 200)
                     }
                 };
-            }),
-            workflowSuggestions: this.generateWorkflowSuggestions(result)
+            })
+            , workflowSuggestions: this.generateWorkflowSuggestions(result)
         };
     }
 
@@ -138,11 +138,11 @@ export class GraphTagTool {
         }
 
         return {
-            file: params.startPath,
-            tags: tags,
-            tagConnections: tagConnections,
-            summary: `Found ${tags.length} tags connecting to ${Object.values(tagConnections).flat().length} unique files`,
-            strongestConnections: this.findStrongestTagConnections(tagConnections)
+            file: params.startPath
+            , tags: tags
+            , tagConnections: tagConnections
+            , summary: `Found ${tags.length} tags connecting to ${Object.values(tagConnections).flat().length} unique files`
+            , strongestConnections: this.findStrongestTagConnections(tagConnections)
         };
     }
 
@@ -154,11 +154,11 @@ export class GraphTagTool {
         const sharedTags = this.graphSearch.getSharedTags(params.startPath, params.targetPath);
         
         return {
-            source: params.startPath,
-            target: params.targetPath,
-            sharedTags: sharedTags,
-            connectionStrength: sharedTags.length,
-            summary: sharedTags.length > 0 
+            source: params.startPath
+            , target: params.targetPath
+            , sharedTags: sharedTags
+            , connectionStrength: sharedTags.length
+            , summary: sharedTags.length > 0 
                 ? `Files share ${sharedTags.length} tag(s): ${sharedTags.join(', ')}`
                 : 'No shared tags between these files'
         };

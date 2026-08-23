@@ -24,18 +24,18 @@ export class SemanticChunkIndex {
       
       // Store chunk with context
       this.chunks.set(chunkId, {
-        id: chunkId,
-        docId,
-        content: chunk.text,
-        context: {
-          before: chunk.before,
-          after: chunk.after,
-          type: chunk.type // paragraph, list, heading, etc
-        },
-        metadata: {
-          start: chunk.start,
-          end: chunk.end,
-          depth: chunk.depth
+        id: chunkId
+        , docId
+        , content: chunk.text
+        , context: {
+          before: chunk.before
+          , after: chunk.after
+          , type: chunk.type // paragraph, list, heading, etc
+        }
+        , metadata: {
+          start: chunk.start
+          , end: chunk.end
+          , depth: chunk.depth
         }
       });
       
@@ -102,17 +102,17 @@ export class SemanticChunkIndex {
       const doc = this.getDocumentContent(chunk.docId);
       
       return {
-        id: chunkId,
-        docId: chunk.docId,
-        docPath: filePath,
-        content: chunk.content,
-        score,
-        lineStart: this.getLineNumber(doc, chunk.metadata.start),
-        lineEnd: this.getLineNumber(doc, chunk.metadata.end),
-        context: includeContext ? this.gatherContext(chunkId) : undefined,
-        metadata: {
-          ...chunk.metadata,
-          chunkType: chunk.context.type
+        id: chunkId
+        , docId: chunk.docId
+        , docPath: filePath
+        , content: chunk.content
+        , score
+        , lineStart: this.getLineNumber(doc, chunk.metadata.start)
+        , lineEnd: this.getLineNumber(doc, chunk.metadata.end)
+        , context: includeContext ? this.gatherContext(chunkId) : undefined
+        , metadata: {
+          ...chunk.metadata
+          , chunkType: chunk.context.type
         }
       };
     });
@@ -144,13 +144,13 @@ export class SemanticChunkIndex {
           isLongParagraph || isCodeBlock) && !isListStart) {
         if (currentSegment.length > 0) {
           segments.push({
-            text: currentSegment.join('\n').trim(),
-            type: this.detectSegmentType(currentSegment),
-            start: segmentStart,
-            end: charOffset - 1,
-            depth: this.calculateDepth(currentSegment),
-            before: segments.length > 0 ? segments[segments.length - 1].text.slice(-100) : '',
-            after: '' // Will be filled later
+            text: currentSegment.join('\n').trim()
+            , type: this.detectSegmentType(currentSegment)
+            , start: segmentStart
+            , end: charOffset - 1
+            , depth: this.calculateDepth(currentSegment)
+            , before: segments.length > 0 ? segments[segments.length - 1].text.slice(-100) : ''
+            , after: '' // Will be filled later
           });
           currentSegment = [];
           segmentStart = charOffset;
@@ -167,13 +167,13 @@ export class SemanticChunkIndex {
     // Add final segment
     if (currentSegment.length > 0) {
       segments.push({
-        text: currentSegment.join('\n').trim(),
-        type: this.detectSegmentType(currentSegment),
-        start: segmentStart,
-        end: charOffset - 1,
-        depth: this.calculateDepth(currentSegment),
-        before: segments.length > 0 ? segments[segments.length - 1].text.slice(-100) : '',
-        after: ''
+        text: currentSegment.join('\n').trim()
+        , type: this.detectSegmentType(currentSegment)
+        , start: segmentStart
+        , end: charOffset - 1
+        , depth: this.calculateDepth(currentSegment)
+        , before: segments.length > 0 ? segments[segments.length - 1].text.slice(-100) : ''
+        , after: ''
       });
     }
     
@@ -252,11 +252,11 @@ export class SemanticChunkIndex {
     const chunk = this.chunks.get(chunkId)!;
     
     return {
-      before: chunk.context.before,
-      after: chunk.context.after,
-      related: Array.from(neighbors).map(id => ({
-        id,
-        preview: this.chunks.get(id)?.content.slice(0, 100) || ''
+      before: chunk.context.before
+      , after: chunk.context.after
+      , related: Array.from(neighbors).map(id => ({
+        id
+        , preview: this.chunks.get(id)?.content.slice(0, 100) || ''
       }))
     };
   }

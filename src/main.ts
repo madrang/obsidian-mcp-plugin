@@ -80,9 +80,9 @@ export default class ObsidianMCPPlugin extends Plugin {
 
 			// Add command
 			this.addCommand({
-				id: 'restart-mcp-server',
-				name: 'Restart MCP server',
-				callback: async () => {
+				id: 'restart-mcp-server'
+				, name: 'Restart MCP server'
+				, callback: async () => {
 					Debug.log('🔄 MCP Server restart requested');
 					await this.stopMCPServer();
 					if (this.settings.httpEnabled || this.settings.httpsEnabled) {
@@ -336,18 +336,18 @@ export default class ObsidianMCPPlugin extends Plugin {
 		const poolStats = this.mcpServer?.getConnectionPoolStats();
 
 		return {
-			version: getVersion(),
-			running: this.mcpServer?.isServerRunning() || false,
-			httpEnabled: this.settings.httpEnabled,
-			httpsEnabled: this.settings.httpsEnabled,
-			httpPort: this.settings.httpPort,
-			httpsPort: this.settings.httpsPort,
-			vaultName: this.app.vault.getName(),
-			vaultPath: this.getVaultPath(),
-			toolsCount: 6,
-			resourcesCount: 2, // vault-info + session-info
-			connections: this.mcpServer?.getConnectionCount() || 0,
-			poolStats: poolStats
+			version: getVersion()
+			, running: this.mcpServer?.isServerRunning() || false
+			, httpEnabled: this.settings.httpEnabled
+			, httpsEnabled: this.settings.httpsEnabled
+			, httpPort: this.settings.httpPort
+			, httpsPort: this.settings.httpsPort
+			, vaultName: this.app.vault.getName()
+			, vaultPath: this.getVaultPath()
+			, toolsCount: 6
+			, resourcesCount: 2 // vault-info + session-info
+			, connections: this.mcpServer?.getConnectionCount() || 0
+			, poolStats: poolStats
 		};
 	}
 
@@ -557,22 +557,22 @@ class MCPSettingTab extends PluginSettingTab {
 	private get host(): SettingsUIHost {
 		const plugin = this.plugin;
 		return {
-			app: this.app,
-			settings: plugin.settings,
-			ignoreManager: plugin.ignoreManager,
-			saveSettings: () => plugin.saveSettings(),
-			generateApiKey: () => plugin.generateApiKey(),
-			getServerInfo: () => plugin.getMCPServerInfo(),
-			restartIfRunning: (what) => this.restartIfRunning(what),
-			applyCustomBindHost: () => this.applyCustomBindHost(),
-			notifyToolListChanged: () => plugin.mcpServer?.notifyToolListChanged(),
-			updateStatusBar: () => plugin.updateStatusBar(),
-			registerContextMenu: () => plugin.registerContextMenu(),
-			confirm: (message, onConfirm) => new ConfirmationModal(this.app, message, onConfirm).open(),
-			onVersionClick: () => this.handleEasterEggClick(),
-			isDataviewAvailable: () => new PluginDetector(this.app).isPluginEnabled('dataview'),
-			dataviewVersion: () => new PluginDetector(this.app).getDataviewStatus().version ?? 'unknown',
-			update: () => this.update()
+			app: this.app
+			, settings: plugin.settings
+			, ignoreManager: plugin.ignoreManager
+			, saveSettings: () => plugin.saveSettings()
+			, generateApiKey: () => plugin.generateApiKey()
+			, getServerInfo: () => plugin.getMCPServerInfo()
+			, restartIfRunning: (what) => this.restartIfRunning(what)
+			, applyCustomBindHost: () => this.applyCustomBindHost()
+			, notifyToolListChanged: () => plugin.mcpServer?.notifyToolListChanged()
+			, updateStatusBar: () => plugin.updateStatusBar()
+			, registerContextMenu: () => plugin.registerContextMenu()
+			, confirm: (message, onConfirm) => new ConfirmationModal(this.app, message, onConfirm).open()
+			, onVersionClick: () => this.handleEasterEggClick()
+			, isDataviewAvailable: () => new PluginDetector(this.app).isPluginEnabled('dataview')
+			, dataviewVersion: () => new PluginDetector(this.app).getDataviewStatus().version ?? 'unknown'
+			, update: () => this.update()
 		};
 	}
 

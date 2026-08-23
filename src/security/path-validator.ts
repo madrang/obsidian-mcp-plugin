@@ -20,20 +20,20 @@ export class SecurePathValidator {
 	private readonly baseDir: string;
 	private readonly pathTraversalPatterns = [
 		// Standard traversal sequences
-		'../', '..\\',
+		'../', '..\\'
 		// URL encoded variants
-		'%2e%2e%2f', '%2e%2e%5c', '%252e%252e%252f',
-		'%2e%2e/', '.%2e/', '%2e./', '..%2f', '.%2f',
+		, '%2e%2e%2f', '%2e%2e%5c', '%252e%252e%252f'
+		, '%2e%2e/', '.%2e/', '%2e./', '..%2f', '.%2f'
 		// Unicode variants
-		'\u002e\u002e\u002f', '\u002e\u002e\u005c',
+		, '\u002e\u002e\u002f', '\u002e\u002e\u005c'
 		// Double encoding
-		'..%252f', '..%255c',
+		, '..%252f', '..%255c'
 		// Null byte injection
-		'\0', '%00',
+		, '\0', '%00'
 		// Alternative traversal
-		'..../', '...\\', 
+		, '..../', '...\\' 
 		// Windows UNC paths
-		'\\\\', '//'
+		, '\\\\', '//'
 	];
 
 	constructor(app: App) {

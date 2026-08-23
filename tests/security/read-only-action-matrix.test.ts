@@ -21,7 +21,6 @@
  */
 import { SecureObsidianAPI, VaultSecurityManager } from '../../src/security';
 import { createSemanticTools, getActionsForOperation, ALL_OPERATIONS } from '../../src/tools/semantic-tools';
-import { ContentBufferManager } from '../../src/utils/content-buffer';
 import { App, TFile } from 'obsidian';
 
 jest.mock('obsidian');
@@ -58,7 +57,6 @@ const ACTION_KIND: Record<string, 'read' | 'write' | 'execute'> = {
   'edit.append': 'write',
   'edit.patch': 'write',
   'edit.at_line': 'write',
-  'edit.from_buffer': 'write',
   'edit.multi': 'write',
   // view
   'view.window': 'read',
@@ -96,11 +94,10 @@ const ACTION_KIND: Record<string, 'read' | 'write' | 'execute'> = {
   'dataview.metadata': 'read',
   'dataview.validate': 'read',
   'dataview.status': 'read',
-  // bases
+  // bases (export merged into query behind the format param)
   'bases.list': 'read',
   'bases.read': 'read',
   'bases.query': 'read',
-  'bases.export': 'read',
 };
 
 /** Params sufficient for each write action to actually attempt a vault write. */
@@ -112,12 +109,11 @@ const WRITE_PARAMS: Record<string, Record<string, unknown>> = {
   'files.split': { path: 'note.md', splitBy: 'heading', level: 1 },
   'files.concat': { paths: ['note.md', 'other.md'], destination: 'combined.md' },
   'edit.replace': { path: 'note.md', oldText: 'body', newText: 'changed' },
-  'edit.append': { path: 'note.md', content: 'x' },
+  'edit.append': { path: 'note.md', newText: 'x' },
   'edit.patch': {
-    path: 'note.md', targetType: 'heading', target: 'Heading', operation: 'append', content: 'x',
+    path: 'note.md', targetType: 'heading', target: 'Heading', operation: 'append', newText: 'x',
   },
-  'edit.at_line': { path: 'note.md', lineNumber: 1, mode: 'replace', content: 'x' },
-  'edit.from_buffer': { path: 'note.md' },
+  'edit.at_line': { path: 'note.md', lineNumber: 1, mode: 'replace', newText: 'x' },
   'edit.multi': { path: 'note.md', edits: [{ oldText: 'body', newText: 'changed' }] },
 };
 
@@ -130,10 +126,6 @@ const NO_POSITIVE_CONTROL: Record<string, string> = {};
 
 /** Actions needing state set up before the call can reach a write. */
 const SETUP: Record<string, () => void> = {
-  // from_buffer replays whatever a prior window edit stashed, so seed the buffer.
-  'edit.from_buffer': () => {
-    ContentBufferManager.getInstance().store('changed', undefined, { searchText: 'body' });
-  },
 };
 
 type Write = { op: string; path: string };

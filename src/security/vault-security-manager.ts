@@ -52,17 +52,17 @@ export interface SecuritySettings {
  * Default security settings - secure by default
  */
 export const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
-	pathValidation: 'strict',
-	permissions: {
-		read: true,
-		create: true,
-		update: true,
-		delete: true,
-		move: true,
-		execute: true
-	},
-	logSecurityEvents: true,
-	notifyOnBlocked: true
+	pathValidation: 'strict'
+	, permissions: {
+		read: true
+		, create: true
+		, update: true
+		, delete: true
+		, move: true
+		, execute: true
+	}
+	, logSecurityEvents: true
+	, notifyOnBlocked: true
 };
 
 /**
@@ -160,8 +160,8 @@ export class VaultSecurityManager {
 				// like a spot someone forgot to update. A false parallel is worse
 				// than none.
 				const result = {
-					...operation,
-					validatedAt: Date.now()
+					...operation
+					, validatedAt: Date.now()
 				};
 
 				return result as ValidatedOperation;
@@ -233,10 +233,10 @@ export class VaultSecurityManager {
 
 			// Build the validated operation
 			const validated: ValidatedOperation = {
-				...operation,
-				path: validatedPath,
-				targetPath: validatedTargetPath,
-				validatedAt: Date.now()
+				...operation
+				, path: validatedPath
+				, targetPath: validatedTargetPath
+				, validatedAt: Date.now()
 			};
 
 			// Step 5: Check sandbox mode
@@ -391,11 +391,11 @@ export class VaultSecurityManager {
 		if (!this.settings.logSecurityEvents) return;
 
 		const entry: SecurityLogEntry = {
-			timestamp: Date.now(),
-			operation,
-			result,
-			reason,
-			error
+			timestamp: Date.now()
+			, operation
+			, result
+			, reason
+			, error
 		};
 
 		this.auditLog.push(entry);
@@ -426,8 +426,8 @@ export class VaultSecurityManager {
 	 */
 	getSettings(): SecuritySettings {
 		return { 
-			...this.settings,
-			permissions: { ...this.settings.permissions }
+			...this.settings
+			, permissions: { ...this.settings.permissions }
 		};
 	}
 
@@ -452,14 +452,14 @@ export class VaultSecurityManager {
 	static presets = {
 		readOnly: (): Partial<SecuritySettings> => ({
 			permissions: {
-				read: true,
-				create: false,
-				update: false,
-				delete: false,
-				move: false,
-				execute: false
+				read: true
+				, create: false
+				, update: false
+				, delete: false
+				, move: false
+				, execute: false
 			}
-		}),
+		})
 		
 		// "Can reorganise, cannot destroy": delete is denied, and because delete is
 		// denied the create+delete composition cannot stand in for it either.
@@ -469,25 +469,25 @@ export class VaultSecurityManager {
 		// now means running an arbitrary Obsidian command by id, and the command
 		// palette contains "Delete current file", so leaving it true would let
 		// safeMode authorise exactly what delete:false exists to prevent.
-		safeMode: (): Partial<SecuritySettings> => ({
+		, safeMode: (): Partial<SecuritySettings> => ({
 			permissions: {
-				read: true,
-				create: true,
-				update: true,
-				delete: false,
-				move: true,
-				execute: false
+				read: true
+				, create: true
+				, update: true
+				, delete: false
+				, move: true
+				, execute: false
 			}
-		}),
+		})
 		
-		fullAccess: (): Partial<SecuritySettings> => ({
+		, fullAccess: (): Partial<SecuritySettings> => ({
 			permissions: {
-				read: true,
-				create: true,
-				update: true,
-				delete: true,
-				move: true,
-				execute: true
+				read: true
+				, create: true
+				, update: true
+				, delete: true
+				, move: true
+				, execute: true
 			}
 		})
 	};

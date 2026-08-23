@@ -108,11 +108,11 @@ export class GraphSearchTagTraversal extends GraphSearchTraversal {
             if (highScoreSnippets.length > 0) {
                 // Add the best snippet to the traversal chain
                 traversalChain.push({
-                    path: currentPath,
-                    depth,
-                    snippet: highScoreSnippets[0],
-                    parentPath,
-                    connectionType // Add connection type to result
+                    path: currentPath
+                    , depth
+                    , snippet: highScoreSnippets[0]
+                    , parentPath
+                    , connectionType // Add connection type to result
                 } as TraversalNode & { connectionType: 'link' | 'tag' });
 
                 // Only continue traversal from nodes with good matches
@@ -132,10 +132,10 @@ export class GraphSearchTagTraversal extends GraphSearchTraversal {
                             }
                             
                             queue.push([
-                                linkedPath, 
-                                depth + 1, 
-                                currentPath,
-                                isTagConnection ? 'tag' : 'link'
+                                linkedPath 
+                                , depth + 1 
+                                , currentPath
+                                , isTagConnection ? 'tag' : 'link'
                             ]);
                         }
                     }
@@ -146,13 +146,13 @@ export class GraphSearchTagTraversal extends GraphSearchTraversal {
         const executionTime = performance.now() - startTime;
 
         return {
-            startNode: startPath,
-            searchQuery,
-            maxDepth,
-            traversalChain,
-            totalNodesVisited,
-            executionTime,
-            tagConnections: tagConnectionsFollowed
+            startNode: startPath
+            , searchQuery
+            , maxDepth
+            , traversalChain
+            , totalNodesVisited
+            , executionTime
+            , tagConnections: tagConnectionsFollowed
         };
     }
 

@@ -35,6 +35,8 @@ export interface FileListResponse {
   page?: number;
   pageSize?: number;
   totalPages?: number;
+  // The glob filter active on the listing (view.folder pattern param).
+  pattern?: string;
 }
 
 export function formatFileList(response: FileListResponse | string[]): string {
@@ -73,9 +75,13 @@ export function formatFileList(response: FileListResponse | string[]): string {
   }
 
   // Handle structured response
-  const { directory, files, totalFiles, totalFolders, page, pageSize, totalPages } = response;
+  const { directory, files, totalFiles, totalFolders, page, pageSize, totalPages, pattern } = response;
 
   lines.push(header(1, `Directory: ${directory || '/'}`));
+  if (pattern !== undefined) {
+    lines.push('');
+    lines.push(property('Pattern', pattern, 0));
+  }
   lines.push('');
 
   const folders = files.filter(f => f.isFolder);
@@ -128,17 +134,26 @@ export function formatFileList(response: FileListResponse | string[]): string {
     lines.push('');
   }
 
+  // Empty result under a filter gets an explicit statement, so the agent
+  // reads "the glob matched nothing" instead of scanning a bare listing.
+  if (pattern !== undefined && files.length === 0) {
+    lines.push(`No files match \`${pattern}\`.`);
+    lines.push('');
+  }
+
   // Concrete next-call hint when there are more pages — agent doesn't
-  // have to guess at the next move.
+  // have to guess at the next move. The pattern must ride along, or page 2
+  // would come back unfiltered.
   if (page !== undefined && totalPages !== undefined && page < totalPages) {
-    const dirArg = directory ? `directory='${directory}', ` : '';
+    const dirArg = directory ? `path='${directory}', ` : '';
+    const patternArg = pattern ? `pattern='${pattern}', ` : '';
     const sizeArg = pageSize ? `, pageSize=${pageSize}` : '';
-    lines.push(tip(`More results available. Call \`view.folder(${dirArg}page=${page + 1}${sizeArg})\` for the next page.`));
+    lines.push(tip(`More results available. Call \`view.folder(${dirArg}${patternArg}page=${page + 1}${sizeArg})\` for the next page.`));
     lines.push('');
   }
 
   lines.push(divider());
-  lines.push(tip('Use `view.read(path)` to read a file, or `view.folder(directory)` to explore a folder'));
+  lines.push(tip('Use `view.read(path)` to read a file, or `view.folder(path)` to explore a folder'));
   lines.push(summaryFooter());
 
   return joinLines(lines);

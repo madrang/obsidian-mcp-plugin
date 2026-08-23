@@ -184,6 +184,15 @@ input.mcp-api-key-input {
     font-weight: bold;
 }
 
+/* Per-action description box in the tool-visibility settings rows */
+.mcp-action-desc-box {
+    margin-top: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 5px;
+    background-color: var(--background-secondary);
+}
+
 /* Status Elements */
 .mcp-status-active {
     color: var(--text-success);

@@ -254,14 +254,14 @@ export class DataviewTool {
         const result: DataviewQueryResult = await dataviewAPI.query(effectiveQuery);
         const innerSuccess = result.successful !== false;
         return {
-          success: innerSuccess,
-          query,
-          format,
-          result: this.formatQueryResult(result),
-          type: result.value?.type || 'unknown',
-          error: innerSuccess ? undefined : result.error,
-          workflow: this.generateQueryWorkflow(query, result),
-          hints: this.generateQueryHints(query)
+          success: innerSuccess
+          , query
+          , format
+          , result: this.formatQueryResult(result)
+          , type: result.value?.type || 'unknown'
+          , error: innerSuccess ? undefined : result.error
+          , workflow: this.generateQueryWorkflow(query, result)
+          , hints: this.generateQueryHints(query)
         };
       } else {
         // Execute JavaScript query (if needed in the future)
@@ -269,10 +269,10 @@ export class DataviewTool {
       }
     } catch (error) {
       return {
-        success: false,
-        query,
-        format,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        success: false
+        , query
+        , format
+        , error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -294,27 +294,27 @@ export class DataviewTool {
         : dataviewAPI.pages();
 
       return {
-        success: true,
-        source: source || 'all',
-        count: pages.length,
-        pages: pages.array().slice(0, 50).map((page: DataviewPage) => ({
-          path: page.file.path,
-          name: page.file.name,
-          size: page.file.size,
-          created: toIsoOptional(page.file.ctime),
-          modified: toIsoOptional(page.file.mtime),
-          tags: page.file.tags?.array() ?? [],
-          links: page.file.outlinks?.array()?.length ?? 0,
-          aliases: page.aliases?.array() ?? [],
+        success: true
+        , source: source || 'all'
+        , count: pages.length
+        , pages: pages.array().slice(0, 50).map((page: DataviewPage) => ({
+          path: page.file.path
+          , name: page.file.name
+          , size: page.file.size
+          , created: toIsoOptional(page.file.ctime)
+          , modified: toIsoOptional(page.file.mtime)
+          , tags: page.file.tags?.array() ?? []
+          , links: page.file.outlinks?.array()?.length ?? 0
+          , aliases: page.aliases?.array() ?? []
           // Include custom frontmatter fields
-          ...this.extractCustomFields(page)
+          , ...this.extractCustomFields(page)
         }))
       };
     } catch (error) {
       return {
-        success: false,
-        source: source || 'all',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        success: false
+        , source: source || 'all'
+        , error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -337,33 +337,33 @@ export class DataviewTool {
       }
 
       return {
-        success: true,
-        path,
-        metadata: {
+        success: true
+        , path
+        , metadata: {
           file: {
-            path: page.file.path,
-            name: page.file.name,
-            basename: page.file.basename,
-            extension: page.file.extension,
-            size: page.file.size,
-            created: toIsoOptional(page.file.ctime),
-            modified: toIsoOptional(page.file.mtime)
-          },
-          tags: page.file.tags?.array() ?? [],
-          aliases: page.aliases?.array() ?? [],
-          outlinks: page.file.outlinks?.array() ?? [],
-          inlinks: page.file.inlinks?.array() ?? [],
-          tasks: page.file.tasks?.array()?.length ?? 0,
-          lists: page.file.lists?.array()?.length ?? 0,
+            path: page.file.path
+            , name: page.file.name
+            , basename: page.file.basename
+            , extension: page.file.extension
+            , size: page.file.size
+            , created: toIsoOptional(page.file.ctime)
+            , modified: toIsoOptional(page.file.mtime)
+          }
+          , tags: page.file.tags?.array() ?? []
+          , aliases: page.aliases?.array() ?? []
+          , outlinks: page.file.outlinks?.array() ?? []
+          , inlinks: page.file.inlinks?.array() ?? []
+          , tasks: page.file.tasks?.array()?.length ?? 0
+          , lists: page.file.lists?.array()?.length ?? 0
           // Include all custom frontmatter fields
-          custom: this.extractCustomFields(page)
+          , custom: this.extractCustomFields(page)
         }
       };
     } catch (error) {
       return {
-        success: false,
-        path,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        success: false
+        , path
+        , error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -384,23 +384,23 @@ export class DataviewTool {
 
       if (!firstWord || !queryTypes.includes(firstWord)) {
         return {
-          valid: false,
-          query,
-          error: `Query must start with one of: ${queryTypes.join(', ')}`
+          valid: false
+          , query
+          , error: `Query must start with one of: ${queryTypes.join(', ')}`
         };
       }
 
       return {
-        valid: true,
-        query,
-        queryType: firstWord,
-        message: 'Query syntax appears valid'
+        valid: true
+        , query
+        , queryType: firstWord
+        , message: 'Query syntax appears valid'
       };
     } catch (error) {
       return {
-        valid: false,
-        query,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        valid: false
+        , query
+        , error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -422,17 +422,17 @@ export class DataviewTool {
         // GROUP BY: keep each group as {key, rows} (rows flattened to a plain
         // array) instead of leaking the list-pair wrapper downstream (#220).
         return {
-          type: 'list',
-          values: toPlainArray(payload.values).map((el: unknown) => {
+          type: 'list'
+          , values: toPlainArray(payload.values).map((el: unknown) => {
             const group = unwrapGroup(el);
             return group ? { key: group.key, rows: group.rows } : el;
           })
         };
       case 'table':
         return {
-          type: 'table',
-          headers: payload.headers ?? [],
-          values: toPlainArray(payload.values).map((row: unknown) => {
+          type: 'table'
+          , headers: payload.headers ?? []
+          , values: toPlainArray(payload.values).map((row: unknown) => {
             const tableRow = row as DataviewTableRow;
             return typeof tableRow?.array === 'function' ? tableRow.array() : row;
           })
@@ -441,17 +441,17 @@ export class DataviewTool {
         const mapTask = (task: unknown) => {
           const dvTask = task as DataviewTask;
           return {
-            text: dvTask.text,
-            completed: dvTask.completed,
-            line: dvTask.line,
-            path: dvTask.path
+            text: dvTask.text
+            , completed: dvTask.completed
+            , line: dvTask.line
+            , path: dvTask.path
           };
         };
         // GROUP BY: preserve the group wrapper and map its inner rows as tasks,
         // rather than mangling each group into an empty task (#220).
         return {
-          type: 'task',
-          values: toPlainArray(payload.values).map((el: unknown) => {
+          type: 'task'
+          , values: toPlainArray(payload.values).map((el: unknown) => {
             const group = unwrapGroup(el);
             return group ? { key: group.key, rows: group.rows.map(mapTask) } : mapTask(el);
           })
@@ -459,13 +459,13 @@ export class DataviewTool {
       }
       case 'calendar':
         return {
-          type: 'calendar',
-          values: toPlainArray(payload.values)
+          type: 'calendar'
+          , values: toPlainArray(payload.values)
         };
       default:
         return {
-          type: 'unknown',
-          data: result
+          type: 'unknown'
+          , data: result
         };
     }
   }
@@ -517,8 +517,8 @@ export class DataviewTool {
     const dvLink = value as { path?: string; display?: string };
     if (dvLink.path && dvLink.display) {
       return {
-        path: dvLink.path,
-        display: dvLink.display
+        path: dvLink.path
+        , display: dvLink.display
       };
     }
 
@@ -534,31 +534,31 @@ export class DataviewTool {
 
     // Base suggestions for all query types
     suggestions.push({
-      description: 'View Dataview query reference',
-      command: 'system(action="fetch_resource", uri="obsidian://dataview-reference")',
-      reason: 'Learn more DQL syntax and examples'
+      description: 'View Dataview query reference'
+      , command: 'system(action="fetch_resource", uri="obsidian://dataview-reference")'
+      , reason: 'Learn more DQL syntax and examples'
     });
 
     switch (queryType) {
       case 'LIST':
         suggestions.push({
-          description: 'Convert to TABLE for more details',
-          command: `dataview(action="query", query="${query.replace('LIST', 'TABLE file.size, file.mtime')}")`,
-          reason: 'See file metadata alongside results'
+          description: 'Convert to TABLE for more details'
+          , command: `dataview(action="query", query="${query.replace('LIST', 'TABLE file.size, file.mtime')}")`
+          , reason: 'See file metadata alongside results'
         });
         break;
       case 'TABLE':
         suggestions.push({
-          description: 'Filter results with WHERE clause',
-          command: `dataview(action="query", query="${query} WHERE file.size > 1000")`,
-          reason: 'Narrow down results based on criteria'
+          description: 'Filter results with WHERE clause'
+          , command: `dataview(action="query", query="${query} WHERE file.size > 1000")`
+          , reason: 'Narrow down results based on criteria'
         });
         break;
       case 'TASK':
         suggestions.push({
-          description: 'Show only incomplete tasks',
-          command: `dataview(action="query", query="${query} WHERE !completed")`,
-          reason: 'Focus on pending tasks'
+          description: 'Show only incomplete tasks'
+          , command: `dataview(action="query", query="${query} WHERE !completed")`
+          , reason: 'Focus on pending tasks'
         });
         break;
     }
@@ -566,15 +566,15 @@ export class DataviewTool {
     // Add sorting suggestion if not already present
     if (!query.toLowerCase().includes('sort')) {
       suggestions.push({
-        description: 'Sort results by modification date',
-        command: `dataview(action="query", query="${query} SORT file.mtime DESC")`,
-        reason: 'Show most recently modified files first'
+        description: 'Sort results by modification date'
+        , command: `dataview(action="query", query="${query} SORT file.mtime DESC")`
+        , reason: 'Show most recently modified files first'
       });
     }
 
     return {
-      message: `${queryType ?? 'Unknown'} query executed successfully${result.successful === false ? ' with warnings' : ''}`,
-      suggested_next: suggestions.slice(0, 3) // Limit to 3 suggestions
+      message: `${queryType ?? 'Unknown'} query executed successfully${result.successful === false ? ' with warnings' : ''}`
+      , suggested_next: suggestions.slice(0, 3) // Limit to 3 suggestions
     };
   }
 
@@ -609,10 +609,10 @@ export class DataviewTool {
     }
 
     return {
-      performance: hints.filter(h => h.includes('performance') || h.includes('slow')),
-      syntax: hints.filter(h => h.includes('SORT') || h.includes('AS') || h.includes('LIMIT')),
-      data: hints.filter(h => h.includes('frontmatter') || h.includes('defined')),
-      alternatives: this.generateAlternativeQueries(query)
+      performance: hints.filter(h => h.includes('performance') || h.includes('slow'))
+      , syntax: hints.filter(h => h.includes('SORT') || h.includes('AS') || h.includes('LIMIT'))
+      , data: hints.filter(h => h.includes('frontmatter') || h.includes('defined'))
+      , alternatives: this.generateAlternativeQueries(query)
     };
   }
 

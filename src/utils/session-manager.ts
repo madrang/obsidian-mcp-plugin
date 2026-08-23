@@ -28,14 +28,14 @@ export class SessionManager extends EventEmitter {
 	constructor(options: Partial<SessionManagerOptions> = {}) {
 		super();
 		this.options = {
-			maxSessions: options.maxSessions || 32,
+			maxSessions: options.maxSessions || 32
 			// Read THROUGH the caller's options object: when the caller supplied
 			// the timeout as a live accessor (ADR-111), reads here stay live; a
 			// plain number behaves as before. Either way read sites keep plain
 			// property access, and the same pattern can carry another setting
 			// later without touching them.
-			get sessionTimeout() { return options.sessionTimeout ?? 3600000; },
-			checkInterval: options.checkInterval || 60000 // Check every minute
+			, get sessionTimeout() { return options.sessionTimeout ?? 3600000; }
+			, checkInterval: options.checkInterval || 60000 // Check every minute
 		};
 	}
 
@@ -107,10 +107,10 @@ export class SessionManager extends EventEmitter {
 
     // Create new session
     session = {
-      sessionId,
-      createdAt: now,
-      lastActivityAt: now,
-      requestCount: 1
+      sessionId
+      , createdAt: now
+      , lastActivityAt: now
+      , requestCount: 1
     };
 
     this.sessions.set(sessionId, session);
@@ -200,11 +200,11 @@ export class SessionManager extends EventEmitter {
     }
 
     return {
-      activeSessions: this.sessions.size,
-      maxSessions: this.options.maxSessions,
-      oldestSessionAge: sessions.length > 0 ? oldestAge : 0,
-      newestSessionAge: sessions.length > 0 ? newestAge : 0,
-      totalRequests
+      activeSessions: this.sessions.size
+      , maxSessions: this.options.maxSessions
+      , oldestSessionAge: sessions.length > 0 ? oldestAge : 0
+      , newestSessionAge: sessions.length > 0 ? newestAge : 0
+      , totalRequests
     };
   }
 

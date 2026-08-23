@@ -141,11 +141,11 @@ export class MCPIgnoreManager {
 
       try {
         const matchers = this.expandPattern(body).map(glob => new Minimatch(glob, {
-          dot: true,           // Match files starting with .
-          nobrace: false,      // Enable {a,b} expansion
-          noglobstar: false,   // Enable ** patterns
-          noext: false,        // Enable extended matching
-          nonegate: true       // '!' is ours to interpret, not Minimatch's
+          dot: true           // Match files starting with .
+          , nobrace: false      // Enable {a,b} expansion
+          , noglobstar: false   // Enable ** patterns
+          , noext: false        // Enable extended matching
+          , nonegate: true       // '!' is ours to interpret, not Minimatch's
         }));
 
         validPatterns.push(trimmed);
@@ -203,10 +203,10 @@ export class MCPIgnoreManager {
     filePath: string;
   } {
     return {
-      enabled: this.isEnabled,
-      patternCount: this.patterns.length,
-      lastModified: this.lastModified,
-      filePath: this.ignorePath
+      enabled: this.isEnabled
+      , patternCount: this.patterns.length
+      , lastModified: this.lastModified
+      , filePath: this.ignorePath
     };
   }
 

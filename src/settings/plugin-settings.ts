@@ -65,41 +65,41 @@ export interface MCPServerInfo {
 }
 
 export const DEFAULT_SETTINGS: MCPPluginSettings = {
-	httpEnabled: true, // Start enabled by default
-	httpPort: 3011,
-	httpsEnabled: false, // HTTPS disabled by default
-	httpsPort: 3444,
-	certificateConfig: {
-		enabled: false,
-		selfSigned: true,
-		autoGenerate: true,
+	httpEnabled: true // Start enabled by default
+	, httpPort: 3011
+	, httpsEnabled: false // HTTPS disabled by default
+	, httpsPort: 3444
+	, certificateConfig: {
+		enabled: false
+		, selfSigned: true
+		, autoGenerate: true
 		// rejectUnauthorized omitted on purpose: inert for our inbound HTTPS
 		// server (no requestCert); cert-manager defaults it to true. See #163.
-		minTLSVersion: 'TLSv1.2'
-	},
-	bindMode: 'loopback',
-	customBindHost: '',
-	hasShownBindMigrationNotice: false,
-	debugLogging: false,
-	showConnectionStatus: true,
-	autoDetectPortConflicts: true,
-	apiKey: '', // Will be generated on first load
-	scopedTokens: [], // ADR-110: no scoped tokens until the user adds one
-	sessionTimeoutMs: 0, // ADR-111: sessions never expire by default
-	sessionsPerToken: 1, // ADR-111: one session per credential by default
-	rateLimitPerMinute: 0, // ADR-112: no limit until the user sets one
-	dangerouslyDisableAuth: false, // Auth enabled by default
-	readOnlyMode: false, // Read-only mode disabled by default
-	enableWebFetch: false, // ADR-109: outbound web fetch off by default, for everyone
-	allowCreateOverwrite: false, // Create-as-upsert off by default: overwrite must be opted into
-	pathExclusionsEnabled: false, // Path exclusions disabled by default
-	enableIgnoreContextMenu: false, // Context menu disabled by default
-	validation: {
-		maxFileSize: 10 * 1024 * 1024, // 10MB default
-		maxBatchSize: 100,
-		maxPathLength: 255,
-		maxRegexComplexity: 100,
-		strictMode: false
-	},
-	toolVisibility: {} // Empty = all tools enabled (missing keys default to true)
+		, minTLSVersion: 'TLSv1.2'
+	}
+	, bindMode: 'loopback'
+	, customBindHost: ''
+	, hasShownBindMigrationNotice: false
+	, debugLogging: false
+	, showConnectionStatus: true
+	, autoDetectPortConflicts: true
+	, apiKey: '' // Will be generated on first load
+	, scopedTokens: [] // ADR-110: no scoped tokens until the user adds one
+	, sessionTimeoutMs: 0 // ADR-111: sessions never expire by default
+	, sessionsPerToken: 1 // ADR-111: one session per credential by default
+	, rateLimitPerMinute: 0 // ADR-112: no limit until the user sets one
+	, dangerouslyDisableAuth: false // Auth enabled by default
+	, readOnlyMode: false // Read-only mode disabled by default
+	, enableWebFetch: false // ADR-109: outbound web fetch off by default, for everyone
+	, allowCreateOverwrite: false // Create-as-upsert off by default: overwrite must be opted into
+	, pathExclusionsEnabled: false // Path exclusions disabled by default
+	, enableIgnoreContextMenu: false // Context menu disabled by default
+	, validation: {
+		maxFileSize: 10 * 1024 * 1024 // 10MB default
+		, maxBatchSize: 100
+		, maxPathLength: 255
+		, maxRegexComplexity: 100
+		, strictMode: false
+	}
+	, toolVisibility: {} // Empty = all tools enabled (missing keys default to true)
 };

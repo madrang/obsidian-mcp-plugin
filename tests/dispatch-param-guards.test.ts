@@ -124,7 +124,7 @@ describe('dispatch-level param guards (#210)', () => {
     expect(api.mutations).toEqual([]);
   });
 
-  test('edit.append without content rejects without touching the vault', async () => {
+  test('edit.append without newText rejects without touching the vault', async () => {
     const response = await router.route({
       operation: 'edit',
       action: 'append',

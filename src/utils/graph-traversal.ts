@@ -103,10 +103,10 @@ export class GraphTraversal {
   getAllNodes(): GraphNode[] {
     const files = this.app.vault.getFiles().filter(f => !this.isExcluded(f.path));
     return files.map(file => ({
-      file,
-      path: file.path,
-      title: this.getNodeTitle(file),
-      metadata: this.app.metadataCache.getFileCache(file) || undefined
+      file
+      , path: file.path
+      , title: this.getNodeTitle(file)
+      , metadata: this.app.metadataCache.getFileCache(file) || undefined
     }));
   }
 
@@ -123,10 +123,10 @@ export class GraphTraversal {
       const links = resolvedLinks[sourcePath];
       if (links[filePath]) {
         edges.push({
-          source: sourcePath,
-          target: filePath,
-          type: 'link',
-          count: links[filePath]
+          source: sourcePath
+          , target: filePath
+          , type: 'link'
+          , count: links[filePath]
         });
       }
     }
@@ -145,10 +145,10 @@ export class GraphTraversal {
       for (const targetPath in links) {
         if (this.isExcluded(targetPath)) continue;
         edges.push({
-          source: filePath,
-          target: targetPath,
-          type: 'link',
-          count: links[targetPath]
+          source: filePath
+          , target: targetPath
+          , type: 'link'
+          , count: links[targetPath]
         });
       }
     }
@@ -172,10 +172,10 @@ export class GraphTraversal {
     if (!unresolvedLinks) return [];
 
     return Object.entries(unresolvedLinks).map(([targetPath, count]) => ({
-      source: filePath,
-      target: targetPath,
-      type: 'link',
-      count
+      source: filePath
+      , target: targetPath
+      , type: 'link'
+      , count
     }));
   }
 
@@ -204,10 +204,10 @@ export class GraphTraversal {
       const sharedTags = otherTags.filter(t => fileTags.has(t));
       if (sharedTags.length > 0) {
         edges.push({
-          source: filePath,
-          target: otherFile.path,
-          type: 'tag',
-          count: sharedTags.length
+          source: filePath
+          , target: otherFile.path
+          , type: 'tag'
+          , count: sharedTags.length
         });
       }
     }
@@ -256,13 +256,13 @@ export class GraphTraversal {
       if (initialPaths.length === 0) {
         // No files in vault
         return {
-          nodes: visited,
-          edges,
-          stats: {
-            totalNodes: 0,
-            totalEdges: 0,
-            maxDepthReached: 0,
-            traversalTime: Date.now() - startTime
+          nodes: visited
+          , edges
+          , stats: {
+            totalNodes: 0
+            , totalEdges: 0
+            , maxDepthReached: 0
+            , traversalTime: Date.now() - startTime
           }
         };
       }
@@ -284,10 +284,10 @@ export class GraphTraversal {
       if (!(file instanceof TFile)) continue;
 
       const node: GraphNode = {
-        file,
-        path: file.path,
-        title: this.getNodeTitle(file),
-        metadata: this.app.metadataCache.getFileCache(file) || undefined
+        file
+        , path: file.path
+        , title: this.getNodeTitle(file)
+        , metadata: this.app.metadataCache.getFileCache(file) || undefined
       };
 
       if (nodeFilter && !nodeFilter(node)) continue;
@@ -334,13 +334,13 @@ export class GraphTraversal {
     }
 
     return {
-      nodes: visited,
-      edges,
-      stats: {
-        totalNodes: visited.size,
-        totalEdges: edges.length,
-        maxDepthReached,
-        traversalTime: Date.now() - startTime
+      nodes: visited
+      , edges
+      , stats: {
+        totalNodes: visited.size
+        , totalEdges: edges.length
+        , maxDepthReached
+        , traversalTime: Date.now() - startTime
       }
     };
   }
@@ -379,8 +379,8 @@ export class GraphTraversal {
       for (const neighbor of neighbors) {
         if (!visited.has(neighbor)) {
           queue.push({
-            path: neighbor,
-            pathSoFar: [...pathSoFar, neighbor]
+            path: neighbor
+            , pathSoFar: [...pathSoFar, neighbor]
           });
         }
       }
@@ -439,32 +439,32 @@ export class GraphTraversal {
       const recentFiles = sortedFiles.slice(0, Math.min(20, sortedFiles.length));
 
       const neighbors: GraphNode[] = recentFiles.map(file => ({
-        file,
-        path: file.path,
-        title: this.getNodeTitle(file),
-        metadata: this.app.metadataCache.getFileCache(file) || undefined
+        file
+        , path: file.path
+        , title: this.getNodeTitle(file)
+        , metadata: this.app.metadataCache.getFileCache(file) || undefined
       }));
 
       // Create a virtual root node
       const rootNode: GraphNode = {
-        file: null, // Virtual node, no actual file
-        path: '/',
-        title: 'Vault Root',
-        metadata: undefined
+        file: null // Virtual node, no actual file
+        , path: '/'
+        , title: 'Vault Root'
+        , metadata: undefined
       };
 
       // Create edges from root to recent files
       const edges: GraphEdge[] = neighbors.map(n => ({
-        source: '/',
-        target: n.path,
-        type: 'link' as const,
-        count: 1
+        source: '/'
+        , target: n.path
+        , type: 'link' as const
+        , count: 1
       }));
 
       return {
-        node: rootNode,
-        neighbors,
-        edges
+        node: rootNode
+        , neighbors
+        , edges
       };
     }
 
@@ -474,10 +474,10 @@ export class GraphTraversal {
     }
 
     const node: GraphNode = {
-      file,
-      path: file.path,
-      title: this.getNodeTitle(file),
-      metadata: this.app.metadataCache.getFileCache(file) || undefined
+      file
+      , path: file.path
+      , title: this.getNodeTitle(file)
+      , metadata: this.app.metadataCache.getFileCache(file) || undefined
     };
 
     const forwardLinks = this.getForwardLinks(filePath);
@@ -493,10 +493,10 @@ export class GraphTraversal {
       const neighborFile = this.app.vault.getAbstractFileByPath(path);
       if (neighborFile instanceof TFile) {
         neighbors.push({
-          file: neighborFile,
-          path: neighborFile.path,
-          title: this.getNodeTitle(neighborFile),
-          metadata: this.app.metadataCache.getFileCache(neighborFile) || undefined
+          file: neighborFile
+          , path: neighborFile.path
+          , title: this.getNodeTitle(neighborFile)
+          , metadata: this.app.metadataCache.getFileCache(neighborFile) || undefined
         });
       }
     }
@@ -572,12 +572,12 @@ export class GraphTraversal {
     const averageDegree = totalNotes > 0 ? (totalLinks * 2) / totalNotes : 0;
 
     return {
-      totalNotes,
-      totalLinks,
-      orphanCount,
-      averageDegree,
-      largestComponentSize,
-      isolatedClusters,
+      totalNotes
+      , totalLinks
+      , orphanCount
+      , averageDegree
+      , largestComponentSize
+      , isolatedClusters,
     };
   }
 
@@ -603,11 +603,11 @@ export class GraphTraversal {
     }
 
     return {
-      inDegree: backlinks.length,
-      outDegree: forwardLinks.length,
-      totalDegree: backlinks.length + forwardLinks.length,
-      unresolvedCount: unresolvedLinks.length,
-      tagCount
+      inDegree: backlinks.length
+      , outDegree: forwardLinks.length
+      , totalDegree: backlinks.length + forwardLinks.length
+      , unresolvedCount: unresolvedLinks.length
+      , tagCount
     };
   }
 }

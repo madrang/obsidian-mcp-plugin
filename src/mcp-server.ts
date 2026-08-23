@@ -108,17 +108,17 @@ interface ConnectionPoolStatsResponse {
  * permissions and still apply.
  */
 export const BASELINE_SECURITY_SETTINGS = {
-  pathValidation: 'strict' as const,  // Always validate paths for security
-  permissions: {
-    read: true,
-    create: true,
-    update: true,
-    delete: true,
-    move: true,
-    execute: true
-  },
-  blockedPaths: [],  // .mcpignore will handle blocking
-  logSecurityEvents: false
+  pathValidation: 'strict' as const  // Always validate paths for security
+  , permissions: {
+    read: true
+    , create: true
+    , update: true
+    , delete: true
+    , move: true
+    , execute: true
+  }
+  , blockedPaths: []  // .mcpignore will handle blocking
+  , logSecurityEvents: false
 };
 
 export class MCPHttpServer {
@@ -189,11 +189,11 @@ export class MCPHttpServer {
     const maxConnections = 32;
 
     this.sessionManager = new SessionManager({
-      maxSessions: maxConnections,
+      maxSessions: maxConnections
       // ADR-111: live accessor — the sweep reads the current setting, so the
       // expiry toggle applies without a restart. 0 = sessions never expire.
-      get sessionTimeout() { return plugin?.settings?.sessionTimeoutMs ?? 0; },
-      checkInterval: 60000 // Check every minute
+      , get sessionTimeout() { return plugin?.settings?.sessionTimeoutMs ?? 0; }
+      , checkInterval: 60000 // Check every minute
     });
     this.sessionManager.start();
 
@@ -210,10 +210,10 @@ export class MCPHttpServer {
 
     // Initialize connection pool
     this.connectionPool = new ConnectionPool({
-      maxConnections,
-      maxQueueSize: 100,
-      requestTimeout: 30000,
-      sessionCheckInterval: 60000
+      maxConnections
+      , maxQueueSize: 100
+      , requestTimeout: 30000
+      , sessionCheckInterval: 60000
     });
     void this.connectionPool.initialize();
 
@@ -262,10 +262,10 @@ export class MCPHttpServer {
   private setupMiddleware(): void {
     // CORS middleware for MCP clients
     this.app.use(cors({
-      origin: '*',
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Mcp-Session-Id'],
-      exposedHeaders: ['Mcp-Session-Id']
+      origin: '*'
+      , methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+      , allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Mcp-Session-Id']
+      , exposedHeaders: ['Mcp-Session-Id']
     }));
 
     // JSON body parser
@@ -274,8 +274,8 @@ export class MCPHttpServer {
     // Request logging for debugging (moved before auth to see all requests)
     this.app.use((req, res, next) => {
       Debug.log(`📡 ${req.method} ${req.url}`, {
-        headers: req.headers,
-        body: req.body ? JSON.stringify(req.body).substring(0, 200) : ''
+        headers: req.headers
+        , body: req.body ? JSON.stringify(req.body).substring(0, 200) : ''
       });
       next();
     });
@@ -286,11 +286,11 @@ export class MCPHttpServer {
     // logic was only reachable by standing up a server.
     this.app.use((req, res, next) => {
       const decision = authorizeRequest({
-        method: req.method,
-        authHeader: req.headers.authorization,
-        apiKey: this.plugin?.settings?.apiKey,
-        scopedTokens: this.plugin?.settings?.scopedTokens,
-        authDisabled: this.plugin?.settings?.dangerouslyDisableAuth
+        method: req.method
+        , authHeader: req.headers.authorization
+        , apiKey: this.plugin?.settings?.apiKey
+        , scopedTokens: this.plugin?.settings?.scopedTokens
+        , authDisabled: this.plugin?.settings?.dangerouslyDisableAuth
       });
 
       if (decision.allow) {
@@ -306,9 +306,9 @@ export class MCPHttpServer {
         // auth-disabled, preflight) leaves authScope unset = full access.
         if (decision.reason === 'authenticated' && decision.identity) {
           (req as ScopedHttpRequest).authScope = {
-            identity: decision.identity,
-            folder: decision.folder,
-            readOnly: decision.readOnly
+            identity: decision.identity
+            , folder: decision.folder
+            , readOnly: decision.readOnly
           };
         }
         return next();
@@ -323,11 +323,11 @@ export class MCPHttpServer {
     // Health check endpoint
     this.app.get('/', (req, res) => {
       const response = {
-        name: 'Scoped Vault MCP',
-        version: getVersion(),
-        status: 'running',
-        vault: this.obsidianApp.vault.getName(),
-        timestamp: new Date().toISOString()
+        name: 'Scoped Vault MCP'
+        , version: getVersion()
+        , status: 'running'
+        , vault: this.obsidianApp.vault.getName()
+        , timestamp: new Date().toISOString()
       };
       
       Debug.log('📊 Health check requested');
@@ -339,10 +339,10 @@ export class MCPHttpServer {
       const isHttps = this.plugin?.settings?.httpsEnabled === true;
       const protocol = isHttps ? 'https' : 'http';
       res.json({
-        endpoint: `${protocol}://localhost:${this.port}/mcp`,
-        protocol: protocol,
-        method: 'POST',
-        contentType: 'application/json'
+        endpoint: `${protocol}://localhost:${this.port}/mcp`
+        , protocol: protocol
+        , method: 'POST'
+        , contentType: 'application/json'
       });
     });
 
@@ -351,11 +351,11 @@ export class MCPHttpServer {
     // SSE reconnection loop in #125).
     this.app.get('/mcp-info', (req, res) => {
       res.json({
-        message: 'MCP endpoint active',
-        usage: 'POST /mcp for messages, GET /mcp for the SSE stream',
-        protocol: 'Model Context Protocol',
-        transport: 'HTTP',
-        sessionHeader: 'Mcp-Session-Id'
+        message: 'MCP endpoint active'
+        , usage: 'POST /mcp for messages, GET /mcp for the SSE stream'
+        , protocol: 'Model Context Protocol'
+        , transport: 'HTTP'
+        , sessionHeader: 'Mcp-Session-Id'
       });
     });
 
@@ -415,25 +415,25 @@ export class MCPHttpServer {
       // Spec §3: terminated session → 404; client re-inits per §4.
       res.setHeader('Mcp-Session-Id', sessionId);
       res.status(404).json({
-        jsonrpc: '2.0',
-        error: {
-          code: -32001,
-          message: 'Session expired or not found. Start a new session by sending an initialize request without a session ID.',
-          data: { sessionId }
-        },
-        id
+        jsonrpc: '2.0'
+        , error: {
+          code: -32001
+          , message: 'Session expired or not found. Start a new session by sending an initialize request without a session ID.'
+          , data: { sessionId }
+        }
+        , id
       });
       Debug.log(`🔁 Session ${sessionId} terminated → 404 (client should re-initialize per MCP spec §4)`);
       return;
     }
     // Spec §2: session required for non-initialize requests → 400.
     res.status(400).json({
-      jsonrpc: '2.0',
-      error: {
-        code: -32600,
-        message: 'Bad Request: a session is required. Send an initialize request first.'
-      },
-      id
+      jsonrpc: '2.0'
+      , error: {
+        code: -32600
+        , message: 'Bad Request: a session is required. Send an initialize request first.'
+      }
+      , id
     });
     Debug.log('⚠️ Non-initialize request with no session id → 400 (session required)');
   }
@@ -453,12 +453,12 @@ export class MCPHttpServer {
       // is refused rather than served with the session's broader scope.
       if (sessionId && !this.mcpServerPool.sessionIdentityMatches(sessionId, authScope?.identity)) {
         res.status(403).json({
-          jsonrpc: '2.0',
-          error: {
-            code: -32600,
-            message: 'Forbidden: session is bound to different credentials'
-          },
-          id: request?.id ?? null
+          jsonrpc: '2.0'
+          , error: {
+            code: -32600
+            , message: 'Forbidden: session is bound to different credentials'
+          }
+          , id: request?.id ?? null
         });
         Debug.log(`⛔ Session ${sessionId} presented mismatched credentials → 403`);
         return;
@@ -610,12 +610,12 @@ export class MCPHttpServer {
       Debug.error('❌ MCP request error:', error);
       if (!res.headersSent) {
         res.status(500).json({
-          jsonrpc: '2.0',
-          error: {
-            code: -32603,
-            message: 'Internal error: ' + (error instanceof Error ? error.message : 'Unknown error')
-          },
-          id: null
+          jsonrpc: '2.0'
+          , error: {
+            code: -32603
+            , message: 'Internal error: ' + (error instanceof Error ? error.message : 'Unknown error')
+          }
+          , id: null
         });
       }
     }
@@ -681,10 +681,10 @@ export class MCPHttpServer {
       const customHost = this.plugin?.settings?.customBindHost ?? '';
       this.resolvedListenHost = resolveListenHost(bindMode, customHost);
       this.currentVerdict = classifyFromSettings({
-        httpsEnabled: this.isHttps,
-        bindMode,
-        customBindHost: customHost,
-        userSuppliedCert: !!(this.plugin?.settings?.certificateConfig?.certPath
+        httpsEnabled: this.isHttps
+        , bindMode
+        , customBindHost: customHost
+        , userSuppliedCert: !!(this.plugin?.settings?.certificateConfig?.certPath
           && this.plugin?.settings?.certificateConfig?.keyPath)
       });
       // Push the agent-visible warning to the server pool so subsequent
@@ -798,18 +798,18 @@ export class MCPHttpServer {
     }
 
     const result: ConnectionPoolStatsResponse = {
-      enabled: true,
-      stats: this.connectionPool.getStats()
+      enabled: true
+      , stats: this.connectionPool.getStats()
     };
 
     // Include MCP server pool stats if available
     if (this.mcpServerPool) {
       const poolStats = this.mcpServerPool.getStats();
       result.serverPoolStats = {
-        activeServers: poolStats.activeServers,
-        maxServers: poolStats.maxServers,
-        utilization: poolStats.utilization,
-        totalRequests: poolStats.totalRequests
+        activeServers: poolStats.activeServers
+        , maxServers: poolStats.maxServers
+        , utilization: poolStats.utilization
+        , totalRequests: poolStats.totalRequests
       };
     }
 

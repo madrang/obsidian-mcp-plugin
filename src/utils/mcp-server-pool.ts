@@ -194,12 +194,12 @@ export class MCPServerPool extends EventEmitter {
     const server = this.createNewServer(sessionId, scope);
 
     pooledServer = {
-      server,
-      sessionId,
-      createdAt: Date.now(),
-      lastActivityAt: Date.now(),
-      requestCount: 1,
-      identity: scope?.identity
+      server
+      , sessionId
+      , createdAt: Date.now()
+      , lastActivityAt: Date.now()
+      , requestCount: 1
+      , identity: scope?.identity
     };
 
     this.servers.set(sessionId, pooledServer);
@@ -223,15 +223,15 @@ export class MCPServerPool extends EventEmitter {
     return {
       get settings() {
         return {
-          ...plugin.settings,
-          readOnlyMode: plugin.settings?.readOnlyMode === true || tokenReadOnly
+          ...plugin.settings
+          , readOnlyMode: plugin.settings?.readOnlyMode === true || tokenReadOnly
         };
-      },
-      ignoreManager: scope.folder
+      }
+      , ignoreManager: scope.folder
         ? new FolderScopedIgnoreManager(this.obsidianAPI.getApp(), plugin.ignoreManager, scope.folder)
-        : plugin.ignoreManager,
-      mcpServer: plugin.mcpServer,
-      manifest: plugin.manifest
+        : plugin.ignoreManager
+      , mcpServer: plugin.mcpServer
+      , manifest: plugin.manifest
     };
   }
 
@@ -245,8 +245,8 @@ export class MCPServerPool extends EventEmitter {
       // symbol never appears in our source. We don't use registerTool/Zod.
       const mcpServer = new McpServer(
       {
-        name: 'Scoped Vault MCP',
-        version: getVersion()
+        name: 'Scoped Vault MCP'
+        , version: getVersion()
       },
       {
         capabilities: {
@@ -254,11 +254,11 @@ export class MCPServerPool extends EventEmitter {
           // notifications/tools/list_changed when the visible tool set changes
           // (settings toggles). Without the declaration a spec-compliant client
           // is entitled to ignore the notification.
-          tools: { listChanged: true },
-          resources: {}
-        },
+          tools: { listChanged: true }
+          , resources: {}
+        }
         // ADR-107: agent-visible network-exposure warning, only set when 🔴
-        ...(this.initializeInstructions ? { instructions: this.initializeInstructions } : {})
+        , ...(this.initializeInstructions ? { instructions: this.initializeInstructions } : {})
       }
     );
     const server = mcpServer.server;
@@ -316,11 +316,11 @@ export class MCPServerPool extends EventEmitter {
       Debug.log(`📋 [Session ${sessionId}] Listing available tools`);
       return {
         tools: this.buildTools().map(tool => ({
-          name: tool.name,
-          title: tool.title,
-          description: tool.description,
-          annotations: tool.annotations,
-          inputSchema: tool.inputSchema
+          name: tool.name
+          , title: tool.title
+          , description: tool.description
+          , annotations: tool.annotations
+          , inputSchema: tool.inputSchema
         }))
       };
     });
@@ -348,10 +348,10 @@ export class MCPServerPool extends EventEmitter {
       if (!tool) {
         return {
           content: [{
-            type: 'text',
-            text: `Error: Unknown tool "${name}"`
-          }],
-          isError: true
+            type: 'text'
+            , text: `Error: Unknown tool "${name}"`
+          }]
+          , isError: true
         };
       }
 
@@ -362,10 +362,10 @@ export class MCPServerPool extends EventEmitter {
         Debug.error(`[Session ${sessionId}] Tool execution error (${name}):`, error);
         return {
           content: [{
-            type: 'text',
-            text: `Error executing tool "${name}": ${error instanceof Error ? error.message : String(error)}`
-          }],
-          isError: true
+            type: 'text'
+            , text: `Error executing tool "${name}": ${error instanceof Error ? error.message : String(error)}`
+          }]
+          , isError: true
         };
       }
     });
@@ -373,30 +373,30 @@ export class MCPServerPool extends EventEmitter {
     // Build resources list
     const resources = [
       {
-        uri: 'obsidian://vault-info',
-        name: 'Vault Information',
-        description: 'Current vault status, file counts, and metadata',
-        mimeType: 'application/json'
+        uri: 'obsidian://vault-info'
+        , name: 'Vault Information'
+        , description: 'Current vault status, file counts, and metadata'
+        , mimeType: 'application/json'
       }
     ];
 
     // Add session-info resource
     if (this.sessionManager) {
       resources.push({
-        uri: 'obsidian://session-info',
-        name: 'Session Information',
-        description: 'Active MCP sessions and connection pool statistics',
-        mimeType: 'application/json'
+        uri: 'obsidian://session-info'
+        , name: 'Session Information'
+        , description: 'Active MCP sessions and connection pool statistics'
+        , mimeType: 'application/json'
       });
     }
 
     // Add Dataview reference if available
     if (isDataviewToolAvailable(this.obsidianAPI)) {
       resources.push({
-        uri: 'obsidian://dataview-reference',
-        name: 'Dataview Query Language Reference',
-        description: 'Complete DQL syntax guide with examples, functions, and best practices',
-        mimeType: 'text/markdown'
+        uri: 'obsidian://dataview-reference'
+        , name: 'Dataview Query Language Reference'
+        , description: 'Complete DQL syntax guide with examples, functions, and best practices'
+        , mimeType: 'text/markdown'
       });
     }
 
@@ -420,34 +420,34 @@ export class MCPServerPool extends EventEmitter {
 
         const vaultInfo = {
           vault: {
-            name: vaultName,
-            path: (app.vault.adapter as unknown as { basePath?: string }).basePath ?? 'Unknown'
-          },
-          activeFile: activeFile ? {
-            name: activeFile.name,
-            path: activeFile.path,
-            basename: activeFile.basename,
-            extension: activeFile.extension
-          } : null,
-          files: {
-            total: allFiles.length,
-            markdown: markdownFiles.length,
-            attachments: allFiles.length - markdownFiles.length
-          },
-          plugin: {
-            version: getVersion(),
-            status: 'Connected and operational',
-            transport: 'HTTP MCP via Express.js + MCP SDK',
-            sessionId: sessionId
-          },
-          timestamp: new Date().toISOString()
+            name: vaultName
+            , path: (app.vault.adapter as unknown as { basePath?: string }).basePath ?? 'Unknown'
+          }
+          , activeFile: activeFile ? {
+            name: activeFile.name
+            , path: activeFile.path
+            , basename: activeFile.basename
+            , extension: activeFile.extension
+          } : null
+          , files: {
+            total: allFiles.length
+            , markdown: markdownFiles.length
+            , attachments: allFiles.length - markdownFiles.length
+          }
+          , plugin: {
+            version: getVersion()
+            , status: 'Connected and operational'
+            , transport: 'HTTP MCP via Express.js + MCP SDK'
+            , sessionId: sessionId
+          }
+          , timestamp: new Date().toISOString()
         };
 
         return {
           contents: [{
-            uri: 'obsidian://vault-info',
-            mimeType: 'application/json',
-            text: JSON.stringify(vaultInfo, null, 2)
+            uri: 'obsidian://vault-info'
+            , mimeType: 'application/json'
+            , text: JSON.stringify(vaultInfo, null, 2)
           }]
         };
       }
@@ -473,14 +473,14 @@ export class MCPServerPool extends EventEmitter {
           const idleTime = Date.now() - session.lastActivityAt;
           const age = Date.now() - session.createdAt;
           return {
-            sessionId: session.sessionId,
-            isCurrentSession: session.sessionId === sessionId,
-            createdAt: new Date(session.createdAt).toISOString(),
-            lastActivityAt: new Date(session.lastActivityAt).toISOString(),
-            requestCount: session.requestCount,
-            ageSeconds: Math.round(age / 1000),
-            idleSeconds: Math.round(idleTime / 1000),
-            status: session.sessionId === sessionId ? '🟢 This is you!' : '🔵 Active'
+            sessionId: session.sessionId
+            , isCurrentSession: session.sessionId === sessionId
+            , createdAt: new Date(session.createdAt).toISOString()
+            , lastActivityAt: new Date(session.lastActivityAt).toISOString()
+            , requestCount: session.requestCount
+            , ageSeconds: Math.round(age / 1000)
+            , idleSeconds: Math.round(idleTime / 1000)
+            , status: session.sessionId === sessionId ? '🟢 This is you!' : '🔵 Active'
           };
         });
 
@@ -492,39 +492,39 @@ export class MCPServerPool extends EventEmitter {
 
         const sessionInfo = {
           summary: {
-            activeSessions: sessionStats.activeSessions,
-            maxSessions: sessionStats.maxSessions,
-            utilization: `${Math.round((sessionStats.activeSessions / sessionStats.maxSessions) * 100)}%`,
-            totalRequests: sessionStats.totalRequests,
-            oldestSessionAge: `${Math.round(sessionStats.oldestSessionAge / 1000)}s`,
-            newestSessionAge: `${Math.round(sessionStats.newestSessionAge / 1000)}s`
-          },
-          serverPool: {
-            activeServers: serverPoolStats.activeServers,
-            maxServers: serverPoolStats.maxServers,
-            utilization: serverPoolStats.utilization,
-            totalRequests: serverPoolStats.totalRequests
-          },
-          connectionPool: poolStats ? {
-            activeConnections: poolStats.activeConnections,
-            queuedRequests: poolStats.queuedRequests,
-            maxConnections: poolStats.maxConnections,
-            poolUtilization: `${Math.round(poolStats.utilization * 100)}%`
-          } : null,
-          sessions: sessionData,
-          settings: {
-            sessionTimeout: this.sessionTimeoutLabel(),
-            sessionsPerToken: this.sessionsPerTokenLimit(),
-            maxConcurrentConnections: this.maxServers
-          },
-          timestamp: new Date().toISOString()
+            activeSessions: sessionStats.activeSessions
+            , maxSessions: sessionStats.maxSessions
+            , utilization: `${Math.round((sessionStats.activeSessions / sessionStats.maxSessions) * 100)}%`
+            , totalRequests: sessionStats.totalRequests
+            , oldestSessionAge: `${Math.round(sessionStats.oldestSessionAge / 1000)}s`
+            , newestSessionAge: `${Math.round(sessionStats.newestSessionAge / 1000)}s`
+          }
+          , serverPool: {
+            activeServers: serverPoolStats.activeServers
+            , maxServers: serverPoolStats.maxServers
+            , utilization: serverPoolStats.utilization
+            , totalRequests: serverPoolStats.totalRequests
+          }
+          , connectionPool: poolStats ? {
+            activeConnections: poolStats.activeConnections
+            , queuedRequests: poolStats.queuedRequests
+            , maxConnections: poolStats.maxConnections
+            , poolUtilization: `${Math.round(poolStats.utilization * 100)}%`
+          } : null
+          , sessions: sessionData
+          , settings: {
+            sessionTimeout: this.sessionTimeoutLabel()
+            , sessionsPerToken: this.sessionsPerTokenLimit()
+            , maxConcurrentConnections: this.maxServers
+          }
+          , timestamp: new Date().toISOString()
         };
 
         return {
           contents: [{
-            uri: 'obsidian://session-info',
-            mimeType: 'application/json',
-            text: JSON.stringify(sessionInfo, null, 2)
+            uri: 'obsidian://session-info'
+            , mimeType: 'application/json'
+            , text: JSON.stringify(sessionInfo, null, 2)
           }]
         };
       }
@@ -532,9 +532,9 @@ export class MCPServerPool extends EventEmitter {
       if (uri === 'obsidian://dataview-reference' && isDataviewToolAvailable(this.obsidianAPI)) {
         return {
           contents: [{
-            uri: 'obsidian://dataview-reference',
-            mimeType: 'text/markdown',
-            text: DataviewTool.generateDataviewReference()
+            uri: 'obsidian://dataview-reference'
+            , mimeType: 'text/markdown'
+            , text: DataviewTool.generateDataviewReference()
           }]
         };
       }
@@ -612,14 +612,14 @@ export class MCPServerPool extends EventEmitter {
     const now = Date.now();
 
     return {
-      activeServers: this.servers.size,
-      maxServers: this.maxServers,
-      utilization: `${Math.round((this.servers.size / this.maxServers) * 100)}%`,
-      totalRequests: servers.reduce((sum, s) => sum + s.requestCount, 0),
-      oldestServerAge: servers.length > 0 
+      activeServers: this.servers.size
+      , maxServers: this.maxServers
+      , utilization: `${Math.round((this.servers.size / this.maxServers) * 100)}%`
+      , totalRequests: servers.reduce((sum, s) => sum + s.requestCount, 0)
+      , oldestServerAge: servers.length > 0 
         ? Math.max(...servers.map(s => now - s.createdAt))
-        : 0,
-      newestServerAge: servers.length > 0
+        : 0
+      , newestServerAge: servers.length > 0
         ? Math.min(...servers.map(s => now - s.createdAt))
         : 0
     };

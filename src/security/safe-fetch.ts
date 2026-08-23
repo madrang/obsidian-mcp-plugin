@@ -62,15 +62,15 @@ function requestOnce(target: ValidatedTarget): Promise<HopResponse> {
 			}
 		};
 		const req = transport.request(url, {
-			method: 'GET',
-			lookup: pinnedLookup,
-			headers: {
-				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-				'Accept': 'text/html,application/xhtml+xml,text/plain,*/*',
+			method: 'GET'
+			, lookup: pinnedLookup
+			, headers: {
+				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+				, 'Accept': 'text/html,application/xhtml+xml,text/plain,*/*'
 				// No compressed encodings: this client does not decompress.
-				'Accept-Encoding': 'identity'
-			},
-			timeout: REQUEST_TIMEOUT_MS
+				, 'Accept-Encoding': 'identity'
+			}
+			, timeout: REQUEST_TIMEOUT_MS
 		}, (res) => {
 			const chunks: Buffer[] = [];
 			let received = 0;
@@ -85,13 +85,13 @@ function requestOnce(target: ValidatedTarget): Promise<HopResponse> {
 			});
 			res.on('end', () => {
 				resolve({
-					status: res.statusCode ?? 0,
-					statusText: res.statusMessage ?? '',
-					headers: {
-						location: res.headers.location,
-						'content-type': res.headers['content-type']
-					},
-					body: Buffer.concat(chunks).toString('utf-8')
+					status: res.statusCode ?? 0
+					, statusText: res.statusMessage ?? ''
+					, headers: {
+						location: res.headers.location
+						, 'content-type': res.headers['content-type']
+					}
+					, body: Buffer.concat(chunks).toString('utf-8')
 				});
 			});
 			res.on('error', reject);
@@ -132,11 +132,11 @@ export async function safeFetch(
 			continue;
 		}
 		return {
-			status: res.status,
-			statusText: res.statusText,
-			contentType: res.headers['content-type'] ?? '',
-			body: res.body,
-			finalUrl: target.url.toString()
+			status: res.status
+			, statusText: res.statusText
+			, contentType: res.headers['content-type'] ?? ''
+			, body: res.body
+			, finalUrl: target.url.toString()
 		};
 	}
 	throw new OutboundFetchError(`Too many redirects (limit ${MAX_REDIRECTS})`, 'TOO_MANY_REDIRECTS');

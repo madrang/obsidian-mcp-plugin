@@ -36,10 +36,10 @@ export class ConnectionPool extends EventEmitter {
   constructor(options: Partial<ConnectionPoolOptions> = {}) {
     super();
     this.options = {
-      maxConnections: options.maxConnections || 32,
-      maxQueueSize: options.maxQueueSize || 100,
-      requestTimeout: options.requestTimeout || 30000, // 30 seconds
-      sessionCheckInterval: options.sessionCheckInterval || 60000 // 1 minute
+      maxConnections: options.maxConnections || 32
+      , maxQueueSize: options.maxQueueSize || 100
+      , requestTimeout: options.requestTimeout || 30000 // 30 seconds
+      , sessionCheckInterval: options.sessionCheckInterval || 60000 // 1 minute
     };
   }
 
@@ -156,10 +156,10 @@ export class ConnectionPool extends EventEmitter {
   } {
     const active = this.activeConnections.size;
     return {
-      activeConnections: active,
-      queuedRequests: this.requestQueue.length,
-      maxConnections: this.options.maxConnections,
-      utilization: active / this.options.maxConnections
+      activeConnections: active
+      , queuedRequests: this.requestQueue.length
+      , maxConnections: this.options.maxConnections
+      , utilization: active / this.options.maxConnections
     };
   }
 
@@ -211,9 +211,9 @@ export interface PrioritizedRequest extends PooledRequest {
  */
 export class PriorityConnectionPool extends ConnectionPool {
   private priorityQueue: Map<RequestPriority, PooledRequest[]> = new Map([
-    [RequestPriority.HIGH, []],
-    [RequestPriority.NORMAL, []],
-    [RequestPriority.LOW, []]
+    [RequestPriority.HIGH, []]
+    , [RequestPriority.NORMAL, []]
+    , [RequestPriority.LOW, []]
   ]);
 
   /**

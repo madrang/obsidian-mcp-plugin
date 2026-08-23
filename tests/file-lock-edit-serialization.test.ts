@@ -95,7 +95,7 @@ describe('edit.append parallel calls against one file (#139, router level)', () 
       new SemanticRouter(api).route({
         operation: 'edit',
         action: 'append',
-        params: { path: '_test.md', content: line },
+        params: { path: '_test.md', newText: line },
       });
 
     const results = await Promise.all([
@@ -122,8 +122,8 @@ describe('edit.append parallel calls against one file (#139, router level)', () 
 
     const start = Date.now();
     await Promise.all([
-      new SemanticRouter(api).route({ operation: 'edit', action: 'append', params: { path: '_test.md', content: 'A' } }),
-      new SemanticRouter(api).route({ operation: 'edit', action: 'append', params: { path: 'other.md', content: 'B' } }),
+      new SemanticRouter(api).route({ operation: 'edit', action: 'append', params: { path: '_test.md', newText: 'A' } }),
+      new SemanticRouter(api).route({ operation: 'edit', action: 'append', params: { path: 'other.md', newText: 'B' } }),
     ]);
     // Two independent ~5ms ops in parallel should not take ~10ms+ serially.
     expect(Date.now() - start).toBeLessThan(40);

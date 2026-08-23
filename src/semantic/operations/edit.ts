@@ -86,6 +86,26 @@ function throwWindowEditError(result: { isError?: boolean; content: { text: stri
   throw error;
 }
 
+/**
+ * newText is the write text of every action that takes one (multi's pairs
+ * carry their own). Present — including as an empty string, which is a real
+ * value — it is used as-is. Absent, it falls back to the replacement
+ * buffered by the last failed replace. With nothing buffered the call
+ * refuses before any vault access.
+ */
+function resolveNewText(buffer: ContentBufferManager, params: Params, action: string): string {
+  if ('newText' in params) {
+    return requireParamStr(params, 'newText', `edit.${action}`);
+  }
+  const buffered = buffer.retrieve();
+  if (!buffered) {
+    throw new Error(
+      `edit.${action} requires 'newText'. Omit it only to reuse the replacement buffered by a failed replace — none is buffered.`
+    );
+  }
+  return buffered.content;
+}
+
 export async function executeEditOperation(ctx: RouterContext, action: string, params: Params): Promise<unknown> {
   const buffer = ContentBufferManager.getInstance();
 
@@ -95,7 +115,7 @@ export async function executeEditOperation(ctx: RouterContext, action: string, p
     return executeConcat(ctx, params);
   }
   // Serialize all edit actions targeting the same file so parallel
-  // edit.replace/append/patch/at_line/from_buffer calls from a batched MCP
+  // edit.replace/append/patch/at_line calls from a batched MCP
   // client can no longer silently clobber each other (#139). Different
   // files remain fully concurrent.
   // Guard the lock key up-front so a missing path cannot take a lock on
@@ -106,7 +126,7 @@ export async function executeEditOperation(ctx: RouterContext, action: string, p
   switch (action) {
     case 'replace': {
       const oldText = requireParamStr(params, 'oldText', 'edit.replace');
-      const newText = requireParamStr(params, 'newText', 'edit.replace');
+      const newText = resolveNewText(buffer, params, 'replace');
       // Present but non-number must fail closed, not silently drop the guard.
       if ('expected' in params && paramNum(params, 'expected') === undefined) {
         throw new Error(`edit.replace: 'expected' must be a whole number of at least 1.`);
@@ -126,34 +146,19 @@ export async function executeEditOperation(ctx: RouterContext, action: string, p
       }
       return result;
     }
-    case 'append': {
-      const content = requireParamStr(
-        params,
-        'content',
-        'edit.append',
-        "Pass the text to append as 'content'.",
-      );
-      return await ctx.api.appendToFile(lockPath, content);
-    }
+    case 'append':
+      return await ctx.api.appendToFile(lockPath, resolveNewText(buffer, params, 'append'));
     case 'patch':
       return await ctx.api.patchVaultFile(lockPath, {
-        operation: paramStr(params, 'operation'),
-        targetType: paramStr(params, 'targetType'),
-        target: paramStr(params, 'target'),
-        content: paramStr(params, 'content'),
-        old_text: paramStr(params, 'oldText'),
-        new_text: paramStr(params, 'newText')
+        operation: paramStr(params, 'operation')
+        , targetType: paramStr(params, 'targetType')
+        , target: paramStr(params, 'target')
+        , content: resolveNewText(buffer, params, 'patch')
+        , old_text: paramStr(params, 'oldText')
+        , new_text: paramStr(params, 'newText')
       });
     case 'at_line': {
-      // Get content to insert
-      let insertContent = paramStr(params, 'content');
-      if (!insertContent) {
-        const buffered = buffer.retrieve();
-        if (!buffered) {
-          throw new Error('No content provided and no buffered content found');
-        }
-        insertContent = buffered.content;
-      }
+      const insertContent = resolveNewText(buffer, params, 'at_line');
 
       // Get file and perform line-based edit
       const filePath = lockPath;
@@ -188,28 +193,6 @@ export async function executeEditOperation(ctx: RouterContext, action: string, p
       // Post-write stat for write chaining: echo it back as
       // ifUnmodifiedSince / ifHash on the next edit, no re-read needed.
       return { success: true, line: lineNumber, mode, mtime: write.mtime, hash: write.hash };
-    }
-    case 'from_buffer': {
-      const buffered = buffer.retrieve();
-      if (!buffered) {
-        throw new Error('No buffered content available');
-      }
-      if ('expected' in params && paramNum(params, 'expected') === undefined) {
-        throw new Error(`edit.from_buffer: 'expected' must be a whole number of at least 1.`);
-      }
-      const { performWindowEdit } = await import('../../tools/window-edit.js');
-      const result = await performWindowEdit(
-        ctx.api,
-        lockPath,
-        paramStr(params, 'oldText') || buffered.searchText || '',
-        buffered.content,
-        paramNum(params, 'fuzzyThreshold'),
-        paramNum(params, 'expected')
-      );
-      if (result.isError) {
-        throwWindowEditError(result);
-      }
-      return result;
     }
     case 'multi': {
       // Shape validation the flat dispatch guard cannot express: a non-empty
@@ -261,11 +244,11 @@ export async function executeEditOperation(ctx: RouterContext, action: string, p
 
       const write = await ctx.api.updateFile(lockPath, working);
       return {
-        success: true,
-        path: lockPath,
-        applied: pairs.length,
-        mtime: write.mtime,
-        hash: write.hash
+        success: true
+        , path: lockPath
+        , applied: pairs.length
+        , mtime: write.mtime
+        , hash: write.hash
       };
     }
     default:

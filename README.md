@@ -31,7 +31,7 @@ For most people that's the entire setup. The numbered steps below spell it out, 
 
 **From a GitHub release (manual install)**
 
-Each release publishes the three files the plugin needs. Download them into the plugin folder by hand — the same three files, from the same releases, that the other install paths place for you.
+Each release publishes the three files the plugin needs. Download them into the plugin folder by hand.
 
 1. Create the folder `<your vault>/.obsidian/plugins/scoped-vault-mcp/`
 2. Download these three files into it:
@@ -40,9 +40,9 @@ Each release publishes the three files the plugin needs. Download them into the 
    - [`styles.css`](https://github.com/madrang/obsidian-mcp-plugin/releases/latest/download/styles.css)
 3. Enable the plugin in Settings → Community plugins
 
-Save each file with its exact name. Some browsers append `.txt` to a downloaded script — rename it back before you enable the plugin.
+Save each file with its exact name. Some browsers append `.txt` to a downloaded script. Rename the file before you enable the plugin.
 
-> The `releases/latest/download` links always point at the newest stable release. A prerelease is never `latest`. When only a prerelease exists, take its three files from the [releases page](https://github.com/madrang/obsidian-mcp-plugin/releases) instead.
+> The `releases/latest/download` links follow the release tagged "Latest". The maintainer moves that tag to each new tested release. The links therefore always fetch the current stable files.
 
 **From source**
 - Clone this repo, then run `npm install && npm run build`
@@ -241,6 +241,7 @@ Key configuration options:
 ## Development
 
 ```bash
+npm install    # one-time setup: dev dependencies, including the test toolchain
 npm run dev    # watch-mode build
 npm run build  # type-check, then bundle
 npm run lint   # eslint

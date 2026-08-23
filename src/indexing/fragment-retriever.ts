@@ -126,17 +126,17 @@ export class UniversalFragmentRetriever {
     
     // Weight different strategies
     const weights = {
-      adaptive: 0.4,
-      proximity: 0.3,
-      semantic: 0.3
+      adaptive: 0.4
+      , proximity: 0.3
+      , semantic: 0.3
     };
     
     // Process adaptive results
     adaptiveResults.forEach(fragment => {
       const key = `${fragment.docPath}:${fragment.lineStart}`;
       fragmentMap.set(key, {
-        ...fragment,
-        score: fragment.score * weights.adaptive
+        ...fragment
+        , score: fragment.score * weights.adaptive
       });
     });
     
@@ -148,8 +148,8 @@ export class UniversalFragmentRetriever {
         existing.score += fragment.score * weights.proximity;
       } else {
         fragmentMap.set(key, {
-          ...fragment,
-          score: fragment.score * weights.proximity
+          ...fragment
+          , score: fragment.score * weights.proximity
         });
       }
     });
@@ -162,8 +162,8 @@ export class UniversalFragmentRetriever {
         existing.score += fragment.score * weights.semantic;
       } else {
         fragmentMap.set(key, {
-          ...fragment,
-          score: fragment.score * weights.semantic
+          ...fragment
+          , score: fragment.score * weights.semantic
         });
       }
     });
@@ -187,39 +187,39 @@ export class UniversalFragmentRetriever {
     // Add workflow hints
     if (fragments.length > 0) {
       response.workflow = {
-        message: `Found ${fragments.length} relevant fragments using ${strategy} strategy`,
-        suggested_next: [
+        message: `Found ${fragments.length} relevant fragments using ${strategy} strategy`
+        , suggested_next: [
           {
-            description: 'Read the full file containing the most relevant fragment',
-            command: 'view read',
-            reason: 'To see the complete context around the fragment'
-          },
-          {
-            description: 'Search for related content',
-            command: 'view search',
-            reason: 'To find other documents with similar content'
+            description: 'Read the full file containing the most relevant fragment'
+            , command: 'view read'
+            , reason: 'To see the complete context around the fragment'
+          }
+          , {
+            description: 'Search for related content'
+            , command: 'view search'
+            , reason: 'To find other documents with similar content'
           }
         ]
       };
       
       // Add context information
       response.context = {
-        search_results: fragments.length,
-        linked_files: [...new Set(fragments.map(f => f.docPath))]
+        search_results: fragments.length
+        , linked_files: [...new Set(fragments.map(f => f.docPath))]
       };
     } else {
       response.workflow = {
-        message: 'No relevant fragments found',
-        suggested_next: [
+        message: 'No relevant fragments found'
+        , suggested_next: [
           {
-            description: 'Try a broader search query',
-            command: 'view search',
-            reason: 'The current query may be too specific'
-          },
-          {
-            description: 'List files in the vault',
-            command: 'vault list',
-            reason: 'To browse available content'
+            description: 'Try a broader search query'
+            , command: 'view search'
+            , reason: 'The current query may be too specific'
+          }
+          , {
+            description: 'List files in the vault'
+            , command: 'vault list'
+            , reason: 'To browse available content'
           }
         ]
       };
@@ -228,11 +228,11 @@ export class UniversalFragmentRetriever {
     // Add efficiency hints based on strategy used
     if ((originalStrategy || strategy) === 'auto') {
       response.efficiency_hints = {
-        message: `Auto-selected ${strategy} strategy based on query length`,
-        alternatives: [
-          'Use strategy:"adaptive" for keyword matching',
-          'Use strategy:"proximity" for finding related terms',
-          'Use strategy:"semantic" for conceptual search'
+        message: `Auto-selected ${strategy} strategy based on query length`
+        , alternatives: [
+          'Use strategy:"adaptive" for keyword matching'
+          , 'Use strategy:"proximity" for finding related terms'
+          , 'Use strategy:"semantic" for conceptual search'
         ]
       };
     }

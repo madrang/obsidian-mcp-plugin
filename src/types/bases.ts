@@ -98,7 +98,6 @@ export interface BaseQueryOptions {
   filters?: BaseFilter[];
   sort?: BaseSortOptions;
   pagination?: BasePaginationOptions;
-  includeContent?: boolean;
   properties?: string[]; // Specific properties to include
 }
 

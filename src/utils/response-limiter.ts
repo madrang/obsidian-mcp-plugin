@@ -39,9 +39,9 @@ export interface ResponseLimiterConfig {
  * Default configuration
  */
 export const DEFAULT_LIMITER_CONFIG: ResponseLimiterConfig = {
-  maxTokens: 20000,
-  contentPreviewLength: 200,
-  includeContentHash: true
+  maxTokens: 20000
+  , contentPreviewLength: 200
+  , includeContentHash: true
 };
 
 /**
@@ -104,8 +104,8 @@ export function limitSearchResults(
 
     // Create a minimal result object
     const minimalResult: MinimalResult = {
-      path: result.path || result.filename || '',
-      title: result.title || result.basename || result.path?.split('/').pop()?.replace(/\.(md|png|jpg|jpeg|gif|svg|pdf|txt|json)$/i, '') || ''
+      path: result.path || result.filename || ''
+      , title: result.title || result.basename || result.path?.split('/').pop()?.replace(/\.(md|png|jpg|jpeg|gif|svg|pdf|txt|json)$/i, '') || ''
     };
 
     // Add score if available
@@ -144,9 +144,9 @@ export function limitSearchResults(
   }
   
   return {
-    results: processedResults,
-    truncated,
-    originalCount
+    results: processedResults
+    , truncated
+    , originalCount
   };
 }
 
@@ -318,15 +318,15 @@ export function paginateResults<T>(
   const paginatedResults = limitedResults.slice(startIndex, endIndex);
   
   return {
-    results: paginatedResults as T[],
-    page,
-    pageSize,
-    totalResults,
-    totalPages,
-    ...(truncated ? {
-      truncated: true,
-      originalCount,
-      message: `Results limited to prevent token overflow. Showing ${limitedResults.length} of ${originalCount} total results.`
+    results: paginatedResults as T[]
+    , page
+    , pageSize
+    , totalResults
+    , totalPages
+    , ...(truncated ? {
+      truncated: true
+      , originalCount
+      , message: `Results limited to prevent token overflow. Showing ${limitedResults.length} of ${originalCount} total results.`
     } : {})
   };
 }
@@ -355,11 +355,11 @@ export function paginateFiles<T>(
   const paginatedFiles = files.slice(startIndex, endIndex);
   
   return {
-    files: paginatedFiles,
-    page,
-    pageSize,
-    totalFiles,
-    totalPages,
-    ...(directory && { directory })
+    files: paginatedFiles
+    , page
+    , pageSize
+    , totalFiles
+    , totalPages
+    , ...(directory && { directory })
   };
 }

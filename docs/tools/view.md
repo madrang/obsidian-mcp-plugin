@@ -47,10 +47,17 @@ Get the matching passages from one file, or from the files that match the query.
 List the files in a folder.
 
 ```json
-{ "action": "folder", "directory": "notes", "page": 1, "pageSize": 50 }
+{ "action": "folder", "path": "notes", "page": 1, "pageSize": 50 }
 ```
 
-Omit `directory` for the vault root.
+Omit `path` for the vault root.
+
+Add `pattern` to filter the listing with a glob: `*.md`, `**/*.png`, `notes/*.canvas`.
+
+- The pattern matches each vault-relative path. `*` stays in one folder. `**` crosses folders.
+- A pattern without `/` matches the file name at any depth. `*.md` finds markdown everywhere in the walk.
+- Matching is case-sensitive.
+- A listing with `pattern` is always paginated. The defaults are `page=1` and `pageSize=20`. The response carries the active `pattern`, and the next-page hint includes it.
 
 ### `window`
 Show about 20 lines around a point in a file.
@@ -93,5 +100,5 @@ Scan markdown files with a regular expression and get every match as an address.
 
 - Each match is `path`, 1-based `line`, 1-based `column`, and the matching `text` — the count-first half of a count-guarded `edit.replace`.
 - The pattern is a plain JavaScript regular expression: no delimiters, case-sensitive.
-- Scope with `path` (one file) or `directory` (a subtree); the default is the whole vault.
+- Scope with `path`: one file or a folder subtree; the default is the whole vault.
 - `maxResults` caps the match list (default: 200). A truncated result sets `truncated: true` — raise the cap or narrow the scope to see the rest.

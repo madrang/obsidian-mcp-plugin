@@ -7,9 +7,11 @@ import { getVersion } from '../version';
 import { SearchResult } from './advanced-search';
 import { SearchFacade } from './search-facade';
 import { MCPIgnoreManager } from '../security/mcp-ignore-manager';
+import { Minimatch } from 'minimatch';
 import { Debug } from './debug';
 import { BasesAPI } from './bases-api';
 import { BaseYAML, BaseQueryResult as BasesQueryResult } from '../types/bases-yaml';
+import { BaseQueryOptions } from '../types/bases';
 import { InputValidator, ValidationException, ValidationConfig } from '../validation/input-validator';
 
 /** MCP server info used by ObsidianAPI */
@@ -114,13 +116,13 @@ export class ObsidianAPI {
   // Server info
   getServerInfo() {
     const baseInfo = {
-      authenticated: true,
-      cors: true,
-      ok: true,
-      service: 'Obsidian MCP Plugin',
-      versions: {
-        obsidian: (this.app as unknown as AppInternal).appVersion || '1.0.0',
-        'self': getVersion()
+      authenticated: true
+      , cors: true
+      , ok: true
+      , service: 'Obsidian MCP Plugin'
+      , versions: {
+        obsidian: (this.app as unknown as AppInternal).appVersion || '1.0.0'
+        , 'self': getVersion()
       }
     };
 
@@ -132,17 +134,17 @@ export class ObsidianAPI {
       const mcpServer = this.plugin.mcpServer;
       const pluginSettings = this.plugin.settings;
       return {
-        ...baseInfo,
-        mcp: {
-          running: mcpServer.isServerRunning(),
-          httpEnabled: pluginSettings?.httpEnabled,
-          httpsEnabled: pluginSettings?.httpsEnabled,
-          httpPort: pluginSettings?.httpPort,
-          httpsPort: pluginSettings?.httpsPort,
-          connections: mcpServer.getConnectionCount() || 0,
-          vault: this.app.vault.getName()
-        },
-        ...(dailyNotesFolder !== undefined && { dailyNotesFolder })
+        ...baseInfo
+        , mcp: {
+          running: mcpServer.isServerRunning()
+          , httpEnabled: pluginSettings?.httpEnabled
+          , httpsEnabled: pluginSettings?.httpsEnabled
+          , httpPort: pluginSettings?.httpPort
+          , httpsPort: pluginSettings?.httpsPort
+          , connections: mcpServer.getConnectionCount() || 0
+          , vault: this.app.vault.getName()
+        }
+        , ...(dailyNotesFolder !== undefined && { dailyNotesFolder })
       };
     }
 
@@ -188,10 +190,10 @@ export class ObsidianAPI {
     }
 
     return {
-      path: activeFile.path,
-      content,
-      tags,
-      frontmatter
+      path: activeFile.path
+      , content
+      , tags
+      , frontmatter
     };
   }
 
@@ -277,7 +279,8 @@ export class ObsidianAPI {
     directory?: string,
     page: number = 1,
     pageSize: number = 20,
-    recursive: boolean = false
+    recursive: boolean = false,
+    pattern?: string
   ): Promise<{
     files: Array<{
       path: string;
@@ -292,6 +295,7 @@ export class ObsidianAPI {
     totalFiles: number;
     totalPages: number;
     directory?: string;
+    pattern?: string;
   }> {
     const vault = this.app.vault;
     let files: TAbstractFile[];
@@ -323,12 +327,12 @@ export class ObsidianAPI {
     }
 
     // Create detailed file objects
-    const fileObjects: FileDetailObject[] = files.map(file => {
+    let fileObjects: FileDetailObject[] = files.map(file => {
       const isFile = file instanceof TFile;
       const result: FileDetailObject = {
-        path: file.path,
-        name: file.name,
-        type: isFile ? 'file' : 'folder'
+        path: file.path
+        , name: file.name
+        , type: isFile ? 'file' : 'folder'
       };
 
       if (isFile) {
@@ -355,7 +359,19 @@ export class ObsidianAPI {
       return a.name.localeCompare(b.name);
     });
 
-    return Promise.resolve(paginateFiles(fileObjects, page, pageSize, directory));
+    // A glob filters the listing before pagination, so page N is the Nth
+    // slice of the filtered walk — same contract as the unfiltered pages.
+    // matchBase: a pattern with no '/' (e.g. '*.md') matches the file name
+    // at any depth; '**' crosses folder boundaries, '*' stays in one folder.
+    if (pattern !== undefined && pattern !== '') {
+      const glob = new Minimatch(pattern, { matchBase: true });
+      fileObjects = fileObjects.filter(file => glob.match(file.path));
+    }
+
+    const result = paginateFiles(fileObjects, page, pageSize, directory);
+    return Promise.resolve(pattern !== undefined && pattern !== ''
+      ? { ...result, pattern }
+      : result);
   }
 
   async getFile(path: string): Promise<ObsidianFileResponse> {
@@ -389,11 +405,11 @@ export class ObsidianAPI {
     }
 
     return {
-      path: file.path,
-      content,
-      tags,
-      frontmatter,
-      mtime: file.stat.mtime
+      path: file.path
+      , content
+      , tags
+      , frontmatter
+      , mtime: file.stat.mtime
     };
   }
 
@@ -419,11 +435,11 @@ export class ObsidianAPI {
     }
 
     const stat: FileStatResponse = {
-      path: file.path,
-      exists: true,
-      size: file.stat.size,
-      mtime: file.stat.mtime,
-      ctime: file.stat.ctime
+      path: file.path
+      , exists: true
+      , size: file.stat.size
+      , mtime: file.stat.mtime
+      , ctime: file.stat.ctime
     };
 
     if (!checkIsImageFile(path)) {
@@ -460,11 +476,11 @@ export class ObsidianAPI {
       async () => {
         const file = await this.app.vault.create(path, content);
         return {
-          success: true,
-          path: file.path,
-          name: file.name,
-          mtime: file.stat.mtime,
-          hash: contentHash(content)
+          success: true
+          , path: file.path
+          , name: file.name
+          , mtime: file.stat.mtime
+          , hash: contentHash(content)
         };
       },
       'file creation',
@@ -559,10 +575,10 @@ export class ObsidianAPI {
     await this.app.vault.modify(file, existingContent + content);
     // Post-write stat for write chaining (see updateFile).
     return {
-      success: true,
-      path,
-      mtime: file.stat.mtime,
-      hash: contentHash(existingContent + content)
+      success: true
+      , path
+      , mtime: file.stat.mtime
+      , hash: contentHash(existingContent + content)
     };
   }
 
@@ -596,10 +612,10 @@ export class ObsidianAPI {
     await this.app.vault.modify(file, content);
     // Post-write stat for write chaining (see updateFile).
     return {
-      success: true,
-      updated_content: content,
-      mtime: file.stat.mtime,
-      hash: contentHash(content)
+      success: true
+      , updated_content: content
+      , mtime: file.stat.mtime
+      , hash: contentHash(content)
     };
   }
 
@@ -815,9 +831,9 @@ export class ObsidianAPI {
    */
   private isTextFile(file: TFile): boolean {
     const textExtensions = new Set([
-      'md', 'txt', 'json', 'js', 'ts', 'css', 'html', 'xml', 'yaml', 'yml',
-      'csv', 'log', 'py', 'java', 'cpp', 'c', 'h', 'php', 'rb', 'go', 'rs',
-      'sql', 'sh', 'bat', 'ps1', 'ini', 'conf', 'config', 'env'
+      'md', 'txt', 'json', 'js', 'ts', 'css', 'html', 'xml', 'yaml', 'yml'
+      , 'csv', 'log', 'py', 'java', 'cpp', 'c', 'h', 'php', 'rb', 'go', 'rs'
+      , 'sql', 'sh', 'bat', 'ps1', 'ini', 'conf', 'config', 'env'
     ]);
     return textExtensions.has(file.extension.toLowerCase());
   }
@@ -862,12 +878,12 @@ export class ObsidianAPI {
 
     // Delegate to SearchFacade for all search operations
     const facadeResponse = await this.searchFacade.searchPaginated(query, {
-      page,
-      pageSize,
-      strategy: strategy as 'filename' | 'content' | 'combined' | 'auto',
-      includeSnippets: options?.includeSnippets ?? includeContent,
-      snippetLength: options?.snippetLength,
-      ranked: options?.ranked
+      page
+      , pageSize
+      , strategy: strategy as 'filename' | 'content' | 'combined' | 'auto'
+      , includeSnippets: options?.includeSnippets ?? includeContent
+      , snippetLength: options?.snippetLength
+      , ranked: options?.ranked
     });
 
     // Apply ignore filtering to results (security concern)
@@ -893,19 +909,19 @@ export class ObsidianAPI {
         }>;
       };
     } = {
-      query: facadeResponse.query,
-      page: facadeResponse.page,
-      pageSize: facadeResponse.pageSize,
-      totalResults: facadeResponse.totalResults,
-      totalPages: facadeResponse.totalPages,
-      results: filteredResults.map(r => ({
-        path: r.path,
-        title: r.title,
-        score: r.score,
-        snippet: r.snippet,
-        metadata: r.metadata
-      })),
-      method: facadeResponse.method
+      query: facadeResponse.query
+      , page: facadeResponse.page
+      , pageSize: facadeResponse.pageSize
+      , totalResults: facadeResponse.totalResults
+      , totalPages: facadeResponse.totalPages
+      , results: filteredResults.map(r => ({
+        path: r.path
+        , title: r.title
+        , score: r.score
+        , snippet: r.snippet
+        , metadata: r.metadata
+      }))
+      , method: facadeResponse.method
     };
 
     Debug.log(`Search found ${response.totalResults} results for query: ${query}`);
@@ -917,34 +933,34 @@ export class ObsidianAPI {
     if (response.results.length > 0) {
       const suggestions = [
         {
-          description: 'View a specific file',
-          command: 'view:file',
-          reason: 'To see the full content of a file'
-        },
-        {
-          description: 'Read file fragments',
-          command: 'view:fragments',
-          reason: 'To get relevant excerpts from large files'
-        },
-        {
-          description: 'Edit a file',
-          command: 'edit:replace',
-          reason: 'To modify content in text files'
+          description: 'View a specific file'
+          , command: 'view:file'
+          , reason: 'To see the full content of a file'
+        }
+        , {
+          description: 'Read file fragments'
+          , command: 'view:fragments'
+          , reason: 'To get relevant excerpts from large files'
+        }
+        , {
+          description: 'Edit a file'
+          , command: 'edit:replace'
+          , reason: 'To modify content in text files'
         }
       ];
 
       // Add pagination suggestion only for first few pages
       if (response.page < response.totalPages && response.page <= 3) {
         suggestions.push({
-          description: 'Get next page of results',
-          command: 'view:search',
-          reason: `View page ${response.page + 1} of ${response.totalPages} (use page: ${response.page + 1})`
+          description: 'Get next page of results'
+          , command: 'view:search'
+          , reason: `View page ${response.page + 1} of ${response.totalPages} (use page: ${response.page + 1})`
         });
       }
 
       response.workflow = {
-        message: `Found ${response.totalResults} results${response.totalPages > 1 ? ` (page ${response.page} of ${response.totalPages})` : ''}. You can read, view, or edit these files.`,
-        suggested_next: suggestions
+        message: `Found ${response.totalResults} results${response.totalPages > 1 ? ` (page ${response.page} of ${response.totalPages})` : ''}. You can read, view, or edit these files.`
+        , suggested_next: suggestions
       };
     }
 
@@ -971,9 +987,9 @@ export class ObsidianAPI {
     }
 
     return Object.values(commands).map((cmd: ObsidianCommand) => ({
-      id: cmd.id,
-      name: cmd.name,
-      icon: cmd.icon
+      id: cmd.id
+      , name: cmd.name
+      , icon: cmd.icon
     }));
   }
 
@@ -994,8 +1010,8 @@ export class ObsidianAPI {
     const appInternal = this.app as unknown as AppInternal;
     const success = appInternal.commands?.executeCommandById?.(commandId);
     return {
-      success: !!success,
-      commandId
+      success: !!success
+      , commandId
     };
   }
 
@@ -1098,17 +1114,17 @@ export class ObsidianAPI {
   }
 
   /**
-   * Query a base with optional view
+   * Query a base with optional view and caller options
    */
-  async queryBase(path: string, viewName?: string): Promise<BasesQueryResult> {
-    return await this.basesAPI.queryBase(path, viewName);
+  async queryBase(path: string, viewName?: string, options?: BaseQueryOptions): Promise<BasesQueryResult> {
+    return await this.basesAPI.queryBase(path, viewName, options);
   }
 
   /**
-   * Export base data
+   * Export base data. Runs the same query as queryBase, then serializes.
    */
-  async exportBase(path: string, format: 'csv' | 'json' | 'markdown', viewName?: string): Promise<string> {
-    return await this.basesAPI.exportBase(path, format, viewName);
+  async exportBase(path: string, format: 'csv' | 'json' | 'markdown', viewName?: string, options?: BaseQueryOptions): Promise<string> {
+    return await this.basesAPI.exportBase(path, format, viewName, options);
   }
 
 }

@@ -129,9 +129,9 @@ export class SearchFacade {
     if (parsed.type === 'operator') {
       // Use operator-based search for precise queries
       results = await this.operatorSearch(parsed, {
-        includeSnippets,
-        snippetLength,
-        includeMetadata
+        includeSnippets
+        , snippetLength
+        , includeMetadata
       });
 
       // Apply ranking as post-process if explicitly requested
@@ -142,10 +142,10 @@ export class SearchFacade {
       // Use advanced search for natural language queries
       const advancedStrategy = strategy === 'auto' ? 'combined' : strategy;
       const advancedResults = await this.advancedSearch.search(query, {
-        strategy: advancedStrategy,
-        maxResults,
-        snippetLength,
-        includeMetadata
+        strategy: advancedStrategy
+        , maxResults
+        , snippetLength
+        , includeMetadata
       });
 
       results = this.normalizeAdvancedResults(advancedResults);
@@ -169,20 +169,20 @@ export class SearchFacade {
 
     if (!query || query.trim().length === 0) {
       return {
-        query: query || '',
-        page: 1,
-        pageSize,
-        totalResults: 0,
-        totalPages: 0,
-        results: [],
-        method: 'facade'
+        query: query || ''
+        , page: 1
+        , pageSize
+        , totalResults: 0
+        , totalPages: 0
+        , results: []
+        , method: 'facade'
       };
     }
 
     // Get all results (facade limits internally via maxResults)
     const allResults = await this.search(query, {
-      ...options,
-      maxResults: options.maxResults || 100  // Get more results for pagination
+      ...options
+      , maxResults: options.maxResults || 100  // Get more results for pagination
     });
 
     // Apply pagination
@@ -197,13 +197,13 @@ export class SearchFacade {
     const method = parsed.type === 'operator' ? `facade-operator-${strategy}` : `facade-ranked-${strategy}`;
 
     return {
-      query,
-      page,
-      pageSize,
-      totalResults,
-      totalPages,
-      results: paginatedResults,
-      method
+      query
+      , page
+      , pageSize
+      , totalResults
+      , totalPages
+      , results: paginatedResults
+      , method
     };
   }
 
@@ -221,11 +221,11 @@ export class SearchFacade {
       try {
         const regex = new RegExp(pattern, flags);
         return {
-          type: 'operator',
-          term: pattern,
-          originalQuery: query,
-          isRegex: true,
-          regex
+          type: 'operator'
+          , term: pattern
+          , originalQuery: query
+          , isRegex: true
+          , regex
         };
       } catch (e) {
         Debug.warn('Invalid regex pattern:', e);
@@ -250,11 +250,11 @@ export class SearchFacade {
     if (trimmed.includes(' AND ')) {
       const andTerms = this.splitPreservingQuotes(trimmed, ' AND ');
       return {
-        type: 'operator',
-        term: trimmed,
-        originalQuery: query,
-        isAnd: true,
-        andTerms
+        type: 'operator'
+        , term: trimmed
+        , originalQuery: query
+        , isAnd: true
+        , andTerms
       };
     }
 
@@ -262,11 +262,11 @@ export class SearchFacade {
     if (trimmed.includes(' OR ')) {
       const orTerms = this.splitPreservingQuotes(trimmed, ' OR ');
       return {
-        type: 'operator',
-        term: trimmed,
-        originalQuery: query,
-        isOr: true,
-        orTerms
+        type: 'operator'
+        , term: trimmed
+        , originalQuery: query
+        , isOr: true
+        , orTerms
       };
     }
 
@@ -353,12 +353,12 @@ export class SearchFacade {
       const allMatch = await this.checkAndMatch(file, parsed.andTerms, options);
       if (allMatch.matches) {
         return {
-          path: file.path,
-          title: file.basename,
-          score: allMatch.score,
-          snippet: allMatch.snippet,
-          matches: allMatch.matchDetails,
-          metadata: options.includeMetadata ? this.getMetadata(file) : undefined
+          path: file.path
+          , title: file.basename
+          , score: allMatch.score
+          , snippet: allMatch.snippet
+          , matches: allMatch.matchDetails
+          , metadata: options.includeMetadata ? this.getMetadata(file) : undefined
         };
       }
       return null;
@@ -369,12 +369,12 @@ export class SearchFacade {
       const anyMatch = await this.checkOrMatch(file, parsed.orTerms, options);
       if (anyMatch.matches) {
         return {
-          path: file.path,
-          title: file.basename,
-          score: anyMatch.score,
-          snippet: anyMatch.snippet,
-          matches: anyMatch.matchDetails,
-          metadata: options.includeMetadata ? this.getMetadata(file) : undefined
+          path: file.path
+          , title: file.basename
+          , score: anyMatch.score
+          , snippet: anyMatch.snippet
+          , matches: anyMatch.matchDetails
+          , metadata: options.includeMetadata ? this.getMetadata(file) : undefined
         };
       }
       return null;
@@ -459,12 +459,12 @@ export class SearchFacade {
     }
 
     return {
-      path: file.path,
-      title: file.basename,
-      score,
-      snippet,
-      matches,
-      metadata: options.includeMetadata ? this.getMetadata(file) : undefined
+      path: file.path
+      , title: file.basename
+      , score
+      , snippet
+      , matches
+      , metadata: options.includeMetadata ? this.getMetadata(file) : undefined
     };
   }
 
@@ -620,10 +620,10 @@ export class SearchFacade {
     }
 
     return {
-      content: snippetText,
-      lineStart: startLine + 1,
-      lineEnd: endLine + 1,
-      score: 1.0 // Default snippet relevance score
+      content: snippetText
+      , lineStart: startLine + 1
+      , lineEnd: endLine + 1
+      , score: 1.0 // Default snippet relevance score
     };
   }
 
@@ -645,8 +645,8 @@ export class SearchFacade {
       }
 
       return {
-        ...result,
-        score: result.score * boost
+        ...result
+        , score: result.score * boost
       };
     });
   }
@@ -656,19 +656,19 @@ export class SearchFacade {
    */
   private normalizeAdvancedResults(results: AdvancedSearchResult[]): UnifiedSearchResult[] {
     return results.map(r => ({
-      path: r.path,
-      title: r.title,
-      score: r.score,
-      snippet: r.snippet ? {
-        content: r.snippet.content,
-        lineStart: r.snippet.lineStart,
-        lineEnd: r.snippet.lineEnd,
-        score: r.snippet.score
-      } : undefined,
-      matches: {
+      path: r.path
+      , title: r.title
+      , score: r.score
+      , snippet: r.snippet ? {
+        content: r.snippet.content
+        , lineStart: r.snippet.lineStart
+        , lineEnd: r.snippet.lineEnd
+        , score: r.snippet.score
+      } : undefined
+      , matches: {
         content: true // Advanced search always searches content
-      },
-      metadata: r.metadata
+      }
+      , metadata: r.metadata
     }));
   }
 
@@ -677,9 +677,9 @@ export class SearchFacade {
    */
   private getMetadata(file: TFile): UnifiedSearchResult['metadata'] {
     return {
-      size: file.stat.size,
-      modified: file.stat.mtime,
-      extension: file.extension
+      size: file.stat.size
+      , modified: file.stat.mtime
+      , extension: file.extension
     };
   }
 
@@ -688,9 +688,9 @@ export class SearchFacade {
    */
   private isTextFile(file: TFile): boolean {
     const textExtensions = new Set([
-      'md', 'txt', 'json', 'js', 'ts', 'css', 'html', 'xml', 'yaml', 'yml',
-      'csv', 'log', 'py', 'java', 'cpp', 'c', 'h', 'php', 'rb', 'go', 'rs',
-      'sql', 'sh', 'bat', 'ps1', 'ini', 'conf', 'config', 'env'
+      'md', 'txt', 'json', 'js', 'ts', 'css', 'html', 'xml', 'yaml', 'yml'
+      , 'csv', 'log', 'py', 'java', 'cpp', 'c', 'h', 'php', 'rb', 'go', 'rs'
+      , 'sql', 'sh', 'bat', 'ps1', 'ini', 'conf', 'config', 'env'
     ]);
     return textExtensions.has(file.extension.toLowerCase());
   }

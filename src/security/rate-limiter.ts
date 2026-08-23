@@ -65,17 +65,17 @@ export function rateLimitErrorResponse(limit: number, retryAfterMs: number): {
 } {
   return {
     content: [{
-      type: 'text',
-      text: JSON.stringify({
+      type: 'text'
+      , text: JSON.stringify({
         error: {
-          code: 'RATE_LIMITED',
-          message:
+          code: 'RATE_LIMITED'
+          , message:
             `Rate limit exceeded: max ${limit} tool calls per minute. ` +
-            `Retry in ${Math.ceil(retryAfterMs / 1000)}s.`,
-          retryAfterMs
+            `Retry in ${Math.ceil(retryAfterMs / 1000)}s.`
+          , retryAfterMs
         }
       }, null, 2)
-    }],
-    isError: true
+    }]
+    , isError: true
   };
 }

@@ -63,9 +63,9 @@ export function formatDate(timestamp: number): string {
   if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
 
   return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    month: 'short'
+    , day: 'numeric'
+    , year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
   });
 }
 
