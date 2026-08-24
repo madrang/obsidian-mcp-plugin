@@ -135,6 +135,8 @@ AGENTS.md
 CLAUDE.md
 .zcode/
 
-# Generated cleanroom surface dump (regenerate with scripts/dump-surface.mjs)
+# Generated cleanroom surface dumps (canonical: scripts/dump-surface.mjs,
+# lean: scripts/ablate-dump.mjs over the canonical dump)
 surface-dump.json
+surface-dump-lean.json
 .surface-dump.tmp.cjs

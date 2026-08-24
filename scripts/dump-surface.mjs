@@ -5,15 +5,14 @@
  *
  *   node scripts/dump-surface.mjs > surface-dump.json
  *
- * Used as the canonical input for cleanroom description validation: the
- * agents receive this file's content verbatim, so no transcription drift
- * can create false gaps.
+ * Readers receive this file's content verbatim, so no transcription drift can
+ * create false gaps. The procedure and the verdict ledger live in the vault:
+ * Projects/Scoped Vault MCP/Descriptor Review/.
  *
  * The parameters come from createSemanticTools, not the raw registry
  * definitions: the tool factory adds `action` and `raw` to every schema in
- * production. Dumping the registry directly hid those, and the first
- * cleanroom round convicted the surface for a `raw` parameter that
- * production clients do receive.
+ * production. Dumping the registry directly hid those, and an early round
+ * flagged a `raw` parameter gap that production clients do receive.
  */
 import { build } from 'esbuild';
 import { writeFileSync, unlinkSync } from 'fs';
@@ -50,11 +49,12 @@ const ops = getRegisteredOperations().map(d => {
     , actions: d.actions
     , requiredParams: d.requiredParams ?? {}
     // The live schema when the tool was built; the registry copy for an
-    // operation the factory skipped (dataview without the plugin), with
-    // a raw entry appended so the fallback matches the factory shape.
+    // operation the factory skipped (dataview without the plugin). The raw
+    // entry matches the factory shape, parenthetical and default included.
+    // A bare fallback once read as a surface gap, but the gap was not real.
     , parameters: tool
       ? tool.inputSchema.properties
-      : { ...d.parameters, raw: { type: 'boolean', description: 'Return raw JSON instead of the formatted markdown' } }
+      : { ...d.parameters, raw: { type: 'boolean', description: 'Return raw JSON instead of the formatted markdown (use when you need complete metadata or structured data for processing)', default: false } }
   };
 });
 console.log(JSON.stringify(ops, null, 2));
