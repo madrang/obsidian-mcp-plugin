@@ -10,7 +10,7 @@ registerOperation({
   name: 'dataview'
   , title: 'Dataview Operations'
   , descriptionLines: [
-    '📊 Dataview operations.'
+    'Dataview operations.'
     , ''
     , '## Actions'
     , { when: 'dataview.query', text: '- `query` — Execute a DQL query.' }
@@ -37,7 +37,7 @@ registerOperation({
     , format: {
       type: 'string'
       , enum: ['dql']
-      , description: 'The query format (only DQL is currently supported)'
+      , description: 'The query format'
       , default: 'dql'
     }
     , source: {

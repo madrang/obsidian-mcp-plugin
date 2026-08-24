@@ -327,7 +327,9 @@ describe('moved tool-surface actions', () => {
       // the fetch_web enumeration test): gated off, the prose must not
       // advertise what the schema omits.
       expect(setup(undefined, false).byName('files')!.description).not.toContain('overwrite');
-      expect(setup(undefined, true).byName('files')!.description).toContain('overwrite=true');
+      // 2026-08-23: the overwrite bullet was removed, so the description stays clean with the gate on too.
+      // The schema-side parameter is the only carrier, and it keeps following the gate (the test below).
+      expect(setup(undefined, true).byName('files')!.description).not.toContain('overwrite');
     });
 
     it('advertises the overwrite parameter when the gate is on', () => {

@@ -6,17 +6,17 @@
 ![Latest Release](https://img.shields.io/github/v/release/madrang/obsidian-mcp-plugin?include_prereleases&label=version)
 ![License](https://img.shields.io/github/license/madrang/obsidian-mcp-plugin)
 
-> **Scoped Vault MCP** is an independent fork by [Madrang](https://github.com/madrang) of [Semantic Notes Vault MCP](https://github.com/aaronsb/obsidian-mcp-plugin) by Aaron Bockelie. This fork adds scoped bearer tokens (per-token folder and read-only restriction), per-token session limits, optional session expiry, and per-action parameter validation against the current MCP specification.
+> **Scoped Vault MCP** is an independent fork by [Madrang](https://github.com/madrang) of [Semantic Notes Vault MCP](https://github.com/aaronsb/obsidian-mcp-plugin) by Aaron Bockelie. The fork adds scoped bearer tokens. A token can restrict a client to one vault folder or to read-only access. The fork also adds per-token session limits, optional session expiry, and parameter validation against the current MCP specification.
 
 **Read, write, search, and traverse your Obsidian vault from any AI assistant — through an MCP server that runs _inside_ Obsidian.**
 
-No external Node process to launch, no separate REST-API plugin to bridge through: the server *is* the plugin. Setup is a drag-and-drop — drop the `.mcpb` bundle into a bundle-compatible MCP client, paste your key, done.
+The server *is* the plugin. You launch no external Node process. You bridge through no separate REST-API plugin. Setup is a drag-and-drop: drop the `.mcpb` bundle into a bundle-compatible MCP client, paste your key, and you are done.
 
-It exposes **7 powerful tools** — each a whole family of operations, not a single call (the `view` tool alone handles 6: read, search, folder, fragments, and more) — with first-class **Dataview** and **Bases** support plus graph traversal. And every operation respects the permissions *you* set — a read-only mode, per-operation controls, scoped tokens, and path allow/block lists — so the AI only ever does what you've allowed, not unrestricted run of your vault.
+It exposes **7 tools** — each a family of operations, not a single call. The `view` tool alone handles 8 actions: window, lines, active, folder, read, search, fragments, and grep. The plugin ships first-class **Dataview** and **Bases** support, plus graph traversal. Every operation respects the permissions you set: read-only mode, per-operation controls, scoped tokens, and path allow/block lists. The AI does only what you allowed. It never has unrestricted run of your vault.
 
 **Works with any MCP-compatible client** — desktop agents, CLI agents, Cline, Continue.dev, and anything that speaks MCP over HTTP.
 
-> **New to MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) is the open standard that lets AI assistants interact with external tools and data. You don't need to understand it to use this — the [Quick Start](#quick-start) is three steps.
+> **New to MCP?** The [Model Context Protocol](https://modelcontextprotocol.io) is the open standard that lets AI assistants interact with external tools and data. You do not need to understand it. The [Quick Start](#quick-start) has three steps.
 
 ## Quick Start
 
@@ -25,7 +25,7 @@ It exposes **7 powerful tools** — each a whole family of operations, not a sin
 > ## 📦 ──drag──▶ 🤖💬
 > **Download the `.mcpb` bundle from the plugin's config page → drag it into your MCP client → paste your key. Done.**
 
-For most people that's the entire setup. The numbered steps below spell it out, then cover the JSON config path.
+For most users, that is the entire setup. The numbered steps give the details. They also cover the JSON config path.
 
 ### 1. Install the Plugin
 
@@ -49,7 +49,7 @@ Save each file with its exact name. Some browsers append `.txt` to a downloaded 
 - Copy `main.js`, `manifest.json`, and `styles.css` into `<your vault>/.obsidian/plugins/scoped-vault-mcp/`
 - Enable the plugin in Settings → Community plugins
 
-**Via BRAT** (once the first release is published)
+**Via BRAT**
 - Install [BRAT](https://github.com/TfTHacker/obsidian42-brat)
 - Add beta plugin: `madrang/obsidian-mcp-plugin`
 
@@ -59,13 +59,13 @@ Two onboarding paths. Both are also shown in the plugin's Settings tab with copy
 
 **📦 → 🤖 MCP bundle — one-click `.mcpb` install (recommended)**
 
-Download `scoped-vault-mcp-<version>.mcpb` — either from the plugin's **Settings** tab (button right on the config page) or the [latest release](https://github.com/madrang/obsidian-mcp-plugin/releases/latest) — then drag it into a bundle-compatible MCP client or double-click it. The client opens an install dialog with two fields — paste the URL and API key shown in the plugin's Settings tab, hit Save, and you're done.
+Download `scoped-vault-mcp-<version>.mcpb` from the plugin **Settings** tab or from the [latest release](https://github.com/madrang/obsidian-mcp-plugin/releases/latest). Drag it into a bundle-compatible MCP client, or double-click it. The client opens an install dialog with two fields. Paste the URL and the API key from the plugin Settings tab, then click Save. You are done.
 
-> *Cross-platform note:* `.mcpb` files install via the client's bundled handler. If double-click doesn't open your client, drag the file onto the client's window instead, or right-click → "Open with…" and pick the client (then "always open with" if your OS asks). Behavior varies by platform: macOS usually auto-associates, Windows may need a one-time association, Linux varies by desktop environment.
+> *Cross-platform note:* `.mcpb` files install through the client's bundled handler. If a double-click does not open your client, drag the file onto the client window instead. You can also right-click, choose **Open With**, and pick the client. Behavior varies by platform. macOS usually auto-associates the file type. Windows may need a one-time association. Linux varies by desktop environment.
 
 **Any MCP client (JSON config)**
 
-Add an entry to the client's MCP config file — one entry per vault if you run multiple Obsidian instances on different ports:
+Add an entry to the client's MCP config file. Use one entry per vault when you run multiple Obsidian instances on different ports:
 
 ```json
 {
@@ -83,11 +83,11 @@ Add an entry to the client's MCP config file — one entry per vault if you run 
 }
 ```
 
-For HTTPS, use `https://localhost:3444/mcp` instead — see [Trusting the self-signed certificate](#trusting-the-self-signed-certificate) below. **Clients running on Bun do not read the macOS system keychain**, so you will need to set `NODE_EXTRA_CA_CERTS`.
+For HTTPS, use `https://localhost:3444/mcp` instead. See [Trusting the self-signed certificate](#trusting-the-self-signed-certificate) below. **Clients that run on Bun do not read the macOS system keychain.** You will need to set `NODE_EXTRA_CA_CERTS`.
 
 **Advanced: custom `.mcpb` per vault**
 
-For multi-vault setups that want one-click install per vault, clone this repo and run the maker:
+For a one-click install per vault, clone this repo and run the maker:
 
 ```bash
 node scripts/make-mcpb.mjs
@@ -95,11 +95,11 @@ node scripts/make-mcpb.mjs
 # Outputs scoped-vault-mcp-<slug>.mcpb with everything pre-filled
 ```
 
-Drop the resulting bundle into a bundle-compatible client and click Install — no fields to type.
+Drop the bundle into a bundle-compatible client and click Install. Every value is pre-filled. You have no fields to type.
 
 ### Trusting the self-signed certificate
 
-The plugin's HTTPS server uses a self-signed certificate auto-generated on first start and stored under `.obsidian/plugins/scoped-vault-mcp/certificates/default.crt` inside your vault. MCP clients reject self-signed certificates by default, so you need to explicitly trust it before connecting over HTTPS. Pick the method that matches your client runtime.
+The HTTPS server uses a self-signed certificate. The plugin generates the certificate on first start. It stores the certificate under `.obsidian/plugins/scoped-vault-mcp/certificates/default.crt`, inside your vault. MCP clients reject self-signed certificates by default. Trust the certificate explicitly before you connect over HTTPS. Pick the method that matches your client runtime.
 
 **macOS Keychain** (for clients that use the system trust store — desktop apps, browser-based tools, Node with `--use-system-ca`):
 
@@ -110,7 +110,7 @@ sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keyc
 
 **`NODE_EXTRA_CA_CERTS`** (required for Bun-based runtimes):
 
-Bun does **not** consult the macOS system keychain for TLS trust, so trusting the certificate via Keychain Access alone has no effect — this is almost always the real reason an HTTPS connection from a Bun-based client fails. Bun only honors certificates listed in `NODE_EXTRA_CA_CERTS`:
+Bun does **not** consult the macOS system keychain for TLS trust. Trusting the certificate through Keychain Access alone has no effect. This is almost always the real reason why an HTTPS connection from a Bun-based client fails. Bun only honors certificates listed in `NODE_EXTRA_CA_CERTS`:
 
 ```bash
 # Point directly at the plugin cert, or append it to an existing CA bundle:
@@ -120,13 +120,13 @@ export NODE_EXTRA_CA_CERTS=/path/to/vault/.obsidian/plugins/scoped-vault-mcp/cer
 launchctl setenv NODE_EXTRA_CA_CERTS /path/to/vault/.obsidian/plugins/scoped-vault-mcp/certificates/default.crt
 ```
 
-Re-run these whenever the plugin regenerates its certificate (e.g. after the 1-year validity expires).
+Run these commands again when the plugin regenerates its certificate. The certificate expires after one year.
 
-> **Avoid `NODE_TLS_REJECT_UNAUTHORIZED=0`.** It disables TLS verification process-wide — for *every* HTTPS connection the client makes, not just this plugin — and masks legitimate certificate problems (expired, revoked, tampered). Trust the certificate explicitly instead.
+> **Avoid `NODE_TLS_REJECT_UNAUTHORIZED=0`.** The variable disables TLS verification for the whole process. It affects every HTTPS connection the client makes, not only this plugin. It also masks real certificate problems: expired, revoked, tampered. Trust the certificate explicitly instead.
 
 ### 3. Start Using
 
-Once connected, simply chat with your AI assistant about your notes! For example:
+Once connected, chat with your AI assistant about your notes. For example:
 - "What are my recent thoughts on project X?"
 - "Find connections between my psychology and philosophy notes"
 - "Summarize my meeting notes from this week"
@@ -140,45 +140,45 @@ Your AI assistant now has these capabilities:
 - Work with Dataview queries (if installed)
 - Manage Obsidian Bases (database views)
 
-## Why It's Different
+## Why It Is Different
 
-Traditional file access gives AI a narrow view — one document at a time. This plugin gives it the whole connected picture:
+Traditional file access gives AI a narrow view: one document at a time. This plugin gives the AI the whole connected picture:
 
-- **Graph Navigation**: AI follows links between notes, understanding relationships and context
-- **Concept Discovery**: Search and graph traversal surface related ideas across your vault
+- **Graph Navigation**: AI follows links between notes and understands relationships and context
+- **Concept Discovery**: Search and graph traversal find related ideas across your vault
 - **Contextual Awareness**: AI understands where information lives in your knowledge structure
 - **Intelligent Synthesis**: Combine fragments from multiple notes to answer complex questions
 
 ## Core Tools
 
-The plugin provides 7 powerful tools that give AI comprehensive vault access — each one a family of related operations, all subject to the permissions you set:
+The plugin provides **7 tools**. Each tool is a family of operations, not a single call. Every operation is subject to the permissions you set:
 
 | Tool | Purpose | Key Actions |
 |------|---------|-------------|
-| **🗂️ files** | File management | create, delete, move, copy, split, concat |
-| **✏️ edit** | Content modification | replace, append, patch sections |
-| **👁️ view** | Read and search | folder listing, read notes, search, fragments, windows |
-| **🕸️ graph** | Link navigation | traverse, find paths, analyze connections |
-| **📊 dataview** | Query notes | Execute DQL queries (if installed) |
-| **🗃️ bases** | Database views | Query and export Bases (if available) |
-| **ℹ️ system** | Vault info | Server status, commands, hints, web fetch |
+| **files** | File management | create, delete, move, copy, split, concat |
+| **edit** | Content modification | replace, append, patch, at_line, multi |
+| **view** | Read and search | window, lines, active, folder, read, search, fragments, grep |
+| **graph** | Link navigation | traverse, neighbors, paths, backlinks, statistics, tag traversal |
+| **dataview** | Query notes | DQL queries (needs the Dataview plugin) |
+| **bases** | Database views | Run Bases queries, export as csv, json, or markdown |
+| **system** | Vault info | server info, commands, hints, open file, web fetch |
 
 ## Documentation
 
 Detailed documentation for each tool and feature:
 
-- [🗂️ Files Operations](docs/tools/files.md) - File management: create, move, copy, split, concat
-- [✏️ Edit Operations](docs/tools/edit.md) - Content modification: replace, append, patch, at_line
-- [👁️ View Operations](docs/tools/view.md) - Read, search, fragments, folder listing
-- [🕸️ Graph Navigation](docs/tools/graph.md) - Link traversal and analysis
-- [🗃️ Bases Operations](docs/tools/bases.md) - Query and export Bases
-- [📊 Dataview Integration](docs/tools/dataview.md) - DQL queries (requires the Dataview plugin)
-- [🔐 Security Implementation](docs/SECURITY-IMPLEMENTATION.md) - Permissions and path validation
-- [❓ Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
+- [Files Operations](docs/tools/files.md) — File management: create, move, copy, split, concat
+- [Edit Operations](docs/tools/edit.md) — Content modification: replace, append, patch, at_line
+- [View Operations](docs/tools/view.md) — Read, search, fragments, folder listing
+- [Graph Navigation](docs/tools/graph.md) — Link traversal and analysis
+- [Bases Operations](docs/tools/bases.md) — Query and export Bases
+- [Dataview Integration](docs/tools/dataview.md) — DQL queries (requires the Dataview plugin)
+- [Security Implementation](docs/SECURITY-IMPLEMENTATION.md) — Permissions and path validation
+- [Troubleshooting](docs/troubleshooting.md) — Common issues and solutions
 
 ## In Practice
 
-This plugin doesn't just give AI access to files — it lets AI work across your vault as a connected whole:
+The plugin gives AI more than file access. It lets the AI work across your vault as one connected whole:
 
 ### Example: Research Assistant
 ```
@@ -186,7 +186,7 @@ User: "Summarize my research on machine learning optimization"
 
 AI uses these tools to:
 1. Search for notes with ML optimization concepts
-2. Traverse graph to find related papers and techniques  
+2. Traverse graph to find related papers and techniques
 3. Follow backlinks to discover applications
 4. Synthesize findings from multiple connected notes
 ```
@@ -219,7 +219,6 @@ AI uses graph tools to:
 - Fuzzy text matching for edits
 - Structure-aware modifications (headings, blocks)
 - Batch operations (split, combine, move)
-- Template support
 
 ### Integration
 - Dataview query execution
@@ -229,14 +228,14 @@ AI uses graph tools to:
 
 ## Plugin Settings
 
-Access settings via: Settings → Community plugins → Scoped Vault MCP
+Open the settings through Settings → Community plugins → Scoped Vault MCP.
 
 Key configuration options:
 - **Server Ports**: HTTP (3011) and HTTPS (3444)
 - **Authentication**: API key protection, plus scoped tokens that limit a client to one vault folder or to read-only access
 - **Security**: Path validation and permissions
 - **Performance**: Connection pooling and caching
-- **Sessions**: no idle expiry by default (an optional timespan re-enables it), and one session per credential by default (configurable)
+- **Sessions**: Sessions do not expire when idle by default. An optional timespan enables expiry. One session per credential is the default, and you can change it.
 
 ## Development
 

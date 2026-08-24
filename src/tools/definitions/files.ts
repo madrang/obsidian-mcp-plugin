@@ -11,19 +11,18 @@ registerOperation({
   name: 'files'
   , title: 'File Management'
   , descriptionLines: [
-    '🗂️ File management. Every `files` action writes.'
+    'File management. Every `files` action writes.'
     , ''
     , '## Actions'
     , { when: 'files.create', text: '- `create` — Write a new file. It refuses a path that already exists. Omit `content` for an empty file. Missing parent folders are created.' }
-    , { when: ['files.create', 'gate:overwrite'], text: '  `overwrite=true` replaces the whole content of an existing file.' }
-    , { when: 'files.delete', text: '- `delete` — Delete a file.' }
+    , { when: 'files.delete', text: '- `delete` — Delete a file. It moves to the Obsidian trash.' }
     , { when: 'files.move', text: '- `move` — Move or rename a file.' }
     , { when: 'files.copy', text: '- `copy` — Copy a file to a new path.' }
     , { when: 'files.split', text: '- `split` — Split one file into several. The source file stays.' }
     , { when: 'files.concat', text: '- `concat` — Join several files into one. The source files stay.' }
     , ''
     , '## Rules'
-    , '- Every action returns `success` and its outcome, for example the created paths (`split`) or the destination and count (`concat`).'
+    , '- Every action returns `success` and its outcome.'
   ]
   , actions: ['create', 'delete', 'move', 'copy', 'split', 'concat']
   , requiredParams: {
@@ -66,11 +65,11 @@ registerOperation({
     }
     , destination: {
       type: 'string'
-      , description: 'The destination path for move, copy, and concat. For move: a destination without a directory renames the file in place and keeps its extension. For example, moving "note.md" to "renamed" gives "renamed.md". A destination with a directory is used exactly as given, like copy and concat'
+      , description: 'The destination path for move, copy, and concat. For move: a destination without a directory renames the file in place, and the source extension is appended when the destination carries none. A destination with a directory is used exactly as given, with no extension handling. Copy and concat destinations work the same way. Missing destination folders are created for copy and concat. A move needs an existing target folder'
     }
     , overwrite: {
       type: 'boolean'
-      , description: 'Overwrite the destination (move, copy, concat) or the file itself (create) when it already exists (default: false). Without it, an existing destination is refused. Overwriting requires the update permission and the Allow overwrite setting'
+      , description: 'Overwrite the destination (move, copy, concat) or the file itself (create) when it already exists (default: false). Without it, an existing destination is refused. Overwriting requires the update permission and the Allow overwrite setting. A missing grant refuses the write with OVERWRITE_DISABLED'
     }
     // Split operation parameters
     , splitBy: {
@@ -80,11 +79,11 @@ registerOperation({
     }
     , delimiter: {
       type: 'string'
-      , description: 'The delimiter string or regex for the delimiter strategy (default: "---")'
+      , description: 'The delimiter string for the delimiter strategy (default: "---")'
     }
     , level: {
       type: 'number'
-      , description: 'The heading level for the heading strategy (1-6, default: 1). The split cuts at headings of exactly this level. Each output file starts with its heading line. Text before the first heading becomes its own file'
+      , description: 'The heading level for the heading strategy (1-6, default: 1). The split cuts at headings of exactly this level. Each output file starts with its heading line. Text before the first heading becomes its own file. Without such a heading, the whole file becomes one output'
     }
     , linesPerFile: {
       type: 'number'
@@ -96,7 +95,7 @@ registerOperation({
     }
     , outputPattern: {
       type: 'string'
-      , description: 'The naming pattern for the output files (default: "{filename}-{index}{ext}"). Placeholders: {filename}, {index} (1-based, zero-padded to 3 digits), {ext}. No others are supported'
+      , description: 'The naming pattern for the output files (default: "{filename}-{index}{ext}"). Placeholders: {filename} (name without extension), {index} (1-based, zero-padded to 3 digits), {ext} (extension with its dot, empty without one).'
     }
     , outputDirectory: {
       type: 'string'

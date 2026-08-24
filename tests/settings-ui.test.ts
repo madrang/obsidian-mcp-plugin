@@ -180,16 +180,18 @@ describe('buildSettingsUI', () => {
     const box = readFrag.querySelector('.mcp-action-desc-box');
     expect(box).not.toBeNull();
     const boxText = box!.textContent ?? '';
-    expect(boxText).toContain('Read a file, whole up to a size budget');
+    expect(boxText).toContain('Read a file, whole up to 50000 characters');
     // The read-owned guidance line rides along inside the box.
     expect(boxText).toContain('stats of the file');
 
-    // The overwrite sentence reaches the create box only while the gate is on.
+    // 2026-08-23: the overwrite sentence was removed from the create bullet.
+    // The `overwrite` parameter is the only carrier. The create box stays clean with the gate on or off.
+    // Verdict ledger: vault, Descriptor Review/files.
     const off = rows.find(i => i.name === 'files.create')!.desc as DocumentFragment;
     expect(off.querySelector('.mcp-action-desc-box')!.textContent).not.toContain('overwrite');
     const onRows = flatten(buildSettingsUI(makeHost({ allowCreateOverwrite: true }).host));
     const on = onRows.find(i => i.name === 'files.create')!.desc as DocumentFragment;
-    expect(on.querySelector('.mcp-action-desc-box')!.textContent).toContain('overwrite=true');
+    expect(on.querySelector('.mcp-action-desc-box')!.textContent).not.toContain('overwrite');
   });
 
   it('the port validator rejects out-of-range values and accepts a good one', () => {

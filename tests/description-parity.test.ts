@@ -35,12 +35,10 @@ describe('description partition: static vs action-owned lines', () => {
     expect(lines).toHaveLength(1);
     expect(lines[0]).toContain('`lines`');
 
-    // A multi-key line names create AND the gate. Without a visible set the
-    // getter is a raw accessor: every line naming the action. With a set,
-    // the companion key must pass — gate off drops the overwrite sentence.
-    expect(getActionDescriptionLines('files', 'create')).toHaveLength(2);
-    expect(getActionDescriptionLines('files', 'create', new Set())).toHaveLength(1);
-    expect(getActionDescriptionLines('files', 'create', new Set(['gate:overwrite']))).toHaveLength(2);
+    // 2026-08-23: the create overwrite line was removed. The `overwrite` parameter is the only carrier.
+    // No definition carries a multi-key when array anymore, so create owns its single bullet.
+    // The registry mechanism stays, but it has no live specimen (see the vault TODO).
+    expect(getActionDescriptionLines('files', 'create')).toHaveLength(1);
   });
 
   it('getStaticDescriptionLines drops action bullets and emptied headings', () => {
@@ -126,16 +124,18 @@ describe('description parity', () => {
     );
   });
 
-  it('the overwrite gate keeps the word overwrite out of the files description when off', () => {
+  it('the files description never advertises overwrite, with the gate on or off', () => {
+    // 2026-08-23: the overwrite bullet was removed. The schema-side parameter is the only carrier,
+    // and it keeps following the gate (covered by the tool-surface-moves suite).
+    // Verdict ledger: vault, Descriptor Review/files.
     const off = byName(createSemanticTools(undefined, undefined, false, false), 'files');
     expect(off.description).not.toContain('overwrite');
 
     const on = byName(createSemanticTools(undefined, undefined, false, true), 'files');
-    expect(on.description).toContain('overwrite=true');
+    expect(on.description).not.toContain('overwrite');
   });
 
-  it('the overwrite line needs both the gate and the create action', () => {
-    // create hidden, gate on: the continuation line must not ship orphaned.
+  it('create hidden keeps the word overwrite out of the files description', () => {
     const tools = createSemanticTools(undefined, { 'files.create': false }, false, true);
     const files = byName(tools, 'files');
     expect(enumActions(files)).not.toContain('create');

@@ -10,21 +10,23 @@ registerOperation({
   name: 'edit'
   , title: 'Edit Files'
   , descriptionLines: [
-    '✏️ Edit files. Every `edit` action writes.'
+    'Edit files. Every `edit` action writes.'
     , ''
     , '## Actions'
     , { when: 'edit.replace', text: '- `replace` — Find and replace text.' }
     , { when: 'edit.append', text: '- `append` — Add content to the end of a file.' }
     , { when: 'edit.patch', text: '- `patch` — Modify a heading, a block, or a frontmatter field.' }
     , { when: 'edit.patch', text: '  On a heading: `append` adds at the end of the section. `prepend` adds directly under the heading. `replace` rewrites the whole section content, and the heading line stays.' }
-    , { when: 'edit.patch', text: '  `patch` on a frontmatter field writes a single value, not a YAML array.' }
-    , { when: 'edit.at_line', text: '- `at_line` — Insert or replace text at a line number. The default mode replaces the line.' }
+    , { when: 'edit.patch', text: '  On a block: the operations act on the block line, and the block ID stays.' }
+    , { when: 'edit.patch', text: '  A missing heading or block errors.' }
+    , { when: 'edit.patch', text: '  `patch` on a frontmatter field writes a single value, not a YAML array. A missing field is created.' }
+    , { when: 'edit.at_line', text: '- `at_line` — Insert or replace text at a line number.' }
     , { when: 'edit.multi', text: '- `multi` — Apply several exact find-and-replace pairs in one write.' }
     , ''
     , '## Rules'
-    , '- Every action accepts `ifUnmodifiedSince` and `ifHash`.'
-    , '- A successful write returns the new `mtime` and `hash`. Use them to chain the next write.'
-    , '- The `newText` parameter carries the write text for `replace`, `append`, `patch`, and `at_line`. An empty string is a real value. Omitting it on any of the four actions reuses the replacement buffered by the last failed `replace` — a count mismatch or a failed match (one global slot, 30 minutes). An empty buffer refuses the call.'
+    , '- Every action accepts `ifUnmodifiedSince` and `ifHash`. Supply both to require both.'
+    , '- A successful write returns the new `mtime` and `hash`.'
+    , '- An empty `newText` string is a real value. Omitting `newText` on `replace`, `append`, `patch`, or `at_line` reuses the replacement buffered by the last failed `replace` — a count mismatch or a failed match (one global slot shared across files, 30 minutes). An empty buffer refuses the call.'
   ]
   , actions: ['replace', 'append', 'patch', 'at_line', 'multi']
   , requiredParams: {
@@ -49,16 +51,16 @@ registerOperation({
     }
     , newText: {
       type: 'string'
-      , description: 'The text this action writes (replace, append, patch, at_line). An empty string is a real value'
+      , description: 'The text this action writes (replace, append, patch, at_line)'
     }
     , fuzzyThreshold: {
       type: 'number'
-      , description: 'The similarity threshold for fuzzy matching (0-1)'
+      , description: 'The similarity threshold for fuzzy matching (0-1). 1.0 matches exact text only. Lower values accept more difference'
       , default: 0.7
     }
     , expected: {
       type: 'number'
-      , description: 'replace: the exact number of occurrences oldText must match. Default 1 — exactly one occurrence, that one is replaced. N above 1 — exactly N occurrences, all replaced. Any other count refuses the edit with MATCH_COUNT_MISMATCH and nothing is written. The count must be at least 1. Check it first with view.grep or a complete view.read'
+      , description: 'replace: the exact number of occurrences oldText must match. Default 1 — exactly one occurrence, that one is replaced. N above 1 — exactly N occurrences, all replaced. Any other count refuses the edit with MATCH_COUNT_MISMATCH and nothing is written. The count must be at least 1.'
     }
     // Write preconditions, accepted by every edit action. The values come
     // from a view.read that returned the complete file — there is no way to
@@ -69,7 +71,7 @@ registerOperation({
     }
     , ifHash: {
       type: 'string'
-      , description: 'Precondition: proceed only when the file content hash still equals this value. Get it from a complete view.read of the file (visible in raw mode). On mismatch the edit is refused with PRECONDITION_FAILED and nothing is written'
+      , description: 'Precondition: proceed only when the file content hash still equals this value. On mismatch the edit is refused with PRECONDITION_FAILED and nothing is written'
     }
     , edits: {
       type: 'array'
@@ -95,12 +97,12 @@ registerOperation({
     , operation: {
       type: 'string'
       , enum: ['append', 'prepend', 'replace']
-      , description: 'The patch operation: append, prepend, or replace. On a heading: append adds at the end of the section, prepend adds directly under the heading, replace rewrites the section content and the heading line stays. On a block: the operations act on the block line, and the block ID stays. On a frontmatter field: the operation writes a single value'
+      , description: 'The patch operation: append, prepend, or replace'
     }
     , targetType: {
       type: 'string'
       , enum: ['heading', 'block', 'frontmatter']
-      , description: 'The structure to target: heading (use :: for nesting), block (by ID), or frontmatter (field name)'
+      , description: 'The structure to target: heading, block (by ID), or frontmatter (field name)'
     }
     , target: {
       type: 'string'

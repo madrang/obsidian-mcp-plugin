@@ -10,7 +10,7 @@ registerOperation({
   name: 'system'
   , title: 'System Operations'
   , descriptionLines: [
-    'ℹ️ System operations.'
+    'System operations.'
     , ''
     , '## Actions'
     , { when: 'system.info', text: '- `info` — Show server details.' }

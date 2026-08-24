@@ -10,12 +10,12 @@ registerOperation({
   name: 'bases'
   , title: 'Bases Operations'
   , descriptionLines: [
-    '🗃️ Bases operations. A `.base` file is a YAML config: filters, formulas, and views. Expressions use `&&` and `||`. YAML `and:` or `or:` keys combine them, for example `and: [file.hasTag("project"), \'status != "archived"\']`.'
+    'Bases operations. A `.base` file is a YAML config: filters, formulas, and views.'
     , ''
     , '## Actions'
     , { when: 'bases.list', text: '- `list` — Show all `.base` files.' }
     , { when: 'bases.read', text: '- `read` — Get the YAML configuration.' }
-    , { when: 'bases.query', text: '- `query` — Run a base on vault notes. Without `format`, the result is structured data: notes with properties and computed formulas. With `format`, the result comes back as a formatted string (csv, json, markdown) in the response. The tool writes no file.' }
+    , { when: 'bases.query', text: '- `query` — Run a base on vault notes. Without `format`, the result is structured data: notes with properties and computed formulas.' }
   ]
   , actions: ['list', 'read', 'query']
   , requiredParams: {
@@ -38,7 +38,7 @@ registerOperation({
     , format: {
       type: 'string'
       , enum: ['csv', 'json', 'markdown']
-      , description: 'query: serialize the result instead of returning structured data. csv, json, or markdown. The string comes back in the response'
+      , description: 'query: serialize the result instead of returning structured data. csv, json, or markdown'
     }
     , filters: {
       type: 'array'
@@ -56,7 +56,7 @@ registerOperation({
         }
         , required: ['property', 'operator']
       }
-      , description: 'query: extra filters on the results. Every filter must pass, on top of the base and view filters. Each item is { property, operator, value }. For example { property: "status", operator: "equals", value: "active" }'
+      , description: 'query: extra filters on the results. Every filter must pass, on top of the base and view filters. For example { property: "status", operator: "equals", value: "active" }'
     }
     , sortBy: {
       type: 'string'
@@ -69,7 +69,7 @@ registerOperation({
     }
     , page: {
       type: 'number'
-      , description: 'query: the page of results to return (default: 1). Pages apply after the view limit'
+      , description: 'query: the page of results to return (default: 1). The view limit cuts the results first, then pages apply'
     }
     , pageSize: {
       type: 'number'

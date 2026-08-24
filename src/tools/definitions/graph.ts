@@ -9,22 +9,22 @@ registerOperation({
   name: 'graph'
   , title: 'Graph Navigation'
   , descriptionLines: [
-    '🕸️ Graph navigation. Follow the links the vault already has.'
+    'Graph navigation.'
     , ''
     , '## When to use'
     , '- Search ranks by term frequency. Two notes on one topic in different words stay in separate result sets. A link between them usually exists.'
     , '- Traversal follows links, so it reaches the linked web of the vault. A relevant note without links sits outside that web. Search finds those notes.'
-    , '- The two tools are complements. Scan broadly with `view.search` to catch the unlinked notes. Then follow links from the hits to catch the differently worded notes.'
+    , '- Scan broadly with `view.search` to catch the unlinked notes. Then follow links from the hits to catch the differently worded notes.'
     , ''
     , '## Actions'
-    , { when: 'graph.neighbors', text: '- `neighbors` — The immediate links of a note, in both directions.' }
+    , { when: 'graph.neighbors', text: '- `neighbors` — The immediate links of a note.' }
     , { when: 'graph.traverse', text: '- `traverse` — Multi-hop exploration.' }
     , { when: 'graph.search-traverse', text: '- `search-traverse` — Scan and follow in one call.' }
     , { when: 'graph.advanced-traverse', text: '- `advanced-traverse` — Multi-query traversal with strategy control.' }
     , { when: 'graph.path', text: '- `path` — Find how two notes connect.' }
     , { when: 'graph.backlinks', text: '- `backlinks` — The links that point to a note.' }
     , { when: 'graph.forwardlinks', text: '- `forwardlinks` — The links a note points to.' }
-    , { when: 'graph.statistics', text: '- `statistics` — Link counts. Call it without `sourcePath` for vault-wide density.' }
+    , { when: 'graph.statistics', text: '- `statistics` — Link counts. Without `sourcePath`: vault totals (notes, links, orphans, connected components). With `sourcePath`: the in and out link counts of one note.' }
     , { when: 'graph.tag-traverse', text: '- `tag-traverse` — Traverse through shared tags.' }
     , { when: 'graph.tag-analysis', text: '- `tag-analysis` — The tag structure of a note.' }
     , { when: 'graph.shared-tags', text: '- `shared-tags` — The tags two notes share.' }
@@ -50,7 +50,7 @@ registerOperation({
   , parameters: {
     sourcePath: {
       type: 'string'
-      , description: 'The starting file path for graph operations'
+      , description: 'The starting file path for the link operations (traverse, neighbors, path, backlinks, forwardlinks, statistics)'
     }
     , targetPath: {
       type: 'string'
@@ -58,31 +58,31 @@ registerOperation({
     }
     , maxDepth: {
       type: 'number'
-      , description: 'The maximum depth for traversal (default: 3)'
+      , description: 'The maximum depth for traversal (traverse. Default: 3)'
     }
     , maxNodes: {
       type: 'number'
-      , description: 'The maximum number of nodes to return (default: 100)'
+      , description: 'The maximum number of nodes to return (traverse. Default: 100)'
     }
     , includeUnresolved: {
       type: 'boolean'
-      , description: 'Include unresolved links in the results (default: false)'
+      , description: 'Include unresolved links in the results (forwardlinks. Default: false)'
     }
     , followBacklinks: {
       type: 'boolean'
-      , description: 'Follow backlinks during traversal (default: true)'
+      , description: 'Follow backlinks during traversal (traverse. Default: true)'
     }
     , followForwardLinks: {
       type: 'boolean'
-      , description: 'Follow forward links during traversal (default: true)'
+      , description: 'Follow forward links during traversal (traverse. Default: true)'
     }
     , followTags: {
       type: 'boolean'
-      , description: 'Follow the tag connections during traversal (default: false)'
+      , description: 'Follow the tag connections during traversal (traverse. Default: false)'
     }
     , fileFilter: {
       type: 'string'
-      , description: 'The regex pattern tested against the vault-relative path (traverse, neighbors, backlinks, forwardlinks)'
+      , description: 'The regex pattern tested against the vault-relative path (traverse, neighbors, backlinks, forwardlinks. Plain JavaScript syntax, case-sensitive)'
     }
     , tagFilter: {
       type: 'array'
@@ -100,7 +100,7 @@ registerOperation({
     }
     , searchQuery: {
       type: 'string'
-      , description: 'The search query to apply at each node (for search-traverse and tag-traverse)'
+      , description: 'The search query to apply at each node (for search-traverse and tag-traverse). Plain words, split on whitespace. Matching is case-insensitive'
     }
     , searchQueries: {
       type: 'array'
@@ -115,6 +115,8 @@ registerOperation({
       type: 'number'
       , description: 'The minimum score threshold for including nodes (0-1, search-traverse, advanced-traverse, tag-traverse. Default: 0.5)'
     }
+    // Unwired (verified 2026-08-23): filePattern, strategy, and beamWidth reach no filter
+    // and no strategy branch. See the vault TODO before you touch these descriptions.
     , strategy: {
       type: 'string'
       , enum: ['breadth-first', 'best-first', 'beam-search']
@@ -135,7 +137,7 @@ registerOperation({
     // Tag-based graph parameters
     , tagWeight: {
       type: 'number'
-      , description: 'The weight factor for tag connections (0-1, default: 0.8)'
+      , description: 'The weight factor for tag connections (tag-traverse. 0-1, default: 0.8)'
     }
   }
 });

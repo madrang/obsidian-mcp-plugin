@@ -116,8 +116,7 @@ export interface OperationDefinition {
   title: string;
   /**
    * The description as an array of markdown-shaped lines. The factory joins
-   * the lines the session can see on '\n' (buildDescription). The first
-   * static line starts with the tool emoji — the settings UI strips it.
+   * the lines the session can see on '\n' (buildDescription).
    */
   descriptionLines: DescriptionLine[];
   actions: string[];

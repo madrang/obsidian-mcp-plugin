@@ -10,19 +10,19 @@ registerOperation({
   name: 'view'
   , title: 'View Content'
   , descriptionLines: [
-    '👁️ View, read, and search vault content. Every action is a read.'
+    'View, read, and search vault content. Every action is a read.'
     , ''
     , '## Actions'
-    , { when: 'view.window', text: '- `window` — Show about 20 lines around a line number, or around the first `searchText` match when `lineNumber` is omitted.' }
+    , { when: 'view.window', text: '- `window` — Show a range of lines around a line number or a `searchText` match.' }
     , { when: 'view.lines', text: '- `lines` — Read an exact line range.' }
     , { when: 'view.active', text: '- `active` — Show the file that is open in the editor.' }
-    , { when: 'view.folder', text: '- `folder` — List the files of the folder at `path`. Omit `path` for the vault root. The listing walks the whole subtree. Filter it with a `pattern` glob, for example `*.md`.' }
-    , { when: 'view.read', text: '- `read` — Read a file, whole up to a size budget and paged beyond. With `query`, fragments come back instead. An image read returns the image itself.' }
+    , { when: 'view.folder', text: '- `folder` — List the files of the folder at `path`. Omit `path` for the vault root. The listing walks the whole subtree.' }
+    , { when: 'view.read', text: '- `read` — Read a file, whole up to 50000 characters and paged beyond. With `query`, fragments come back instead. An image read returns the image itself.' }
     , { when: 'view.read', text: '  A complete `read` returns the stats of the file: `mtime`, content `hash`, line count, visible with `raw: true`. Pass them back as `ifUnmodifiedSince` or `ifHash` on `edit` writes. Partial reads carry neither value.' }
     , { when: 'view.search', text: '- `search` — Search the vault for words, phrases, and regular expressions.' }
-    , { when: 'view.search', text: '  Hits rank by TF-IDF. Each hit is one note: path, snippet, score. The index keeps words of three letters or more. Shorter query words match nothing.' }
+    , { when: 'view.search', text: '  Hits rank by TF-IDF. Each hit is one note: path, snippet, score. The index keeps words of three letters or more. A shorter word is dropped from the query, and the other words still match. A query left with no words matches nothing.' }
     , { when: 'view.fragments', text: '- `fragments` — Get the matching passages from one file (`path`), or from the files that match a `query`. One of the two is required.' }
-    , { when: 'view.grep', text: '- `grep` — Scan with a regular expression. Every match is a path, a 1-based line, a 1-based column, and the matching line.' }
+    , { when: 'view.grep', text: '- `grep` — Scan with a regular expression. Every match is a path, a 1-based line, a 1-based column, and the matching line. Without `path`, the scan covers the whole vault.' }
   ]
   , actions: ['window', 'lines', 'active', 'folder', 'read', 'search', 'fragments', 'grep']
   , requiredParams: {
@@ -49,7 +49,7 @@ registerOperation({
     // name a folder (folder action, grep subtree), not only a file.
     path: {
       type: 'string'
-      , description: 'The target path relative to the vault root. A file for window, lines, read, fragments, and a single-file grep. A folder for folder, and a grep subtree. Omit it on folder for the vault root'
+      , description: 'The target path relative to the vault root. A file for window, lines, read, fragments, and a single-file grep. A folder for folder, and a grep subtree'
     }
     , searchText: {
       type: 'string'
@@ -57,11 +57,11 @@ registerOperation({
     }
     , lineNumber: {
       type: 'number'
-      , description: 'The line number to center the view around. Omit it to center on the first `searchText` match. Without `searchText`, the center is line 1'
+      , description: 'The line number to center the view around. Omit it to center on the first `searchText` match. Without `searchText`, or when `searchText` has no match, the center is line 1'
     }
     , windowSize: {
       type: 'number'
-      , description: 'The number of lines to show'
+      , description: 'The window span in lines, centered on the target line and clamped to the file bounds'
       , default: 20
     }
     // lines action
@@ -71,12 +71,12 @@ registerOperation({
     }
     , endLine: {
       type: 'number'
-      , description: 'lines: the last line to return (1-based, inclusive). endLine past the end of the file clamps to the file length; a startLine past the end errors as a stale address'
+      , description: 'lines: the last line to return (1-based, inclusive). endLine past the end of the file clamps to the file length; a startLine past the end errors'
     }
     // read action
     , page: {
       type: 'number'
-      , description: 'The page number for paginated results, default 1 (folder, search). For the read action: the page of a large file to read. Pages are 50000 characters'
+      , description: 'The page number for paginated results, default 1 (folder, search). For the read action: the page of a large file to read. Pages are 50000 characters. A shorter page is the last'
     }
     , query: {
       type: 'string'
@@ -85,7 +85,7 @@ registerOperation({
     , strategy: {
       type: 'string'
       , enum: ['auto', 'adaptive', 'proximity', 'structure', 'semantic', 'filename', 'content', 'combined']
-      , description: 'The retrieval strategy (default: auto). For read and fragments: adaptive (passages ranked by term frequency), proximity (passages where the query terms sit close together), or structure (passages cut on note headings and paragraphs). For search: filename, content, or combined (both). "semantic" is a deprecated alias of "structure"'
+      , description: 'The retrieval strategy (default: auto). For read and fragments: adaptive (passages ranked by term frequency), proximity (passages where the query terms sit close together), or structure (passages cut on note headings and paragraphs). For search: filename, content, or combined (both). Auto resolves search to combined. For read and fragments, auto picks per query. "semantic" is a deprecated alias of "structure"'
     }
     , maxFragments: {
       type: 'number'
@@ -93,12 +93,12 @@ registerOperation({
     }
     , returnFullFile: {
       type: 'boolean'
-      , description: 'read: return the entire file verbatim, regardless of size. This is an explicit large-context override. The default budget is 50000 characters'
+      , description: 'read: return the entire file verbatim, regardless of size. This is an explicit large-context override'
     }
     // search action
     , pageSize: {
       type: 'number'
-      , description: 'The number of results per page (default: 10)'
+      , description: 'The number of results per page (default: 10 for search, 20 for folder)'
     }
     , ranked: {
       type: 'boolean'
@@ -119,7 +119,7 @@ registerOperation({
     // grep + folder action
     , pattern: {
       type: 'string'
-      , description: 'grep: a regular expression (plain JavaScript syntax, no delimiters, case-sensitive). Scope it with `path` (one file or a folder subtree). Every match comes back as path, 1-based line, 1-based column, and the matching line. folder: a glob that filters the listing against each vault-relative path. `*` stays in one folder. `docs/*.md` matches only direct children of `docs`. `**` crosses folders. A pattern without `/`, for example `*.md`, matches the file name at any depth. Matching is case-sensitive'
+      , description: 'grep: a regular expression (plain JavaScript syntax, no delimiters, case-sensitive). Scope it with `path` (one file or a folder subtree). folder: a glob that filters the listing against each vault-relative path. `*` stays in one folder. `docs/*.md` matches only direct children of `docs`. `**` crosses folders. A pattern without `/`, for example `*.md`, matches the file name at any depth. Both matchers are case-sensitive'
     }
     , maxResults: {
       type: 'number'

@@ -890,8 +890,11 @@ function toolVisibilityGroups(host: SettingsUIHost): Group[] {
     // collapses its newlines), and the framework indexes a fragment's
     // textContent for search.
     const items: SettingGroupItem[] = [];
+    // The tool emojis are gone from the descriptions (removed 2026-08-24,
+    // see the vault Descriptor Review). The strip keeps only the markdown
+    // markers off the intro prose: heading hashes and bullet dashes.
     const toolLines = getStaticDescriptionLines(op).map(line =>
-      line.replace(/^[^\s]+\s/, '') // strip leading emoji on the intro line
+      line.replace(/^(?:#{1,6}|-) /, '')
     );
     while (toolLines[toolLines.length - 1] === '') toolLines.pop();
     items.push({
