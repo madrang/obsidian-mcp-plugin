@@ -10,7 +10,7 @@ registerOperation({
   name: 'system'
   , title: 'System Operations'
   , descriptionLines: [
-    'System operations.'
+    'Server status, Obsidian app commands, and web fetches.'
     , ''
     , '## Actions'
     , { when: 'system.info', text: '- `info` — Show server details.' }

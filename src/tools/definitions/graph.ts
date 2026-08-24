@@ -9,9 +9,8 @@ registerOperation({
   name: 'graph'
   , title: 'Graph Navigation'
   , descriptionLines: [
-    'Graph navigation.'
+    'Read the links between notes.'
     , ''
-    , '## When to use'
     , '- Search ranks by term frequency. Two notes on one topic in different words stay in separate result sets. A link between them usually exists.'
     , '- Traversal follows links, so it reaches the linked web of the vault. A relevant note without links sits outside that web. Search finds those notes.'
     , '- Scan broadly with `view.search` to catch the unlinked notes. Then follow links from the hits to catch the differently worded notes.'

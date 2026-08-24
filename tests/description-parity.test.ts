@@ -54,7 +54,10 @@ describe('description partition: static vs action-owned lines', () => {
     expect(edit.join('\n')).not.toContain('## Actions');
 
     const graph = getStaticDescriptionLines('graph');
-    expect(graph.join('\n')).toContain('## When to use');
+    // 2026-08-24: the When-to-use header was folded away; the purpose line
+    // and the guidance bullets open the description now.
+    expect(graph.join('\n')).toContain('Read the links between notes');
+    expect(graph.join('\n')).toContain('Search ranks by term frequency');
     expect(graph.join('\n')).not.toContain('## Actions');
   });
 

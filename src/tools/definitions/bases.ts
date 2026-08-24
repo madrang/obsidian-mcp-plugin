@@ -10,7 +10,7 @@ registerOperation({
   name: 'bases'
   , title: 'Bases Operations'
   , descriptionLines: [
-    'Bases operations. A `.base` file is a YAML config: filters, formulas, and views.'
+    'A `.base` file is a YAML config: filters, formulas, and views.'
     , ''
     , '## Actions'
     , { when: 'bases.list', text: '- `list` — Show all `.base` files.' }

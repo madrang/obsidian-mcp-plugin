@@ -10,7 +10,7 @@ registerOperation({
   name: 'dataview'
   , title: 'Dataview Operations'
   , descriptionLines: [
-    'Dataview operations.'
+    'Query notes and metadata through the Dataview plugin. The `query` and `validate` actions take DQL.'
     , ''
     , '## Actions'
     , { when: 'dataview.query', text: '- `query` — Execute a DQL query.' }

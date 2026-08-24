@@ -10,7 +10,7 @@ registerOperation({
   name: 'edit'
   , title: 'Edit Files'
   , descriptionLines: [
-    'Edit files. Every `edit` action writes.'
+    'Every `edit` action writes.'
     , ''
     , '## Actions'
     , { when: 'edit.replace', text: '- `replace` — Find and replace text.' }

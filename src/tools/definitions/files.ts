@@ -11,7 +11,7 @@ registerOperation({
   name: 'files'
   , title: 'File Management'
   , descriptionLines: [
-    'File management. Every `files` action writes.'
+    'Every `files` action writes. Every action returns `success` and its outcome.'
     , ''
     , '## Actions'
     , { when: 'files.create', text: '- `create` — Write a new file. It refuses a path that already exists. Omit `content` for an empty file. Missing parent folders are created.' }
@@ -20,9 +20,6 @@ registerOperation({
     , { when: 'files.copy', text: '- `copy` — Copy a file to a new path.' }
     , { when: 'files.split', text: '- `split` — Split one file into several. The source file stays.' }
     , { when: 'files.concat', text: '- `concat` — Join several files into one. The source files stay.' }
-    , ''
-    , '## Rules'
-    , '- Every action returns `success` and its outcome.'
   ]
   , actions: ['create', 'delete', 'move', 'copy', 'split', 'concat']
   , requiredParams: {
