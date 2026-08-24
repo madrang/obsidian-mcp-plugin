@@ -1,4 +1,4 @@
-import { App, TFile, TFolder, TAbstractFile, Command, getAllTags } from 'obsidian';
+import { App, Platform, TFile, TFolder, TAbstractFile, Command, getAllTags } from 'obsidian';
 import { ObsidianConfig, ObsidianFile, ObsidianFileResponse, FileStatResponse } from '../types/obsidian';
 import { contentHash } from './content-hash';
 import { paginateFiles } from './response-limiter';
@@ -35,9 +35,8 @@ export interface ObsidianAPIPluginRef {
   manifest?: { dir?: string };
 }
 
-/** Internal Obsidian App interface exposing appVersion and commands */
+/** Internal Obsidian App interface exposing commands */
 interface AppInternal extends App {
-  appVersion?: string;
   commands?: {
     commands?: Record<string, ObsidianCommand>;
     executeCommandById?(id: string): boolean;
@@ -121,7 +120,10 @@ export class ObsidianAPI {
       , ok: true
       , service: 'Obsidian MCP Plugin'
       , versions: {
-        obsidian: (this.app as unknown as AppInternal).appVersion || '1.0.0'
+        // Platform.version is the About-page string, set by app boot. It is
+        // not in the public typings yet and can be absent in odd builds —
+        // Unknown says so. A plausible fake such as 1.0.0 hides the failure.
+        obsidian: (Platform as { version?: string }).version ?? 'Unknown'
         , 'self': getVersion()
       }
     };

@@ -122,6 +122,20 @@ export function normalizePath(path: string): string {
   return path.replace(/\\/g, '/');
 }
 
+// Mirrors the typings' Platform shape. version/build are runtime-only fields
+// the typings do not declare; their absence here exercises the Unknown
+// fallback on the version read.
+export const Platform = {
+  isDesktop: true,
+  isMobile: false,
+  isDesktopApp: true,
+  isMobileApp: false,
+  isIosApp: false,
+  isAndroidApp: false,
+  isPhone: false,
+  isTablet: false,
+};
+
 // Minimal implementation of Obsidian's getAllTags utility for tests
 // Accepts a metadata cache-like object and returns a flat list of tags with leading '#'
 export function getAllTags(cache: any): string[] {
