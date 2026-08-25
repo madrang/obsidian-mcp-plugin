@@ -29,13 +29,16 @@ export interface BaseYAML {
 }
 
 /**
- * Filter expression - can be string or logical operator object
+ * Filter expression. A `filters:` key holds a list in the common YAML
+ * form, a single expression in the shorthand form; and/or/not accept a
+ * list or a single expression as their operand.
  */
-export type FilterExpression = 
+export type FilterExpression =
   | string // Expression like 'status == "active"' or 'file.hasTag("project")'
-  | { and: FilterExpression[] }
-  | { or: FilterExpression[] }
-  | { not: FilterExpression[] };
+  | FilterExpression[]
+  | { and: FilterExpression[] | FilterExpression }
+  | { or: FilterExpression[] | FilterExpression }
+  | { not: FilterExpression[] | FilterExpression };
 
 /**
  * Property configuration (mainly display settings)

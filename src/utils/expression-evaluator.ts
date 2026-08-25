@@ -62,6 +62,120 @@ function assertNoForbiddenAccess(node: unknown): void {
 }
 
 /**
+ * Native Bases value methods, per the Obsidian function reference
+ * (Obsidian/Bases Functions.md), limited to what a filter predicate can
+ * use: the expression spellings of the structured filter operator
+ * vocabulary (contains, in, starts_with, ends_with, is_empty). Everything
+ * else — transforms, formatting, number and date methods — is formula
+ * territory and stays unimplemented; an unsupported spelling throws, so
+ * it fails the query loudly instead of evaluating to a silent falsy.
+ */
+type ValueMethod = (...args: unknown[]) => unknown;
+
+function nativeValueMethod(receiver: unknown, name: string): ValueMethod | undefined {
+  if (name === 'isEmpty') {
+    if (Array.isArray(receiver)) return () => receiver.length === 0;
+    if (typeof receiver === 'string') return () => receiver.length === 0;
+    if (typeof receiver === 'number') return () => false;
+    if (receiver instanceof Date) return () => false;
+    if (receiver !== null && typeof receiver === 'object') {
+      return () => Object.keys(receiver).length === 0;
+    }
+    return undefined;
+  }
+
+  if (typeof receiver === 'string') {
+    switch (name) {
+      case 'contains': return (value: unknown) => receiver.includes(String(value));
+      case 'containsAll': return (...values: unknown[]) => values.every(v => receiver.includes(String(v)));
+      case 'containsAny': return (...values: unknown[]) => values.some(v => receiver.includes(String(v)));
+      case 'startsWith': return (query: unknown) => receiver.startsWith(String(query));
+      case 'endsWith': return (query: unknown) => receiver.endsWith(String(query));
+      default: return undefined;
+    }
+  }
+
+  if (Array.isArray(receiver)) {
+    switch (name) {
+      case 'contains': return (value: unknown) => receiver.includes(value);
+      case 'containsAll': return (...values: unknown[]) => values.every(v => receiver.includes(v));
+      case 'containsAny': return (...values: unknown[]) => values.some(v => receiver.includes(v));
+      default: return undefined;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * A comparison against NaN is always false, so NaN hidden inside an
+ * expression — typically date-duration math like `now() - "90d"`, which
+ * this evaluator does not model — reads as a clean falsy at the top level
+ * and a filter silently excludes every note. Evaluate each arithmetic
+ * node on its own and refuse on NaN. Formulas route through the same
+ * pipeline behind a catch, so they degrade to their documented null.
+ */
+function assertNoNaNArithmetic(
+  node: unknown,
+  evaluate: (n: AstNode, ctx: Record<string, unknown>) => unknown,
+  evalContext: Record<string, unknown>,
+): void {
+  if (!node || typeof node !== 'object') return;
+  const n = node as AstNode;
+
+  if (n.type === 'BinaryExpression' || (n.type === 'UnaryExpression' && n.operator === '-')) {
+    const value = evaluate(n, evalContext);
+    if (typeof value === 'number' && Number.isNaN(value)) {
+      throw new Error('Arithmetic evaluates to NaN — likely date-duration math this evaluator does not support');
+    }
+  }
+
+  for (const value of Object.values(n)) {
+    if (Array.isArray(value)) {
+      value.forEach(child => assertNoNaNArithmetic(child, evaluate, evalContext));
+    } else if (value && typeof value === 'object') {
+      assertNoNaNArithmetic(value, evaluate, evalContext);
+    }
+  }
+}
+
+/**
+ * Rewrite `receiver.method(args)` calls into `__method(receiver, "method",
+ * args)`. expression-eval resolves a method on a plain value to undefined
+ * and the call quietly returns undefined — a filter then reads a clean
+ * falsy and the query answers from a broken expression. The rewrite routes
+ * every member call through one dispatcher the context provides. The
+ * property node of a static access becomes its name as a string literal; a
+ * computed access passes its expression through, evaluated as an argument.
+ */
+function rewriteMethodCalls(node: unknown): unknown {
+  if (!node || typeof node !== 'object') return node;
+  const n = node as AstNode;
+
+  for (const [key, value] of Object.entries(n)) {
+    if (Array.isArray(value)) {
+      (n as Record<string, unknown>)[key] = value.map(rewriteMethodCalls);
+    } else if (value && typeof value === 'object') {
+      (n as Record<string, unknown>)[key] = rewriteMethodCalls(value);
+    }
+  }
+
+  if (n.type === 'CallExpression') {
+    const callee = n.callee as AstNode | undefined;
+    if (callee?.type === 'MemberExpression') {
+      const property = callee.property as AstNode;
+      const nameNode: AstNode = callee.computed === true
+        ? property
+        : { type: 'Literal', value: property?.name };
+      n.callee = { type: 'Identifier', name: '__method' };
+      n.arguments = [callee.object as AstNode, nameNode, ...n.arguments as AstNode[]];
+    }
+  }
+
+  return node;
+}
+
+/**
  * A CallExpression whose callee is a bare identifier must name a function
  * the context provides. Unknown functions otherwise evaluate to nothing
  * (expression-eval resolves the identifier to undefined), which reads as a
@@ -165,8 +279,14 @@ export class ExpressionEvaluator {
     // execute arbitrary JS (ADR-201).
     const ast = parse(expression);
     assertNoForbiddenAccess(ast);
+    // Rewrite after the forbidden-access pass (member names must stay in
+    // the tree it inspects) and before the unknown-function pass (which
+    // then sees `__method`, a provided function, as the callee). The pass
+    // mutates the tree in place, so `ast` keeps its parsed type.
+    rewriteMethodCalls(ast);
     assertNoUnknownFunctions(ast, evalContext);
     const result: unknown = evaluateAst(ast, evalContext);
+    assertNoNaNArithmetic(ast, evaluateAst as unknown as (n: AstNode, ctx: Record<string, unknown>) => unknown, evalContext);
 
     if (Debug.isDebugMode()) {
       Debug.log(`Expression result: ${String(result)}`);
@@ -267,6 +387,29 @@ export class ExpressionEvaluator {
       
       // List functions
       , list: (val: unknown): unknown[] => Array.isArray(val) ? val as unknown[] : [val]
+
+      // The member-call dispatcher every `value.method()` expression is
+      // rewritten into. Own function properties first — that is how the
+      // file object exposes its helpers (hasOwnProperty keeps prototype
+      // members such as `constructor` out) — then the native value
+      // functions. Anything else throws so filters fail with the cause.
+      , __method: (receiver: unknown, name: unknown, ...args: unknown[]): unknown => {
+        if (typeof name !== 'string') {
+          throw new Error('A computed method name must evaluate to a string');
+        }
+        if (receiver !== null && receiver !== undefined
+          && Object.prototype.hasOwnProperty.call(receiver, name)) {
+          const own = (receiver as Record<string, unknown>)[name];
+          if (typeof own === 'function') {
+            return (own as (...fnArgs: unknown[]) => unknown)(...args);
+          }
+        }
+        const method = nativeValueMethod(receiver, name);
+        if (!method) {
+          throw new Error(`Unknown function "${name}"`);
+        }
+        return method(...args);
+      }
     };
 
     // Pre-process frontmatter to auto-convert date-like strings

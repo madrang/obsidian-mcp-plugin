@@ -184,11 +184,14 @@ export async function executeEditOperation(ctx: RouterContext, action: string, p
           , value: parseJsonValue(params.value)
         });
       }
+      // remove deletes a field and reads no write text, so the newText
+      // demand cannot apply to it.
+      const patchOperation = paramStr(params, 'operation');
       return await ctx.api.patchVaultFile(lockPath, {
-        operation: paramStr(params, 'operation')
+        operation: patchOperation
         , targetType
         , target: paramStr(params, 'target')
-        , content: resolveNewText(buffer, params, 'patch')
+        , content: patchOperation === 'remove' ? '' : resolveNewText(buffer, params, 'patch')
         , old_text: paramStr(params, 'oldText')
         , new_text: paramStr(params, 'newText')
       });

@@ -307,6 +307,15 @@ export class BasesAPI {
     if (baseConfig.formulas) {
       context.formulas = {};
       for (const [name, expression] of Object.entries(baseConfig.formulas)) {
+        // The formula value is the expression string itself. The nested
+        // `name: {formula: ...}` shape hands an object to the engine, which
+        // cannot parse and degrades every formula to a silent null — a
+        // file-level schema error, refused here like a filter error.
+        if (typeof expression !== 'string') {
+          throw new Error(
+            `Formula "${name}" must be a string expression. Native form: formulas:\n  ${name}: <expression> — for example ${name}: '"literal"'`
+          );
+        }
         try {
           context.formulas[name] = await this.formulaEngine.evaluate(expression, context);
         } catch (error) {
@@ -329,6 +338,18 @@ export class BasesAPI {
    *  executes and never includes; the query refuses to answer instead of
    *  answering from a broken filter. */
   private async evaluateFilter(filter: FilterExpression, context: NoteContext): Promise<boolean> {
+    // A YAML `filters:` key holds a list in the common form. Each item must
+    // pass on its own. Without this branch the array fell through the
+    // operator checks below and returned true — list-form filters never ran.
+    if (Array.isArray(filter)) {
+      for (const subFilter of filter) {
+        if (!await this.evaluateFilter(subFilter, context)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     if (typeof filter === 'string') {
       try {
         return Boolean(this.expressionEvaluator.evaluateStrict(filter, context));
@@ -338,9 +359,14 @@ export class BasesAPI {
       }
     }
 
-    // Handle logical operators
+    // Handle logical operators. YAML allows a single expression as the
+    // operand (`not: file.x`), so coerce to the list the loop expects —
+    // iterating the raw string ran the filter once per character.
+    const operandList = (value: FilterExpression[] | FilterExpression): FilterExpression[] =>
+      Array.isArray(value) ? value : [value];
+
     if ('and' in filter) {
-      for (const subFilter of filter.and) {
+      for (const subFilter of operandList(filter.and)) {
         if (!await this.evaluateFilter(subFilter, context)) {
           return false;
         }
@@ -349,7 +375,7 @@ export class BasesAPI {
     }
 
     if ('or' in filter) {
-      for (const subFilter of filter.or) {
+      for (const subFilter of operandList(filter.or)) {
         if (await this.evaluateFilter(subFilter, context)) {
           return true;
         }
@@ -358,7 +384,7 @@ export class BasesAPI {
     }
 
     if ('not' in filter) {
-      for (const subFilter of filter.not) {
+      for (const subFilter of operandList(filter.not)) {
         if (await this.evaluateFilter(subFilter, context)) {
           return false;
         }

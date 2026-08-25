@@ -99,7 +99,6 @@ export interface SemanticContext {
   action?: string;
   last_file?: string;
   last_directory?: string;
-  buffer_content?: string;
   search_history?: string[];
   file_history?: string[];
 }

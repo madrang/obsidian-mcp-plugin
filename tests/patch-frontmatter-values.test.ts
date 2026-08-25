@@ -235,3 +235,32 @@ describe('executeEditOperation — value dispatch guards', () => {
       .toHaveBeenCalledWith('a.md', expect.objectContaining({ value: 'plain active' }));
   });
 });
+
+describe('edit.patch remove — no newText demanded', () => {
+  // remove deletes a field and reads no write text. The newText demand
+  // used to refuse it until an unused newText: "" arrived.
+  beforeEach(() => {
+    const { ContentBufferManager } = jest.requireActual('../src/utils/content-buffer');
+    ContentBufferManager.getInstance().clear();
+  });
+
+  it('removes the field with no newText and no buffered replacement', async () => {
+    const { api, modify } = buildApi('---\nstatus: draft\n---\n\nBody');
+
+    await executeEditOperation({ api } as never, 'patch', {
+      path: 'test.md', targetType: 'frontmatter', target: 'status', operation: 'remove'
+    } as never);
+
+    expect(written(modify)).toBe('---\n---\n\nBody');
+  });
+
+  it('remove of a missing field still fails with the field error, not the newText demand', async () => {
+    const { api, modify } = buildApi('---\nstatus: draft\n---\n\nBody');
+
+    await expect(executeEditOperation({ api } as never, 'patch', {
+      path: 'test.md', targetType: 'frontmatter', target: 'missing', operation: 'remove'
+    } as never)).rejects.toThrow('Field not found');
+
+    expect(modify).not.toHaveBeenCalled();
+  });
+});

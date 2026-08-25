@@ -348,10 +348,6 @@ export class SemanticRouter implements RouterContext {
   }
   
   private updateContextAfterSuccess(response: SemanticResponse, _params: Params) {
-    // Update buffer status
-    const buffer = ContentBufferManager.getInstance();
-    this.context.buffer_content = buffer.retrieve()?.content;
-    
     // Update context based on the operation
     const tokens = this.tokenManager.getTokens();
     
@@ -380,7 +376,7 @@ export class SemanticRouter implements RouterContext {
     return {
       current_file: this.context.last_file
       , current_directory: this.context.last_directory
-      , buffer_available: !!this.context.buffer_content
+      , buffer_available: ContentBufferManager.getInstance().retrieve() !== null
       , file_history: this.context.file_history
       , search_history: this.context.search_history
       // Include relevant token states
