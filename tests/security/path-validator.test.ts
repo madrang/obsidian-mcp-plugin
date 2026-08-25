@@ -100,6 +100,14 @@ describe('SecurePathValidator', () => {
           expect(() => validator.validatePath(p)).not.toThrow();
         }
       });
+
+      test('the vault root passes: the root marker is not a hidden segment', () => {
+        // listFiles funnels every root spelling ('', '/', absent) to '.'.
+        // The path module is mocked in this suite, so only the guard
+        // behavior is pinned here.
+        expect(() => validator.validatePath('.')).not.toThrow();
+        expect(() => validator.validatePath('/')).not.toThrow();
+      });
     });
 
     test('rejects non-string paths', () => {

@@ -90,9 +90,11 @@ export class SecurePathValidator {
 		// then returns null forever — the file can never be read, listed,
 		// moved, or deleted through the vault. Reject up front with the
 		// cause instead of stranding an unreachable file.
-		if (obsidianNormalized.split('/').some((segment: string) => segment.startsWith('.'))) {
+		// The root marker '.' is exempt: it is the normalized form of the
+		// vault root ('', '/'), not a hidden segment.
+		if (obsidianNormalized !== '.' && obsidianNormalized.split('/').some((segment: string) => segment.startsWith('.'))) {
 			throw new SecurityError(
-				`Hidden path "${obsidianNormalized}": Obsidian excludes dot-prefixed segments from the vault index, so the file would be unreachable after the write.`,
+				`Hidden path "${obsidianNormalized}": Obsidian excludes dot-prefixed segments from the vault index, so that path is unreachable through the vault.`,
 				'HIDDEN_PATH'
 			);
 		}

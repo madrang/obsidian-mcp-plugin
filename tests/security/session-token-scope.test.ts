@@ -74,6 +74,7 @@ function makeApp(existing: string[], writes: Write[]): App {
       // Folder creation is incidental to createFile; not recorded as a write.
       createFolder: async () => undefined,
       getFiles: () => existing.map(mkFile),
+      getAllLoadedFiles: () => existing.map(mkFile),
     },
     fileManager: { renameFile: async () => undefined, trashFile: async () => undefined },
     metadataCache: { getFileCache: () => ({}), resolvedLinks: {} },
@@ -212,6 +213,20 @@ describe('session token scope (ADR-110)', () => {
 
       const listed = await api.listFiles('Projects');
       expect(listed).toEqual(['Projects/a.md']);
+    });
+
+    it('an unscoped session lists the vault root for every root spelling', async () => {
+      const writes: Write[] = [];
+      const { pool } = makePool(writes);
+      pool.getOrCreateServer('s-root');
+      const api = instances[0];
+
+      const all = ['Notes/b.md', 'Projects/a.md', 'secret.md'];
+      // listFiles funnels '', '/', and an absent directory to '.', and the
+      // hidden-path guard must let the root marker through.
+      await expect(api.listFiles()).resolves.toEqual(all);
+      await expect(api.listFiles('/')).resolves.toEqual(all);
+      await expect(api.listFiles('.')).resolves.toEqual(all);
     });
   });
 });
