@@ -484,16 +484,34 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
           ? [filename.substring(0, filename.lastIndexOf('.')), filename.substring(filename.lastIndexOf('.'))]
           : [filename, ''];
         
-        for (let i = 0; i < splitFiles.length; i++) {
+        // Name every output up front, then refuse on any collision before
+        // the first write: a refused split writes nothing. Without the
+        // pre-flight, outputs written before the collision stayed on disk.
+        const outputPaths = splitFiles.map((_, i) => {
           const pattern = outputPattern || '{filename}-{index}{ext}';
           const outputFilename = pattern
             .replace('{filename}', basename)
             .replace('{index}', String(i + 1).padStart(3, '0'))
             .replace('{ext}', ext);
-          
-          const outputPath = dir ? `${dir}/${outputFilename}` : outputFilename;
+          return dir ? `${dir}/${outputFilename}` : outputFilename;
+        });
+
+        const seenPaths = new Set<string>();
+        for (const outputPath of outputPaths) {
+          if (seenPaths.has(outputPath)) {
+            throw new Error(`Split refused: the output pattern names the same file twice: ${outputPath}`);
+          }
+          seenPaths.add(outputPath);
+          const stat = await ctx.api.getFileStat(outputPath);
+          if (stat.exists) {
+            throw new Error(`Split refused: output file already exists: ${outputPath}`);
+          }
+        }
+
+        for (let i = 0; i < splitFiles.length; i++) {
+          const outputPath = outputPaths[i];
           await ctx.api.createFile(outputPath, splitFiles[i].content);
-          
+
           createdFiles.push({
             path: outputPath
             , lines: splitFiles[i].content.split('\n').length

@@ -14,6 +14,7 @@ interface GraphTagToolParams {
     scoreThreshold?: number;
     followTags?: boolean;
     tagWeight?: number;
+    filePattern?: string;
 }
 
 /** Extended traversal node with connection type info */
@@ -68,7 +69,8 @@ export class GraphTagTool {
             params.maxSnippetsPerNode,
             params.scoreThreshold,
             params.followTags !== false, // Default to true
-            params.tagWeight || 0.8
+            params.tagWeight || 0.8,
+            params.filePattern
         );
 
         // Format the result for MCP response

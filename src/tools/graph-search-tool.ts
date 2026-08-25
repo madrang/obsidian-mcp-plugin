@@ -52,7 +52,8 @@ export class GraphSearchTool {
             params.searchQuery,
             params.maxDepth,
             params.maxSnippetsPerNode,
-            params.scoreThreshold
+            params.scoreThreshold,
+            params.filePattern
         );
 
         // Format the result for MCP response

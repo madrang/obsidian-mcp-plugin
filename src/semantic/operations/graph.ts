@@ -43,6 +43,7 @@ export async function executeGraphOperation(ctx: RouterContext, action: string, 
       , scoreThreshold: paramNum(params, 'scoreThreshold')
       , followTags: paramBool(params, 'followTags')
       , tagWeight: paramNum(params, 'tagWeight')
+      , filePattern: paramStr(params, 'filePattern')
     });
   }
 

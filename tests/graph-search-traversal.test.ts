@@ -137,4 +137,55 @@ describe('GraphSearchTraversal', () => {
             expect(new Set(paths).size).toBe(paths.length); // No duplicates
         });
     });
+
+    describe('filePattern', () => {
+        // Two linked notes, both holding the search term. The regex decides
+        // whether note2.md is visited at all.
+        function twoLinkedNotes() {
+            const mockFile1 = Object.create(TFile.prototype);
+            Object.assign(mockFile1, { path: 'note1.md', extension: 'md', name: 'note1.md' });
+            const mockFile2 = Object.create(TFile.prototype);
+            Object.assign(mockFile2, { path: 'note2.md', extension: 'md', name: 'note2.md' });
+
+            const files: Record<string, TFile> = { 'note1.md': mockFile1, 'note2.md': mockFile2 };
+            mockApp.vault.getAbstractFileByPath = jest.fn((p: string) => files[p] ?? null);
+            mockApp.vault.read = jest.fn(async () => 'this line holds the search term');
+            mockApp.metadataCache.getFileCache = jest.fn().mockImplementation((file: TFile) =>
+                file.path === 'note1.md' ? { links: [{ link: 'note2.md' }] } : { links: [] });
+            mockApp.metadataCache.getFirstLinkpathDest = jest.fn((link: string) => files[link] ?? null);
+            mockApp.metadataCache.resolvedLinks = {};
+        }
+
+        it('visits only files whose path matches the regex', async () => {
+            twoLinkedNotes();
+
+            const result = await traversal.searchTraverse('note1.md', 'search', 3, 1, 0.3, '^note1');
+
+            expect(result.totalNodesVisited).toBe(1);
+            expect(result.traversalChain.map(n => n.path)).toEqual(['note1.md']);
+            // The filter blocks the visit itself: note2.md is never opened.
+            expect(mockApp.vault.read).toHaveBeenCalledTimes(1);
+        });
+
+        it('a pattern that matches everything traverses as before', async () => {
+            twoLinkedNotes();
+
+            const result = await traversal.searchTraverse('note1.md', 'search', 3, 1, 0.3, '\\.md$');
+
+            expect(result.totalNodesVisited).toBe(2);
+            expect(result.traversalChain.map(n => n.path)).toEqual(['note1.md', 'note2.md']);
+        });
+
+        it('advancedSearchTraverse forwards the pattern to the traverse', async () => {
+            twoLinkedNotes();
+
+            const result = await traversal.advancedSearchTraverse('note1.md', ['search'], {
+                maxDepth: 3
+                , filePattern: '^note1'
+            });
+
+            expect(result.totalNodesVisited).toBe(1);
+            expect(result.traversalChain.map(n => n.path)).toEqual(['note1.md']);
+        });
+    });
 });

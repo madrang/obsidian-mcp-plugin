@@ -65,13 +65,15 @@ export class GraphSearchTagTraversal extends GraphSearchTraversal {
         maxSnippetsPerNode: number = 2,
         scoreThreshold: number = 0.5,
         followTags: boolean = true,
-        tagWeight: number = 0.8 // Tags are slightly weaker connections than direct links
+        tagWeight: number = 0.8, // Tags are slightly weaker connections than direct links
+        filePattern?: string
     ): Promise<GraphSearchResult & { tagConnections: number }> {
         const startTime = performance.now();
         const visited = new Set<string>();
         const traversalChain: TraversalNode[] = [];
         let totalNodesVisited = 0;
         let tagConnectionsFollowed = 0;
+        const pattern = filePattern ? new RegExp(filePattern) : undefined;
 
         // Queue items now include connection type
         type QueueItem = [string, number, string | undefined, 'link' | 'tag'];
@@ -85,6 +87,10 @@ export class GraphSearchTagTraversal extends GraphSearchTraversal {
 
             // Skip .mcpignore-excluded and folder-scoped-out paths (ADR-110)
             if (this.ignoreManager?.isExcluded(currentPath)) continue;
+
+            // filePattern narrows the traversal universe: a path that fails
+            // the regex is never visited, matched, or expanded.
+            if (pattern && !pattern.test(currentPath)) continue;
 
             visited.add(currentPath);
             totalNodesVisited++;

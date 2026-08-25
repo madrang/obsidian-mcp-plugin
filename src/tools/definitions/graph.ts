@@ -114,8 +114,9 @@ registerOperation({
       type: 'number'
       , description: 'The minimum score threshold for including nodes (0-1, search-traverse, advanced-traverse, tag-traverse. Default: 0.5)'
     }
-    // Unwired (verified 2026-08-23): filePattern, strategy, and beamWidth reach no filter
-    // and no strategy branch. See the vault TODO before you touch these descriptions.
+    // Unwired (verified 2026-08-23): strategy is only echoed into a response
+    // label and beamWidth feeds options that ignore it. See the vault TODO
+    // before you touch these descriptions.
     , strategy: {
       type: 'string'
       , enum: ['breadth-first', 'best-first', 'beam-search']
@@ -131,7 +132,7 @@ registerOperation({
     }
     , filePattern: {
       type: 'string'
-      , description: 'Filter the traversal to files that match this pattern (search-traverse, advanced-traverse, tag-traverse)'
+      , description: 'Only traverse files whose vault-relative path matches this regex: non-matching notes are never visited or expanded (search-traverse, advanced-traverse, tag-traverse. Plain JavaScript syntax, case-sensitive)'
     }
     // Tag-based graph parameters
     , tagWeight: {

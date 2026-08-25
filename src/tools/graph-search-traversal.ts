@@ -42,18 +42,22 @@ export class GraphSearchTraversal {
      * @param maxDepth - Maximum traversal depth (default: 3)
      * @param maxSnippetsPerNode - Maximum snippets to extract per node (default: 2)
      * @param scoreThreshold - Minimum score threshold for including nodes (default: 0.5)
+     * @param filePattern - Regex on the vault-relative path. Only matching
+     * files are visited, matched, or expanded (default: no filter)
      */
     async searchTraverse(
         startPath: string,
         searchQuery: string,
         maxDepth: number = 3,
         maxSnippetsPerNode: number = 2,
-        scoreThreshold: number = 0.5
+        scoreThreshold: number = 0.5,
+        filePattern?: string
     ): Promise<GraphSearchResult> {
         const startTime = performance.now();
         const visited = new Set<string>();
         const traversalChain: TraversalNode[] = [];
         let totalNodesVisited = 0;
+        const pattern = filePattern ? new RegExp(filePattern) : undefined;
 
         // Handle root path "/" by starting from multiple files
         let initialPaths: [string, number, string | undefined][] = [];
@@ -86,6 +90,10 @@ export class GraphSearchTraversal {
             // the same filter GraphTraversal applies, so search-traverse
             // cannot leak notes the caller is not allowed to see.
             if (this.ignoreManager?.isExcluded(currentPath)) continue;
+
+            // filePattern narrows the traversal universe: a path that fails
+            // the regex is never visited, matched, or expanded.
+            if (pattern && !pattern.test(currentPath)) continue;
 
             visited.add(currentPath);
             totalNodesVisited++;
@@ -238,6 +246,7 @@ export class GraphSearchTraversal {
         const {
             maxDepth = 3,
             strategy = 'best-first'
+            , filePattern
         } = options;
 
         // Implementation would vary based on strategy
@@ -245,7 +254,10 @@ export class GraphSearchTraversal {
         const result = await this.searchTraverse(
             startPath,
             searchQueries.join(' '),
-            maxDepth
+            maxDepth,
+            undefined,
+            undefined,
+            filePattern
         );
 
         return {
