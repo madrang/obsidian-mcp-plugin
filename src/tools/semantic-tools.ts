@@ -156,12 +156,22 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
   // conditional drops out with its enum value. Clients whose converters
   // strip conditionals see exactly the flat bag they saw before.
   const requiredParams = getOperationDefinition(operation)?.requiredParams ?? {};
+  const requireAnyParams = getOperationDefinition(operation)?.requireAnyParams ?? {};
   const allOf = actions
-    .filter(action => (requiredParams[action]?.length ?? 0) > 0)
-    .map(action => ({
-      if: { properties: { action: { const: action } }, required: ['action'] }
-      , then: { required: requiredParams[action] }
-    }));
+    .filter(action => (requiredParams[action]?.length ?? 0) > 0 || (requireAnyParams[action]?.length ?? 0) > 0)
+    .map(action => {
+      const then: Record<string, unknown> = {};
+      if ((requiredParams[action]?.length ?? 0) > 0) {
+        then.required = requiredParams[action];
+      }
+      if ((requireAnyParams[action]?.length ?? 0) > 0) {
+        then.anyOf = requireAnyParams[action].map(key => ({ required: [key] }));
+      }
+      return {
+        if: { properties: { action: { const: action } }, required: ['action'] }
+        , then
+      };
+    });
 
   return {
   name: operation
@@ -241,6 +251,27 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
             error: {
               code: 'MISSING_PARAMETER'
               , message: `Action '${operation}.${args.action}' requires: ${missing.join(', ')}`
+            }
+          }, null, 2)
+        }]
+        , isError: true
+      };
+    }
+
+    // The one-of counterpart, from the same definition the schema's anyOf
+    // conditional is built from.
+    const anyOf = getOperationDefinition(operation)?.requireAnyParams?.[args.action];
+    if (anyOf && !anyOf.some(key => {
+      const value = args[key];
+      return value !== undefined && value !== null && value !== '';
+    })) {
+      return {
+        content: [{
+          type: 'text' as const
+          , text: JSON.stringify({
+            error: {
+              code: 'MISSING_PARAMETER'
+              , message: `Action '${operation}.${args.action}' requires one of: ${anyOf.join(', ')}`
             }
           }, null, 2)
         }]

@@ -188,8 +188,14 @@ export const EVAL_CASES: EvalCase[] = [
   { expr: 'round(2.5)', expected: 3 },
   { expr: 'number("42") + 8', expected: 50 },
   { expr: 'string(priority)', expected: '3' },
-  { expr: 'iff(priority > 2, "big", "small")', expected: 'big' },
-  { expr: 'choice(done, "yes", "no")', expected: 'no' },
+  // The native conditional — the only spelling the evaluator keeps.
+  { expr: 'if(priority > 2, "big", "small")', expected: 'big' },
+  { expr: 'if(done, "yes", "no")', expected: 'no' },
+  { expr: 'if(!done, 1, 2)', expected: 1 },
+  // Unknown functions throw in the core (assertNoUnknownFunctions); the
+  // fail-closed evaluate() reports them as its safe false. The strict path
+  // propagates the throw, so filters fail the query with the cause.
+  { expr: 'nonexistent(1)', expected: false },
   { expr: 'list("x")', expected: ['x'] },
   { expr: 'list(file.tags)', expected: ['#project', '#q2'] },
 

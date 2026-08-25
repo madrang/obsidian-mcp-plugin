@@ -346,7 +346,7 @@ export default class ObsidianMCPPlugin extends Plugin {
 			, vaultPath: this.getVaultPath()
 			, toolsCount: 6
 			, resourcesCount: 2 // vault-info + session-info
-			, connections: this.mcpServer?.getConnectionCount() || 0
+			, connections: this.mcpServer?.getConnectionCount() ?? -1
 			, poolStats: poolStats
 		};
 	}
@@ -598,7 +598,11 @@ class MCPSettingTab extends PluginSettingTab {
 				} else if (text.includes('Port:') && valueSpan) {
 					valueSpan.textContent = (info.httpsEnabled ? info.httpsPort : info.httpPort).toString();
 				} else if (text.includes('Connections:') && valueSpan) {
-					valueSpan.textContent = info.connections.toString();
+					// The row keeps its grid slot: text when stopped, unknown
+					// for the -1 sentinel, otherwise the count.
+					valueSpan.textContent = !info.running
+						? 'Server stopped'
+						: info.connections >= 0 ? info.connections.toString() : 'unknown';
 				}
 			}
 		}

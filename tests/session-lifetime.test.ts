@@ -5,8 +5,9 @@
  *
  *   1. sessions never idle out by default; an optional timespan re-enables
  *      idle expiry
- *   2. one credential holds one session by default; creating a new session
- *      past the cap invalidates that credential's oldest session
+ *   2. a credential holds up to sessionsPerToken sessions (16 by default
+ *      since 2026-08-24); creating a new session past the cap invalidates
+ *      that credential's oldest session
  *
  * The SessionManager half is exercised through its sweep directly. The pool
  * half asserts on the 'server-evicted' event, because an eviction that does
@@ -17,6 +18,7 @@ import { SessionManager } from '../src/utils/session-manager';
 import { MCPServerPool } from '../src/utils/mcp-server-pool';
 import { SecureObsidianAPI } from '../src/security';
 import { BASELINE_SECURITY_SETTINGS } from '../src/mcp-server';
+import { DEFAULT_SETTINGS } from '../src/settings/plugin-settings';
 
 jest.mock('obsidian');
 
@@ -110,8 +112,12 @@ describe('per-token session cap', () => {
     return { pool, settings, evicted };
   }
 
-  it('defaults to one session per credential: a new session evicts the oldest', () => {
-    const { pool, evicted } = makePool(); // no sessionsPerToken set → 1
+  it('the shipped default allows 16 sessions per credential', () => {
+    expect(DEFAULT_SETTINGS.sessionsPerToken).toBe(16);
+  });
+
+  it('a missing or invalid setting falls back to one session per credential: a new session evicts the oldest', () => {
+    const { pool, evicted } = makePool(); // no sessionsPerToken set → fallback 1
     pool.getOrCreateServer('s1', { identity: 'tok-a' });
     pool.getOrCreateServer('s2', { identity: 'tok-a' });
 

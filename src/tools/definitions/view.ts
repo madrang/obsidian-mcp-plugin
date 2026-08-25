@@ -31,9 +31,13 @@ registerOperation({
     , read: ['path']
     , search: ['query']
     , grep: ['pattern']
-    // active and folder take nothing. fragments needs path OR query — not
-    // expressible as a flat required list, and its handler already returns a
-    // helpful error, so it stays out of the map.
+    // active and folder take nothing. fragments needs path OR query: a flat
+    // required list cannot say that, so the one-of map carries it. The
+    // handler's empty-result return for a bare call masked the gap — the
+    // caller saw "No fragments found", not a MISSING_PARAMETER error.
+  }
+  , requireAnyParams: {
+    fragments: ['path', 'query']
   }
   , annotations: {
     readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false
@@ -76,7 +80,7 @@ registerOperation({
     // read action
     , page: {
       type: 'number'
-      , description: 'The page number for paginated results, default 1 (folder, search). For the read action: the page of a large file to read. Pages are 50000 characters. A shorter page is the last'
+      , description: 'The page number for paginated results, default 1 (folder, search). Folder and search responses carry the total page count. For the read action: the page of a large file to read. Pages are 50000 characters. A shorter page is the last'
     }
     , query: {
       type: 'string'
@@ -119,7 +123,7 @@ registerOperation({
     // grep + folder action
     , pattern: {
       type: 'string'
-      , description: 'grep: a regular expression (plain JavaScript syntax, no delimiters, case-sensitive). Scope it with `path` (one file or a folder subtree). folder: a glob that filters the listing against each vault-relative path. `*` stays in one folder. `docs/*.md` matches only direct children of `docs`. `**` crosses folders. A pattern without `/`, for example `*.md`, matches the file name at any depth. Both matchers are case-sensitive'
+      , description: 'grep: a regular expression (plain JavaScript syntax, no delimiters, case-sensitive). Scope it with `path` (one file or a folder subtree). folder: a glob that filters the listing against each vault-relative path. A pattern without `/`, for example `*.md`, matches the file name at any depth. A pattern with `/` anchors to the vault root: `docs/*.md` matches only direct children of `docs`, and `**` matches zero or more folders, so `docs/**/*.md` also matches `docs/a.md`. Both matchers are case-sensitive'
     }
     , maxResults: {
       type: 'number'

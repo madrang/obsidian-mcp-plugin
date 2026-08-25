@@ -10,23 +10,23 @@ registerOperation({
   name: 'edit'
   , title: 'Edit Files'
   , descriptionLines: [
-    'Every `edit` action writes.'
+    'Edit the text of existing files: find-and-replace, append, structural patch, line inserts, and batch pairs. Every `edit` action writes.'
     , ''
     , '## Actions'
     , { when: 'edit.replace', text: '- `replace` — Find and replace text.' }
     , { when: 'edit.append', text: '- `append` — Add content to the end of a file.' }
     , { when: 'edit.patch', text: '- `patch` — Modify a heading, a block, or a frontmatter field.' }
     , { when: 'edit.patch', text: '  On a heading: `append` adds at the end of the section. `prepend` adds directly under the heading. `replace` rewrites the whole section content, and the heading line stays.' }
-    , { when: 'edit.patch', text: '  On a block: the operations act on the block line, and the block ID stays.' }
+    , { when: 'edit.patch', text: '  On a block: the block is the line that ends with `^blockId`. The operations rewrite that line, and the ID stays.' }
     , { when: 'edit.patch', text: '  A missing heading or block errors.' }
-    , { when: 'edit.patch', text: '  `patch` on a frontmatter field writes a single value, not a YAML array. A missing field is created.' }
+    , { when: 'edit.patch', text: '  On a frontmatter field: `value` (with `replace`) writes any type — string, number, boolean, array, object — serialized as YAML. `newText` writes text. `append` adds after the current text value, `prepend` before it, and both refuse a field that holds an array or object. `remove` deletes the field. A missing field is created. Only the target field\'s lines change.' }
     , { when: 'edit.at_line', text: '- `at_line` — Insert or replace text at a line number.' }
     , { when: 'edit.multi', text: '- `multi` — Apply several exact find-and-replace pairs in one write.' }
     , ''
     , '## Rules'
     , '- Every action accepts `ifUnmodifiedSince` and `ifHash`. Supply both to require both.'
     , '- A successful write returns the new `mtime` and `hash`.'
-    , '- An empty `newText` string is a real value. Omitting `newText` on `replace`, `append`, `patch`, or `at_line` reuses the replacement buffered by the last failed `replace` — a count mismatch or a failed match (one global slot shared across files, 30 minutes). An empty buffer refuses the call.'
+    , '- An empty `newText` string is a real value. Omitting `newText` on `replace`, `append`, `patch`, or `at_line` reuses the replacement buffered by the last failed `replace` (a count mismatch or a failed match). The buffer is one global slot, shared across files, and it lives 30 minutes. An empty buffer refuses the call.'
   ]
   , actions: ['replace', 'append', 'patch', 'at_line', 'multi']
   , requiredParams: {
@@ -94,11 +94,14 @@ registerOperation({
       , enum: ['before', 'after', 'replace']
       , description: 'The insert mode for at_line: before the line, after the line, or replace the line (default: replace)'
     }
-    , operation: {
-      type: 'string'
-      , enum: ['append', 'prepend', 'replace']
-      , description: 'The patch operation: append, prepend, or replace'
-    }
+      , operation: {
+        type: 'string'
+        , enum: ['append', 'prepend', 'replace', 'remove']
+        , description: 'The patch operation: append, prepend, replace, or remove. `remove` works on a frontmatter field only'
+      }
+      , value: {
+        description: 'patch on a frontmatter field: the new value, any type (string, number, boolean, array, object, null), serialized as YAML. Works with operation "replace" only. Mutually exclusive with newText'
+      }
     , targetType: {
       type: 'string'
       , enum: ['heading', 'block', 'frontmatter']

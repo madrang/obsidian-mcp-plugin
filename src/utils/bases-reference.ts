@@ -44,17 +44,10 @@ export class BasesReference {
     
     // Global Functions
     , {
-      name: 'iff'
-      , syntax: 'iff(condition, true_value, false_value)'
-      , description: 'Conditional expression (renamed from "if" to avoid reserved word)'
-      , examples: ['iff(priority > 3, "High", "Low")', 'iff(status == "active", 1, 0)']
-      , category: 'global'
-    }
-    , {
-      name: 'choice'
-      , syntax: 'choice(condition, true_value, false_value)'
-      , description: 'Alternative to iff for conditional expressions'
-      , examples: ['choice(completed, "Done", "Pending")']
+      name: 'if'
+      , syntax: 'if(condition, true_result, false_result?)'
+      , description: 'Conditional: returns true_result, or false_result (defaults to null)'
+      , examples: ['if(priority > 3, "High", "Low")', 'if(isModified, "Modified", "Unmodified")']
       , category: 'global'
     }
     , {
@@ -211,10 +204,11 @@ export class BasesReference {
         examples.push('date(due_date)', '(date(due_date) - now()) / 86400000');
       }
 
-      // Check for reserved words
+      // Native conditional hint — `if()` parses fine under jsep; the
+      // pre-ADR-201 "reserved word" limitation is gone.
       if (context.expression.includes(' if(') || context.expression.includes(' if ')) {
-        suggestions.push('Use "iff" or "choice" instead of "if" (reserved word)');
-        examples.push('iff(status == "active", "Yes", "No")', 'choice(priority > 3, "High", "Low")');
+        suggestions.push('The conditional is the native if(condition, trueResult, falseResult?)');
+        examples.push('if(status == "active", "Yes", "No")');
       }
 
       // Check for property access

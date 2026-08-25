@@ -7,6 +7,10 @@
  * factory emits as JSON Schema 2020-12 allOf/if/then conditionals AND the
  * dispatch layer enforces with a coded MISSING_PARAMETER error. One map
  * drives both, so the advertisement and the enforcement cannot drift.
+ *
+ * requireAnyParams is the one-of counterpart (view.fragments needs path OR
+ * query): an anyOf conditional in the schema, the same error code at
+ * dispatch.
  */
 import { App } from 'obsidian';
 import { createSemanticTools, SemanticTool } from '../src/tools/semantic-tools';
@@ -25,7 +29,10 @@ const makeApp = (): App => ({
   workspace: { getActiveFile: () => null }
 } as unknown as App);
 
-type Conditional = { if: { properties: { action: { const: string } } }; then: { required: string[] } };
+type Conditional = {
+  if: { properties: { action: { const: string } } };
+  then: { required?: string[]; anyOf?: Array<{ required: string[] }> };
+};
 
 function conditionals(tool: SemanticTool | undefined): Conditional[] {
   return (tool?.inputSchema.allOf ?? []) as Conditional[];
@@ -55,7 +62,7 @@ describe('per-action required parameters', () => {
       expect(requiredFor(files, 'concat')).toEqual(['paths', 'destination']);
     });
 
-    it('view advertises query only for search, and nothing for active/folder/fragments', () => {
+    it('view advertises query only for search, and nothing for active/folder', () => {
       const view = byName('view');
       expect(requiredFor(view, 'search')).toEqual(['query']);
       expect(requiredFor(view, 'window')).toEqual(['path']);
@@ -63,7 +70,16 @@ describe('per-action required parameters', () => {
       expect(requiredFor(view, 'read')).toEqual(['path']);
       expect(requiredFor(view, 'active')).toBeUndefined();
       expect(requiredFor(view, 'folder')).toBeUndefined();
-      expect(requiredFor(view, 'fragments')).toBeUndefined();
+    });
+
+    it('view.fragments advertises the one-of rule as an anyOf conditional', () => {
+      const view = byName('view');
+      const conditional = conditionals(view).find(c => c.if.properties.action.const === 'fragments');
+      expect(conditional?.then.required).toBeUndefined();
+      expect(conditional?.then.anyOf).toEqual([
+        { required: ['path'] }
+        , { required: ['query'] },
+      ]);
     });
 
     it('graph advertises the per-action path and query requirements', () => {
@@ -76,8 +92,13 @@ describe('per-action required parameters', () => {
     it('every conditional names only properties the tool declares', () => {
       for (const tool of tools) {
         for (const c of conditionals(tool)) {
-          for (const key of c.then.required) {
+          for (const key of c.then.required ?? []) {
             expect(tool.inputSchema.properties).toHaveProperty(key);
+          }
+          for (const option of c.then.anyOf ?? []) {
+            for (const key of option.required) {
+              expect(tool.inputSchema.properties).toHaveProperty(key);
+            }
           }
         }
       }
@@ -133,6 +154,23 @@ describe('per-action required parameters', () => {
 
     it('an empty string counts as missing', async () => {
       expect(await errorCode('view', { action: 'search', query: '' })).toBe('MISSING_PARAMETER');
+    });
+
+    it('view.fragments with neither path nor query fails with MISSING_PARAMETER naming both', async () => {
+      const res = await handlerFor('view')(api, { action: 'fragments' });
+      expect(res.isError).toBe(true);
+      const text = res.content[0].type === 'text' ? res.content[0].text : '';
+      expect(text).toContain('MISSING_PARAMETER');
+      expect(text).toContain('one of');
+      expect(text).toContain('path');
+      expect(text).toContain('query');
+    });
+
+    it('view.fragments with a query satisfies the one-of rule', async () => {
+      // The call passes the dispatch check and proceeds into the handler
+      // chain; whatever comes back is not a MISSING_PARAMETER.
+      expect(await errorCode('view', { action: 'fragments', query: 'deadline' }))
+        .not.toBe('MISSING_PARAMETER');
     });
 
     it('an action with its required params passes the dispatch check', async () => {

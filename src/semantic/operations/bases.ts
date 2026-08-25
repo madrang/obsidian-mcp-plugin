@@ -25,9 +25,18 @@ export async function executeBasesOperation(ctx: RouterContext, action: string, 
     // longer exposes bases.create as its own action.
     case 'create': {
       const basePath = paramStr(params, 'path');
-      const config = params.content as BaseYAML | undefined;
+      // Bridges that stringify untyped parameters can deliver the config
+      // as its JSON text. Parse it back before validation.
+      let config = params.content as BaseYAML | string | undefined;
+      if (typeof config === 'string') {
+        try {
+          config = JSON.parse(config) as BaseYAML;
+        } catch {
+          config = undefined;
+        }
+      }
       if (!basePath || typeof config !== 'object' || config === null) {
-        throw new Error('With format "base", content must be the Bases configuration object (name, source, properties, views)');
+        throw new Error('With format "base", content must be the Bases configuration object — filters, formulas, properties, and views (JSON object, or its JSON text)');
       }
       await ctx.api.createBase(basePath, config);
       return { success: true, path: basePath };

@@ -10,7 +10,7 @@ registerOperation({
   name: 'bases'
   , title: 'Bases Operations'
   , descriptionLines: [
-    'A `.base` file is a YAML config: filters, formulas, and views.'
+    'List, read, and run `.base` files: a YAML config of filters, formulas, and views.'
     , ''
     , '## Actions'
     , { when: 'bases.list', text: '- `list` — Show all `.base` files.' }
@@ -29,7 +29,7 @@ registerOperation({
   , parameters: {
     path: {
       type: 'string'
-      , description: 'The path to the .base file'
+      , description: 'The path to the .base file, relative to the vault root'
     }
     , viewName: {
       type: 'string'

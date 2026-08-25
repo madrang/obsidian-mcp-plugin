@@ -235,7 +235,7 @@ Key configuration options:
 - **Authentication**: API key protection, plus scoped tokens that limit a client to one vault folder or to read-only access
 - **Security**: Path validation and permissions
 - **Performance**: Connection pooling and caching
-- **Sessions**: Sessions do not expire when idle by default. An optional timespan enables expiry. One session per credential is the default, and you can change it.
+- **Sessions**: Sessions do not expire when idle by default. An optional timespan enables expiry. The default allows 16 sessions per credential, and you can change it.
 
 ## Development
 

@@ -7,6 +7,7 @@ import { RouterContext } from './router-context';
 import { Params, paramStr, paramNum, requireParamStr } from './shared';
 import { ContentBufferManager } from '../../utils/content-buffer';
 import { FileLockManager } from '../../utils/file-lock';
+import { replaceCanonical } from '../../utils/quote-normalize';
 import { isImageFile } from '../../types/obsidian';
 import { executeConcat } from './files';
 
@@ -87,6 +88,22 @@ function throwWindowEditError(result: { isError?: boolean; content: { text: stri
 }
 
 /**
+ * Some MCP client bridges stringify parameters that carry no schema type.
+ * The typed `value` parameter is exactly such a shape, so an array or
+ * object can arrive as its JSON text — and the YAML layer would then
+ * quote it as a scalar. Parse JSON text back into the value; anything
+ * that does not parse is the caller's string and passes through unchanged.
+ */
+function parseJsonValue(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+/**
  * newText is the write text of every action that takes one (multi's pairs
  * carry their own). Present — including as an empty string, which is a real
  * value — it is used as-is. Absent, it falls back to the replacement
@@ -148,15 +165,34 @@ export async function executeEditOperation(ctx: RouterContext, action: string, p
     }
     case 'append':
       return await ctx.api.appendToFile(lockPath, resolveNewText(buffer, params, 'append'));
-    case 'patch':
+    case 'patch': {
+      const targetType = paramStr(params, 'targetType');
+      // A typed value replaces newText on frontmatter targets: any JSON
+      // type, serialized as YAML at the API layer. Fail closed on both
+      // misuse directions before any vault access.
+      if ('value' in params) {
+        if ('newText' in params) {
+          throw new Error('edit.patch: value and newText are mutually exclusive. Pass one.');
+        }
+        if (targetType !== 'frontmatter') {
+          throw new Error('edit.patch: value works on a frontmatter field only (targetType "frontmatter").');
+        }
+        return await ctx.api.patchVaultFile(lockPath, {
+          operation: paramStr(params, 'operation')
+          , targetType
+          , target: paramStr(params, 'target')
+          , value: parseJsonValue(params.value)
+        });
+      }
       return await ctx.api.patchVaultFile(lockPath, {
         operation: paramStr(params, 'operation')
-        , targetType: paramStr(params, 'targetType')
+        , targetType
         , target: paramStr(params, 'target')
         , content: resolveNewText(buffer, params, 'patch')
         , old_text: paramStr(params, 'oldText')
         , new_text: paramStr(params, 'newText')
       });
+    }
     case 'at_line': {
       const insertContent = resolveNewText(buffer, params, 'at_line');
 
@@ -228,18 +264,26 @@ export async function executeEditOperation(ctx: RouterContext, action: string, p
 
       // Verify-and-apply in memory; the single updateFile below is the only
       // write, so a failing pair leaves the file untouched. Pair n applies to
-      // the result of pair n-1, in order.
+      // the result of pair n-1, in order. Each pair matches exactly first,
+      // then once in the canonical quote-class form (typographic vs ASCII):
+      // the file and the pair can differ by invisible characters.
       let working = content;
       for (let i = 0; i < pairs.length; i++) {
         const { oldText, newText } = pairs[i];
-        if (!working.includes(oldText)) {
-          const excerpt = oldText.length > 60 ? `${oldText.slice(0, 60)}…` : oldText;
-          throw new Error(
-            `edit.multi: pair ${i + 1} of ${pairs.length} not found (exact match). ` +
-            `Nothing was written. oldText: "${excerpt}"`
-          );
+        if (working.includes(oldText)) {
+          working = working.replace(oldText, newText);
+          continue;
         }
-        working = working.replace(oldText, newText);
+        const canonical = replaceCanonical(working, oldText, newText, 1);
+        if (canonical !== null) {
+          working = canonical;
+          continue;
+        }
+        const excerpt = oldText.length > 60 ? `${oldText.slice(0, 60)}…` : oldText;
+        throw new Error(
+          `edit.multi: pair ${i + 1} of ${pairs.length} not found (exact match). ` +
+          `Nothing was written. oldText: "${excerpt}"`
+        );
       }
 
       const write = await ctx.api.updateFile(lockPath, working);

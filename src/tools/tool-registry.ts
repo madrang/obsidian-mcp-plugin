@@ -34,7 +34,14 @@ export type OperationHandler = (
  * A hidden action leaves the description in the same pass it leaves the
  * schema, so the prose can never advertise what the enum omits.
  */
-export type DescriptionLine = string | { when: string | string[]; text: string };
+export type DescriptionLine = string | {
+  when?: string | string[];
+  /** Show the line only when none of these keys are visible. The inverse of
+   *  `when`: it expresses a variant for a gate that is off without letting an
+   *  unconditional line leak through on top of the gate-on variant. */
+  whenNot?: string | string[];
+  text: string;
+};
 
 /**
  * Build the description for one session from its surface-key set: the
@@ -46,8 +53,10 @@ export function buildDescription(lines: DescriptionLine[], visible: ReadonlySet<
   return lines
     .filter(line => {
       if (typeof line === 'string') return true;
-      const keys = Array.isArray(line.when) ? line.when : [line.when];
-      return keys.every(key => visible.has(key));
+      const keys = line.when === undefined ? [] : (Array.isArray(line.when) ? line.when : [line.when]);
+      if (!keys.every(key => visible.has(key))) return false;
+      const notKeys = line.whenNot === undefined ? [] : (Array.isArray(line.whenNot) ? line.whenNot : [line.whenNot]);
+      return notKeys.every(key => !visible.has(key));
     })
     .map(line => (typeof line === 'string' ? line : line.text))
     .join('\n');
@@ -71,9 +80,11 @@ export function getActionDescriptionLines(
   const out: string[] = [];
   for (const line of definition.descriptionLines) {
     if (typeof line === 'string') continue;
-    const keys = Array.isArray(line.when) ? line.when : [line.when];
+    const keys = line.when === undefined ? [] : (Array.isArray(line.when) ? line.when : [line.when]);
     if (!keys.includes(actionKey)) continue;
     if (visible && !keys.every(key => key === actionKey || visible.has(key))) continue;
+    const notKeys = line.whenNot === undefined ? [] : (Array.isArray(line.whenNot) ? line.whenNot : [line.whenNot]);
+    if (visible && notKeys.some(key => visible.has(key))) continue;
     out.push(line.text);
   }
   return out;
@@ -128,6 +139,13 @@ export interface OperationDefinition {
    * a fallback (for example at_line's buffered content) stay optional.
    */
   requiredParams?: Record<string, string[]>;
+  /**
+   * One-of requirements per action: the call must carry at least one of the
+   * listed parameters. Emitted into the input schema as an anyOf conditional
+   * and enforced at dispatch with a MISSING_PARAMETER error, mirroring
+   * requiredParams.
+   */
+  requireAnyParams?: Record<string, string[]>;
   annotations?: ToolAnnotations;
   parameters: Record<string, unknown>;
   execute: OperationHandler;

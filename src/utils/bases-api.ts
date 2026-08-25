@@ -319,10 +319,23 @@ export class BasesAPI {
     return context;
   }
 
+  /** Filter evaluation, strict: a filter expression that errors — malformed
+   *  syntax, unknown function, blocked escape — fails the whole query with
+   *  the cause. The expression lives in the base file and runs identically
+   *  against every note, so the defect is file-level, not per-note. A
+   *  note-level miss (a property that does not exist) is not an error: it
+   *  evaluates to false and quietly excludes that note. This is still
+   *  fail-closed in the security sense — a blocked expression never
+   *  executes and never includes; the query refuses to answer instead of
+   *  answering from a broken filter. */
   private async evaluateFilter(filter: FilterExpression, context: NoteContext): Promise<boolean> {
     if (typeof filter === 'string') {
-      // Evaluate expression string
-      return Boolean(await this.expressionEvaluator.evaluate(filter, context));
+      try {
+        return Boolean(this.expressionEvaluator.evaluateStrict(filter, context));
+      } catch (error) {
+        Debug.log(`Filter evaluation failed: ${filter}`, error);
+        throw new Error(`Filter error: ${(error as Error).message} — expression: ${filter}`);
+      }
     }
 
     // Handle logical operators

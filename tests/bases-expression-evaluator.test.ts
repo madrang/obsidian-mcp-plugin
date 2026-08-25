@@ -13,6 +13,7 @@
 
 import { App } from 'obsidian';
 import { ExpressionEvaluator } from '../src/utils/expression-evaluator';
+import { FormulaEngine } from '../src/utils/formula-engine';
 import {
   EVAL_CASES,
   SECURITY_EXPRESSIONS,
@@ -29,8 +30,7 @@ describe('ExpressionEvaluator — behavioural baseline (current new Function, AD
   }
 });
 
-describe('ExpressionEvaluator — sandbox escapes fail closed (ADR-201)', () => {
-  // The exact expressions that returned 2/42/99 under `new Function` must now
+describe('ExpressionEvaluator — sandbox escapes fail closed (ADR-201)', () => {  // The exact expressions that returned 2/42/99 under `new Function` must now
   // yield the evaluator's safe `false` (denylist throws → existing catch).
   const formerlyExecuting = [
     'constructor.constructor("return 1 + 1")()',
@@ -57,5 +57,32 @@ describe('ExpressionEvaluator — sandbox escapes fail closed (ADR-201)', () => 
         true,
       );
     }
+  });
+});
+
+describe('FormulaEngine — failures surface as null, not false', () => {
+  // Live-probed 2026-08-24 on the deployed build: a formula calling an
+  // unknown function vanished from the results entirely. The strict
+  // pipeline keeps the key present with null, so a computed false and an
+  // error stay distinguishable.
+  it('an unknown function evaluates to null through the formula engine', async () => {
+    const engine = new FormulaEngine(new App());
+    await expect(engine.evaluate('nonexistent(1)', makeNoteContext())).resolves.toBeNull();
+  });
+
+  it('the removed legacy spellings now fail like any unknown function', async () => {
+    const engine = new FormulaEngine(new App());
+    await expect(engine.evaluate('iff(true, 1, 2)', makeNoteContext())).resolves.toBeNull();
+    await expect(engine.evaluate('choice(true, 1, 2)', makeNoteContext())).resolves.toBeNull();
+  });
+
+  it('a valid native if() evaluates through the formula engine', async () => {
+    const engine = new FormulaEngine(new App());
+    await expect(engine.evaluate('if(priority > 2, "big", "small")', makeNoteContext())).resolves.toBe('big');
+  });
+
+  it('a computed false stays false through the formula engine', async () => {
+    const engine = new FormulaEngine(new App());
+    await expect(engine.evaluate('if(done, true, false)', makeNoteContext())).resolves.toBe(false);
   });
 });

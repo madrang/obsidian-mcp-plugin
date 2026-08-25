@@ -48,13 +48,23 @@ const ops = getRegisteredOperations().map(d => {
     , description: tool ? tool.description : buildDescription(d.descriptionLines, keys)
     , actions: d.actions
     , requiredParams: d.requiredParams ?? {}
+    // One-of requirements, the same map the schema's anyOf conditionals and
+    // the dispatch guard are built from.
+    , requireAnyParams: d.requireAnyParams ?? {}
     // The live schema when the tool was built; the registry copy for an
     // operation the factory skipped (dataview without the plugin). The raw
     // entry matches the factory shape, parenthetical and default included.
     // A bare fallback once read as a surface gap, but the gap was not real.
     , parameters: tool
       ? tool.inputSchema.properties
-      : { ...d.parameters, raw: { type: 'boolean', description: 'Return raw JSON instead of the formatted markdown (use when you need complete metadata or structured data for processing)', default: false } }
+      : {
+          // The factory prepends an action param and appends raw to every
+          // schema. The registry fallback mirrors both, or a reader sees a
+          // tool with no way to select its action (dataview, 2026-08-24).
+          action: { type: 'string', description: 'The specific action to perform', enum: d.actions }
+          , ...d.parameters
+          , raw: { type: 'boolean', description: 'Return raw JSON instead of the formatted markdown (use when you need complete metadata or structured data for processing)', default: false }
+        }
   };
 });
 console.log(JSON.stringify(ops, null, 2));

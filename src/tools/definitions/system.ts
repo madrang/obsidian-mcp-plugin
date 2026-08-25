@@ -10,7 +10,12 @@ registerOperation({
   name: 'system'
   , title: 'System Operations'
   , descriptionLines: [
-    'Server status, Obsidian app commands, and web fetches.'
+    // The opener is a gate pair, not one static line: naming web fetches on
+    // a vault with the gate off would advertise an action the schema omits
+    // (ADR-109), while omitting it on the full surface hides the action from
+    // a cold reader. Each variant shows on exactly one gate state.
+    { when: 'system.fetch_web', text: 'Server status, Obsidian app commands, hints, opening files in the Obsidian app, and web fetches.' }
+    , { whenNot: 'system.fetch_web', text: 'Server status, Obsidian app commands, hints, and opening files in the Obsidian app.' }
     , ''
     , '## Actions'
     , { when: 'system.info', text: '- `info` — Show server details.' }

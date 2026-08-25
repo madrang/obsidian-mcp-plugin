@@ -8,6 +8,7 @@ import { SearchResult } from './advanced-search';
 import { SearchFacade } from './search-facade';
 import { MCPIgnoreManager } from '../security/mcp-ignore-manager';
 import { Minimatch } from 'minimatch';
+import { stringify } from 'yaml';
 import { Debug } from './debug';
 import { BasesAPI } from './bases-api';
 import { BaseYAML, BaseQueryResult as BasesQueryResult } from '../types/bases-yaml';
@@ -29,6 +30,7 @@ export interface ObsidianAPIPluginRef {
     httpsEnabled?: boolean;
     httpPort?: number;
     httpsPort?: number;
+    sessionsPerToken?: number;
   };
   ignoreManager?: MCPIgnoreManager;
   mcpServer?: ObsidianAPIMCPServerInfo;
@@ -56,6 +58,10 @@ export interface PatchParams {
   target?: string;
   operation?: string;
   content?: string;
+  /** Typed value for a frontmatter field: any JSON type, serialized as
+   *  YAML. Works with operation 'replace' only. Mutually exclusive with
+   *  content/newText. */
+  value?: unknown;
   old_text?: string;
   new_text?: string;
   position?: number;
@@ -143,7 +149,8 @@ export class ObsidianAPI {
           , httpsEnabled: pluginSettings?.httpsEnabled
           , httpPort: pluginSettings?.httpPort
           , httpsPort: pluginSettings?.httpsPort
-          , connections: mcpServer.getConnectionCount() || 0
+          , connections: mcpServer.getConnectionCount() ?? -1
+          , maxSessions: pluginSettings?.sessionsPerToken
           , vault: this.app.vault.getName()
         }
         , ...(dailyNotesFolder !== undefined && { dailyNotesFolder })
@@ -622,7 +629,13 @@ export class ObsidianAPI {
   }
 
   private applyStructuredPatch(content: string, params: PatchParams): string {
-    const { targetType, target, operation, content: patchContent } = params;
+    const { targetType, target, operation, content: patchContent, value } = params;
+
+    // Without the guard the heading and block switches would silently
+    // no-op on an operation they have no case for.
+    if (operation === 'remove' && targetType !== 'frontmatter') {
+      throw new Error('operation "remove" works on a frontmatter field only');
+    }
 
     switch (targetType) {
       case 'heading':
@@ -630,7 +643,7 @@ export class ObsidianAPI {
       case 'block':
         return this.patchBlock(content, target ?? '', operation ?? '', patchContent ?? '');
       case 'frontmatter':
-        return this.patchFrontmatter(content, target ?? '', operation ?? '', patchContent ?? '');
+        return this.patchFrontmatter(content, target ?? '', operation ?? '', patchContent ?? '', value);
       default:
         throw new Error(`Unknown targetType: ${String(targetType)}`);
     }
@@ -765,17 +778,27 @@ export class ObsidianAPI {
     return lines.join('\n');
   }
 
-  private patchFrontmatter(content: string, field: string, operation: string, patchContent: string): string {
+  /**
+   * Patch a frontmatter field, field-block aware: the write replaces only
+   * the target field's lines (its `field:` line plus its indented lines),
+   * so untouched keys stay byte-identical.
+   *
+   * Two input paths. `value` (any JSON type) serializes through the yaml
+   * library, so "true" stays a string and arrays and objects round-trip;
+   * it works with operation 'replace' only. The text path keeps the
+   * append/prepend/replace string semantics, but the result is serialized
+   * as YAML instead of written raw, and append/prepend refuse a field
+   * whose current block is multi-line rather than corrupting it.
+   */
+  private patchFrontmatter(content: string, field: string, operation: string, patchContent: string, value?: unknown): string {
     const lines = content.split('\n');
-    let inFrontmatter = false;
     let frontmatterStart = -1;
     let frontmatterEnd = -1;
-    
+
     // Find frontmatter boundaries
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].trim() === '---') {
-        if (!inFrontmatter) {
-          inFrontmatter = true;
+        if (frontmatterStart === -1) {
           frontmatterStart = i;
         } else {
           frontmatterEnd = i;
@@ -783,14 +806,26 @@ export class ObsidianAPI {
         }
       }
     }
-    
-    // If no frontmatter exists, create it
+
+    const hasValue = value !== undefined;
+    if (hasValue && operation !== 'replace') {
+      throw new Error('The value parameter works with operation "replace". Use newText for append and prepend.');
+    }
+
+    // Serialize one field assignment. lineWidth 0 never folds long scalars.
+    const fieldLines = (val: unknown): string[] =>
+      stringify({ [field]: val }, { lineWidth: 0 }).replace(/\n$/, '').split('\n');
+
+    // A missing frontmatter block: every operation but remove creates it.
     if (frontmatterStart === -1) {
-      lines.unshift('---', `${field}: ${patchContent}`, '---', '');
+      if (operation === 'remove') {
+        throw new Error(`Field not found: ${field}`);
+      }
+      lines.unshift('---', ...(hasValue ? fieldLines(value) : fieldLines(patchContent)), '---', '');
       return lines.join('\n');
     }
-    
-    // Find the field in frontmatter
+
+    // Find the field block: the `field:` line plus its indented lines.
     let fieldLineIndex = -1;
     for (let i = frontmatterStart + 1; i < frontmatterEnd; i++) {
       if (lines[i].startsWith(`${field}:`)) {
@@ -798,33 +833,52 @@ export class ObsidianAPI {
         break;
       }
     }
-    
+
+    if (fieldLineIndex === -1) {
+      if (operation === 'remove') {
+        throw new Error(`Field not found: ${field}`);
+      }
+      lines.splice(frontmatterEnd, 0, ...(hasValue ? fieldLines(value) : fieldLines(patchContent)));
+      return lines.join('\n');
+    }
+
+    let fieldEnd = fieldLineIndex + 1;
+    while (fieldEnd < frontmatterEnd && (lines[fieldEnd].startsWith(' ') || lines[fieldEnd].startsWith('\t'))) {
+      fieldEnd++;
+    }
+
+    if (operation === 'remove') {
+      lines.splice(fieldLineIndex, fieldEnd - fieldLineIndex);
+      return lines.join('\n');
+    }
+
+    if (hasValue) {
+      lines.splice(fieldLineIndex, fieldEnd - fieldLineIndex, ...fieldLines(value));
+      return lines.join('\n');
+    }
+
+    const currentValue = lines[fieldLineIndex].substring(field.length + 1).trim();
+    if ((operation === 'append' || operation === 'prepend') && fieldEnd > fieldLineIndex + 1) {
+      throw new Error(
+        `Field ${field} holds a multi-line value (an array or object). Use value with operation "replace" to write it.`
+      );
+    }
+
+    let combined: string;
     switch (operation) {
       case 'append':
-        if (fieldLineIndex !== -1) {
-          const currentValue = lines[fieldLineIndex].substring(field.length + 1).trim();
-          lines[fieldLineIndex] = `${field}: ${currentValue} ${patchContent}`;
-        } else {
-          lines.splice(frontmatterEnd, 0, `${field}: ${patchContent}`);
-        }
+        combined = currentValue ? `${currentValue} ${patchContent}` : patchContent;
         break;
       case 'prepend':
-        if (fieldLineIndex !== -1) {
-          const currentValue = lines[fieldLineIndex].substring(field.length + 1).trim();
-          lines[fieldLineIndex] = `${field}: ${patchContent} ${currentValue}`;
-        } else {
-          lines.splice(frontmatterEnd, 0, `${field}: ${patchContent}`);
-        }
+        combined = currentValue ? `${patchContent} ${currentValue}` : patchContent;
         break;
       case 'replace':
-        if (fieldLineIndex !== -1) {
-          lines[fieldLineIndex] = `${field}: ${patchContent}`;
-        } else {
-          lines.splice(frontmatterEnd, 0, `${field}: ${patchContent}`);
-        }
+        combined = patchContent;
         break;
+      default:
+        throw new Error(`Unknown frontmatter operation: ${String(operation)}`);
     }
-    
+    lines.splice(fieldLineIndex, fieldEnd - fieldLineIndex, ...fieldLines(combined));
     return lines.join('\n');
   }
 

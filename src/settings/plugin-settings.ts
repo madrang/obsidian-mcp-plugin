@@ -86,7 +86,7 @@ export const DEFAULT_SETTINGS: MCPPluginSettings = {
 	, apiKey: '' // Will be generated on first load
 	, scopedTokens: [] // ADR-110: no scoped tokens until the user adds one
 	, sessionTimeoutMs: 0 // ADR-111: sessions never expire by default
-	, sessionsPerToken: 1 // ADR-111: one session per credential by default
+	, sessionsPerToken: 16 // ADR-111 cap. Raised from 1 (2026-08-24): parallel client connections each open a session, and a cap of 1 made them evict each other
 	, rateLimitPerMinute: 0 // ADR-112: no limit until the user sets one
 	, dangerouslyDisableAuth: false // Auth enabled by default
 	, readOnlyMode: false // Read-only mode disabled by default

@@ -79,8 +79,69 @@ function names(result: { notes: Array<{ name: string }> }): string[] {
   return result.notes.map(n => n.name);
 }
 
+// A base whose view filters break in the two ways that matter: typo views
+// call an unknown function or malformed syntax; the miss view references a
+// property no note carries — a quiet, per-note exclusion, not an error.
+// The first view stays clean so it is the safe default.
+const BROKEN_YAML = [
+  'views:'
+  , '  - name: clean'
+  , '  - name: typo'
+  , '    filters: hasTg("project")'
+  , '  - name: syntax'
+  , '    filters: status =='
+  , '  - name: miss'
+  , '    filters: nosuchprop == "x"'
+  , '  - name: escape'
+  , "    filters: constructor.constructor(\"return 1\")()"
+].join('\n') + '\n';
+
+function makeBrokenApp(): App {
+  const files = new Map(FILES);
+  files.set('broken.base', makeFile('broken.base'));
+  return {
+    vault: {
+      adapter: { basePath: '/test/vault' },
+      getMarkdownFiles: () => [...files.values()].filter(f => f.extension === 'md'),
+      getAbstractFileByPath: (p: string) => files.get(p) ?? null,
+      read: async (f: TFile) => (f.path === 'broken.base' ? BROKEN_YAML : `# ${f.basename}\n`),
+    },
+    metadataCache: {
+      getFileCache: (f: TFile) => ({ frontmatter: FRONTMATTER[f.path] }),
+      trigger: () => undefined,
+      resolvedLinks: {},
+    },
+  } as unknown as App;
+}
+
 describe('BasesAPI.queryBase with caller options', () => {
   const api = () => new BasesAPI(makeApp());
+
+  it('an unknown function in a filter fails the query with the cause and the expression', async () => {
+    const broken = new BasesAPI(makeBrokenApp());
+    await expect(broken.queryBase('broken.base', 'typo'))
+      .rejects.toThrow('Filter error: Unknown function "hasTg" — expression: hasTg("project")');
+  });
+
+  it('malformed filter syntax fails the query rather than matching nothing', async () => {
+    const broken = new BasesAPI(makeBrokenApp());
+    await expect(broken.queryBase('broken.base', 'syntax')).rejects.toThrow('Filter error:');
+  });
+
+  it('a blocked sandbox escape in a filter fails the query — still executed nothing', async () => {
+    const broken = new BasesAPI(makeBrokenApp());
+    await expect(broken.queryBase('broken.base', 'escape'))
+      .rejects.toThrow('Filter error: Access to member "constructor"');
+  });
+
+  it('a filter on a property no note carries is a quiet miss, not an error', async () => {
+    const broken = new BasesAPI(makeBrokenApp());
+    // `miss` overrides the broken global filter with its own: nosuchprop
+    // resolves to nothing on every note, evaluates false, excludes all.
+    const result = await broken.queryBase('broken.base', 'miss');
+    expect(names(result)).toEqual([]);
+    expect(result.total).toBe(0);
+  });
 
   it('returns every note without options, in scan order when the view does not sort', async () => {
     // The default view is `plain`: order only, no sort. The result keeps

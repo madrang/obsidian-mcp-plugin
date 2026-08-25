@@ -62,6 +62,36 @@ function assertNoForbiddenAccess(node: unknown): void {
 }
 
 /**
+ * A CallExpression whose callee is a bare identifier must name a function
+ * the context provides. Unknown functions otherwise evaluate to nothing
+ * (expression-eval resolves the identifier to undefined), which reads as a
+ * clean exclusion for filters and as null for formulas — a typo must
+ * instead surface as an error both paths can report.
+ */
+function assertNoUnknownFunctions(node: unknown, evalContext: Record<string, unknown>): void {
+  if (!node || typeof node !== 'object') return;
+  const n = node as AstNode;
+
+  if (n.type === 'CallExpression') {
+    const callee = n.callee as AstNode | undefined;
+    if (callee?.type === 'Identifier') {
+      const fn = evalContext[callee.name as string];
+      if (typeof fn !== 'function') {
+        throw new Error(`Unknown function "${callee.name as string}"`);
+      }
+    }
+  }
+
+  for (const value of Object.values(n)) {
+    if (Array.isArray(value)) {
+      value.forEach(child => assertNoUnknownFunctions(child, evalContext));
+    } else if (value && typeof value === 'object') {
+      assertNoUnknownFunctions(value, evalContext);
+    }
+  }
+}
+
+/**
  * Evaluates Bases filter and formula expressions
  * Supports JavaScript-like syntax with property access and function calls
  */
@@ -73,58 +103,76 @@ export class ExpressionEvaluator {
   }
 
   /**
-   * Evaluate an expression string in the context of a note
+   * Evaluate an expression string in the context of a note. Fail-closed for
+   * filters: any parse or evaluation error returns `false`, so a malformed
+   * or blocked expression excludes the note instead of failing the query.
    */
   evaluate(expression: string, context: NoteContext): unknown {
     try {
-      // Create a safe evaluation context
-      const evalContext = this.createEvalContext(context);
-      
-      // Debug logging
-      if (Debug.isDebugMode()) {
-        Debug.log(`Evaluating expression: "${expression}"`);
-        Debug.log('Context frontmatter:', context.frontmatter);
-        Debug.log('Available context keys:', Object.keys(evalContext));
-
-        // Log specific values that might be referenced in the expression
-        if (expression.includes('status')) {
-          Debug.log('status value:', evalContext['status'] || (evalContext['note'] as Record<string, unknown> | undefined)?.['status']);
-        }
-        if (expression.includes('priority')) {
-          Debug.log('priority value:', evalContext['priority'] || (evalContext['note'] as Record<string, unknown> | undefined)?.['priority']);
-        }
-      }
-      
-      // Parse with expression-eval (jsep grammar — no `eval`/`Function`/`new`
-      // and no global scope), reject prototype-chain escapes, then evaluate
-      // against the curated context. `.base` files are synced/shareable, so
-      // this must not execute arbitrary JS (ADR-201).
-      const ast = parse(expression);
-      assertNoForbiddenAccess(ast);
-      const result: unknown = evaluateAst(ast, evalContext);
-      
-      if (Debug.isDebugMode()) {
-        Debug.log(`Expression result: ${String(result)}`);
-      }
-      
-      return result;
+      return this.evaluateCore(expression, context);
     } catch (error) {
       const errorHint = BasesReference.getErrorHint(error as Error, { expression });
-      
+
       Debug.log(`Expression evaluation failed for: ${expression}`);
       Debug.log(`Error: ${errorHint.error}`);
       Debug.log(`Hint: ${errorHint.hint}`);
-      
+
       if (errorHint.suggestions.length > 0) {
         Debug.log('Suggestions:', errorHint.suggestions);
       }
-      
+
       if (errorHint.examples && errorHint.examples.length > 0) {
         Debug.log('Examples:', errorHint.examples);
       }
-      
+
       return false;
     }
+  }
+
+  /**
+   * The same pipeline without the catch-all. Formula evaluation uses this
+   * so a failing formula surfaces as `null` (via FormulaEngine) instead of
+   * reading as the boolean false — a computed false and an error stay
+   * distinguishable.
+   */
+  evaluateStrict(expression: string, context: NoteContext): unknown {
+    return this.evaluateCore(expression, context);
+  }
+
+  private evaluateCore(expression: string, context: NoteContext): unknown {
+    // Create a safe evaluation context
+    const evalContext = this.createEvalContext(context);
+
+    // Debug logging
+    if (Debug.isDebugMode()) {
+      Debug.log(`Evaluating expression: "${expression}"`);
+      Debug.log('Context frontmatter:', context.frontmatter);
+      Debug.log('Available context keys:', Object.keys(evalContext));
+
+      // Log specific values that might be referenced in the expression
+      if (expression.includes('status')) {
+        Debug.log('status value:', evalContext['status'] || (evalContext['note'] as Record<string, unknown> | undefined)?.['status']);
+      }
+      if (expression.includes('priority')) {
+        Debug.log('priority value:', evalContext['priority'] || (evalContext['note'] as Record<string, unknown> | undefined)?.['priority']);
+      }
+    }
+
+    // Parse with expression-eval (jsep grammar — no `eval`/`Function`/`new`
+    // and no global scope), reject prototype-chain escapes, reject calls to
+    // functions the context does not provide, then evaluate against the
+    // curated context. `.base` files are synced/shareable, so this must not
+    // execute arbitrary JS (ADR-201).
+    const ast = parse(expression);
+    assertNoForbiddenAccess(ast);
+    assertNoUnknownFunctions(ast, evalContext);
+    const result: unknown = evaluateAst(ast, evalContext);
+
+    if (Debug.isDebugMode()) {
+      Debug.log(`Expression result: ${String(result)}`);
+    }
+
+    return result;
   }
 
   /**
@@ -199,11 +247,12 @@ export class ExpressionEvaluator {
       , number: (val: unknown) => Number(val)
       , string: (val: unknown) => String(val)
       
-      // Utility functions - renamed to avoid reserved word conflicts
-      , iff: (condition: unknown, trueVal: unknown, falseVal: unknown = null) => {
-        return condition ? trueVal : falseVal;
-      }
-      , choice: (condition: unknown, trueVal: unknown, falseVal: unknown = null) => {
+      // The native conditional. `iff` and `choice` were spellings invented
+      // for the pre-ADR-201 `new Function` evaluator, where `return if(...)`
+      // is a syntax error; jsep has no such reservation. They are removed:
+      // only native Bases functions belong here, so habits formed against
+      // this table stay valid in real .base files.
+      , if: (condition: unknown, trueVal: unknown, falseVal: unknown = null) => {
         return condition ? trueVal : falseVal;
       }
       

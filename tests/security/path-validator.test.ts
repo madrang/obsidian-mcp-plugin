@@ -78,6 +78,30 @@ describe('SecurePathValidator', () => {
       expect(() => validator.validatePath(undefined as any)).toThrow(SecurityError);
     });
 
+    // Obsidian's vault index never sees dot-prefixed segments: a write
+    // reaches the disk, then every read, list, move, and delete of the
+    // file fails forever.
+    describe('hidden paths (dot-prefixed segments)', () => {
+      test('rejects dotfiles and dot folders with HIDDEN_PATH', () => {
+        for (const p of ['.gitignore', 'notes/.hidden.md', '.config/settings.json']) {
+          try {
+            validator.validatePath(p);
+            throw new Error(`expected HIDDEN_PATH for ${p}`);
+          } catch (e) {
+            expect(e).toBeInstanceOf(SecurityError);
+            expect((e as SecurityError).code).toBe('HIDDEN_PATH');
+            expect((e as SecurityError).message).toContain('unreachable');
+          }
+        }
+      });
+
+      test('dotted names that do not start with the dot stay valid', () => {
+        for (const p of ['notes.draft.md', 'dashboard.base', 'a/b.c.md']) {
+          expect(() => validator.validatePath(p)).not.toThrow();
+        }
+      });
+    });
+
     test('rejects non-string paths', () => {
       expect(() => validator.validatePath(123 as any)).toThrow(SecurityError);
       expect(() => validator.validatePath({} as any)).toThrow(SecurityError);

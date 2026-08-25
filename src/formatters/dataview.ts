@@ -476,50 +476,51 @@ export function formatDataviewMetadata(response: DataviewMetadataResponse): stri
 }
 
 /**
- * Format bases.query response
+ * Format bases.query response. queryBase returns { notes, total } — one
+ * EvaluatedNote per row, with evaluated properties. The base path is not
+ * part of the result, so the header names the result set, not the file.
  */
-interface BasesQueryResult {
-  title?: string;
-  name?: string;
-  path?: string;
-  [key: string]: unknown;
-}
-
 export interface BasesQueryResponse {
-  basePath: string;
-  results: BasesQueryResult[];
-  totalCount: number;
+  notes: Array<{
+    path: string;
+    name: string;
+    properties?: Record<string, unknown>;
+  }>;
+  total: number;
 }
 
 export function formatBasesQuery(response: BasesQueryResponse): string {
   const lines: string[] = [];
 
-  lines.push(header(1, `Base: ${response.basePath}`));
+  lines.push(header(1, 'Base Results'));
   lines.push('');
-  lines.push(property('Results', response.totalCount.toString(), 0));
+  lines.push(property('Results', response.total.toString(), 0));
   lines.push('');
 
-  if (response.results.length === 0) {
+  if (response.notes.length === 0) {
     lines.push('No matching entries found.');
     lines.push(summaryFooter());
     return joinLines(lines);
   }
 
   // Format as simple list
-  response.results.slice(0, 20).forEach((result, i) => {
-    const title = result.title || result.name || result.path || `Entry ${i + 1}`;
+  response.notes.slice(0, 20).forEach((note, i) => {
+    const title = note.name || note.path || `Entry ${i + 1}`;
     lines.push(`${i + 1}. **${title}**`);
+    lines.push(`   ${note.path}`);
 
     // Show a few properties
-    const props = Object.keys(result).filter(k => !['title', 'name', 'path'].includes(k)).slice(0, 3);
+    const props = Object.keys(note.properties ?? {})
+      .filter(k => !['name', 'path'].includes(k))
+      .slice(0, 3);
     props.forEach(prop => {
-      lines.push(property(prop, truncate(String(result[prop]), 40), 1));
+      lines.push(property(prop, truncate(String(note.properties?.[prop]), 40), 1));
     });
     lines.push('');
   });
 
-  if (response.results.length > 20) {
-    lines.push(`... and ${response.results.length - 20} more entries`);
+  if (response.notes.length > 20) {
+    lines.push(`... and ${response.notes.length - 20} more entries`);
   }
 
   lines.push(divider());
@@ -532,15 +533,22 @@ export function formatBasesQuery(response: BasesQueryResponse): string {
 /**
  * Format bases.list response
  */
+export interface BasesListEntry {
+  path: string;
+  name: string;
+  views: string[];
+}
+
 export interface BasesListResponse {
-  bases: string[];
+  bases: Array<string | BasesListEntry>;
   count?: number;
 }
 
-export function formatBasesList(response: BasesListResponse | string[]): string {
+export function formatBasesList(response: BasesListResponse | Array<string | BasesListEntry>): string {
   const lines: string[] = [];
 
-  // Handle both array and object response
+  // Handle both array and object response. listBases() returns entry
+  // objects; callers built before that change may still hand over paths.
   const bases = Array.isArray(response) ? response : response.bases;
   const count = Array.isArray(response) ? response.length : (response.count ?? response.bases.length);
 
@@ -558,9 +566,12 @@ export function formatBasesList(response: BasesListResponse | string[]): string 
   }
 
   bases.slice(0, 30).forEach((base, i) => {
-    const name = base.split('/').pop() || base;
+    const path = typeof base === 'string' ? base : base.path;
+    const name = typeof base === 'string'
+      ? (base.split('/').pop() || base)
+      : (base.name || base.path.split('/').pop() || base.path);
     lines.push(`${i + 1}. ${name}`);
-    lines.push(`   ${base}`);
+    lines.push(`   ${path}`);
   });
 
   if (bases.length > 30) {
@@ -577,59 +588,55 @@ export function formatBasesList(response: BasesListResponse | string[]): string 
 }
 
 /**
- * Format bases.read response
+ * Format bases.read response. readBase returns the parsed BaseYAML
+ * configuration itself — filters, formulas, properties, views. The path is
+ * not part of the result, so the header stays generic.
  */
 export interface BasesReadResponse {
-  path: string;
-  config: {
-    name?: string;
-    source?: string;
-    properties?: Record<string, unknown>;
-    views?: unknown[];
-  };
-  raw?: string;
+  filters?: string | Record<string, unknown>;
+  formulas?: Record<string, string>;
+  properties?: Record<string, { displayName?: string }>;
+  views?: Array<{ type?: string; name?: string }>;
 }
 
 export function formatBasesRead(response: BasesReadResponse): string {
   const lines: string[] = [];
 
-  const fileName = response.path.split('/').pop() || response.path;
-  lines.push(header(1, `Base: ${fileName}`));
-  lines.push('');
-  lines.push(property('Path', response.path, 0));
-
-  if (response.config.name) {
-    lines.push(property('Name', response.config.name, 0));
-  }
-  if (response.config.source) {
-    lines.push(property('Source', response.config.source, 0));
-  }
+  lines.push(header(1, 'Base Configuration'));
   lines.push('');
 
-  // Show properties
-  if (response.config.properties && Object.keys(response.config.properties).length > 0) {
+  if (response.filters !== undefined) {
+    const filters = typeof response.filters === 'string'
+      ? response.filters
+      : JSON.stringify(response.filters);
+    lines.push(property('Filters', truncate(filters, 60), 0));
+  }
+
+  if (response.formulas && Object.keys(response.formulas).length > 0) {
+    lines.push(property('Formulas', Object.keys(response.formulas).join(', '), 0));
+  }
+  lines.push('');
+
+  // Property display configurations: keys with an optional display name
+  if (response.properties && Object.keys(response.properties).length > 0) {
     lines.push(header(2, 'Properties'));
-    Object.entries(response.config.properties).slice(0, 10).forEach(([key, value]) => {
-      let displayValue: string;
-      if (value === null || value === undefined) {
-        displayValue = String(value);
-      } else if (typeof value === 'object') {
-        displayValue = JSON.stringify(value);
-      } else {
-        const primitive = value as string | number | boolean | bigint | symbol;
-        displayValue = String(primitive);
-      }
-      lines.push(property(key, truncate(displayValue, 50), 0));
+    const keys = Object.keys(response.properties);
+    keys.slice(0, 10).forEach(key => {
+      const display = response.properties?.[key]?.displayName;
+      lines.push(`- ${key}${display && display !== key ? ` (${display})` : ''}`);
     });
-    if (Object.keys(response.config.properties).length > 10) {
-      lines.push(`... and ${Object.keys(response.config.properties).length - 10} more properties`);
+    if (keys.length > 10) {
+      lines.push(`... and ${keys.length - 10} more properties`);
     }
     lines.push('');
   }
 
-  // Show views count
-  if (response.config.views && response.config.views.length > 0) {
-    lines.push(property('Views', response.config.views.length.toString(), 0));
+  // Views: count plus name and type of each
+  if (response.views && response.views.length > 0) {
+    lines.push(property('Views', response.views.length.toString(), 0));
+    response.views.slice(0, 10).forEach(view => {
+      lines.push(`- ${view.name ?? 'unnamed'} (${view.type ?? 'unknown'})`);
+    });
   }
 
   lines.push(divider());

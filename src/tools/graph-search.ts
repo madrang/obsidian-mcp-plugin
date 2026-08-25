@@ -1,6 +1,6 @@
 import { ObsidianAPI } from '../utils/obsidian-api';
 import { GraphTraversal, GraphTraversalOptions } from '../utils/graph-traversal';
-import { App, TFile } from 'obsidian';
+import { App, TFile, getAllTags, CachedMetadata } from 'obsidian';
 
 /**
  * Graph search parameters
@@ -126,6 +126,15 @@ export function buildTagPredicate(tagFilter?: string[]): ((tags: string[] | unde
   };
 }
 
+/**
+ * Node tags from BOTH sources: getAllTags merges inline #tags and
+ * frontmatter tags. Reading cache.tags alone sees inline only, so a vault
+ * that keeps its tags in frontmatter fails every tag filter.
+ */
+export function nodeTags(cache?: CachedMetadata | null): string[] {
+  return cache ? getAllTags(cache) ?? [] : [];
+}
+
 export class GraphSearchTool {
   private graphTraversal: GraphTraversal;
   
@@ -205,7 +214,15 @@ export class GraphSearchTool {
     const nodes = result.nodes.filter(keepNode);
     const keptPaths = new Set(nodes.map(node => node.path));
     const edges = (result.edges ?? []).filter(edge => keptPaths.has(edge.source) && keptPaths.has(edge.target));
-    return { ...result, nodes, edges };
+    // The handler's message counts the pre-filter set ("Found 9 direct
+    // neighbors"), which now disagrees with the lists below it. Restate it
+    // against the kept set.
+    return {
+      ...result
+      , nodes
+      , edges
+      , message: `Filters kept ${nodes.length} of ${result.nodes.length} notes`
+    };
   }
 
   /**
@@ -231,7 +248,7 @@ export class GraphSearchTool {
     if (nodeFilters.length > 0 || tagPredicate) {
       options.nodeFilter = node =>
         nodeFilters.every(filter => filter(node.path))
-        && (!tagPredicate || tagPredicate(node.metadata?.tags?.map(cachedTag => cachedTag.tag)));
+        && (!tagPredicate || tagPredicate(nodeTags(node.metadata)));
     }
 
     const result = this.graphTraversal.breadthFirstTraversal(params.sourcePath, options);
@@ -241,7 +258,7 @@ export class GraphSearchTool {
       path: node.path
       , title: node.title
       , type: 'file' as const
-      , tags: node.metadata?.tags?.map(t => t.tag)
+      , tags: nodeTags(node.metadata)
       , links: {
         forward: this.graphTraversal.getForwardLinks(node.path).length
         , backward: this.graphTraversal.getBacklinks(node.path).length
@@ -298,7 +315,7 @@ export class GraphSearchTool {
       path: n.path
       , title: n.title
       , type: 'file' as const
-      , tags: n.metadata?.tags?.map(t => t.tag)
+      , tags: nodeTags(n.metadata)
       , links: {
         forward: this.graphTraversal.getForwardLinks(n.path).length
         , backward: this.graphTraversal.getBacklinks(n.path).length
@@ -488,7 +505,7 @@ export class GraphSearchTool {
           path: edge.source
           , title: this.graphTraversal.getNodeTitle(file)
           , type: 'file'
-          , tags: cache?.tags?.map(t => t.tag)
+          , tags: nodeTags(cache)
           , links: {
             forward: this.graphTraversal.getForwardLinks(edge.source).length
             , backward: this.graphTraversal.getBacklinks(edge.source).length
@@ -548,7 +565,7 @@ export class GraphSearchTool {
           path: edge.target
           , title: this.graphTraversal.getNodeTitle(file)
           , type: 'file'
-          , tags: cache?.tags?.map(t => t.tag)
+          , tags: nodeTags(cache)
           , links: {
             forward: this.graphTraversal.getForwardLinks(edge.target).length
             , backward: this.graphTraversal.getBacklinks(edge.target).length

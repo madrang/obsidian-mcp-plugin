@@ -11,7 +11,7 @@ registerOperation({
   name: 'files'
   , title: 'File Management'
   , descriptionLines: [
-    'Every `files` action writes. Every action returns `success` and its outcome.'
+    'Create, delete, move, copy, split, and join files. Every `files` action writes.'
     , ''
     , '## Actions'
     , { when: 'files.create', text: '- `create` — Write a new file. It refuses a path that already exists. Omit `content` for an empty file. Missing parent folders are created.' }
@@ -53,7 +53,7 @@ registerOperation({
     ...pathParam
     , content: {
       type: ['string', 'object']
-      , description: 'create: the text content to write. With format "base": the Bases configuration object with name, source, properties, and views'
+      , description: 'create: the text content to write. With format "base": the Bases configuration object — filters, formulas, properties, and views. `views` is required, at least one. Copy a `bases.read` result and edit it'
     }
     , format: {
       type: 'string'
@@ -62,7 +62,7 @@ registerOperation({
     }
     , destination: {
       type: 'string'
-      , description: 'The destination path for move, copy, and concat. For move: a destination without a directory renames the file in place, and the source extension is appended when the destination carries none. A destination with a directory is used exactly as given, with no extension handling. Copy and concat destinations work the same way. Missing destination folders are created for copy and concat. A move needs an existing target folder'
+      , description: 'The destination path for move, copy, and concat. A destination with a directory is used exactly as given, for all three actions. For move only: a destination without a directory renames the file in place, and the source extension is appended when the destination carries none. Copy and concat create missing destination folders. A move needs an existing target folder'
     }
     , overwrite: {
       type: 'boolean'

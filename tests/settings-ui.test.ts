@@ -27,7 +27,7 @@ interface FlatItem {
   visible?: unknown;
   searchable?: unknown;
   desc?: string | DocumentFragment;
-  control?: { key?: string; validate?: (value: number) => string | void };
+  control?: { key?: string; type?: string; placeholder?: string; defaultValue?: number; validate?: (value: number) => string | void };
   items?: FlatItem[];
   addItem?: { name: string; action: () => void };
   onDelete?: (index: number) => void;
@@ -192,6 +192,29 @@ describe('buildSettingsUI', () => {
     const onRows = flatten(buildSettingsUI(makeHost({ allowCreateOverwrite: true }).host));
     const on = onRows.find(i => i.name === 'files.create')!.desc as DocumentFragment;
     expect(on.querySelector('.mcp-action-desc-box')!.textContent).not.toContain('overwrite');
+  });
+
+  it('number controls refill their matching default when emptied', () => {
+    // The framework's number control falls back to defaultValue ?? 0 when
+    // the input is emptied. Without a defaultValue, clearing a field wrote
+    // 0 into it (sessions showed 0 while the setter silently clamped to 1).
+    // Visibility-gated rows (httpsPort hides unless HTTPS is on) carry the
+    // same contract, so the lookup skips the visibility filter.
+    const rows = flatten(buildSettingsUI(makeHost().host));
+    const byKey = (k: string) => {
+      const row = rows.find(i => i.control?.key === k);
+      if (!row?.control) throw new Error(`no control for key: ${k}`);
+      return row.control;
+    };
+    expect(byKey('httpPort').defaultValue).toBe(DEFAULT_SETTINGS.httpPort);
+    expect(byKey('httpPort').placeholder).toBe(String(DEFAULT_SETTINGS.httpPort));
+    expect(byKey('httpsPort').defaultValue).toBe(DEFAULT_SETTINGS.httpsPort);
+    expect(byKey('sessionsPerToken').defaultValue).toBe(DEFAULT_SETTINGS.sessionsPerToken);
+    expect(byKey('sessionsPerToken').placeholder).toBe(String(DEFAULT_SETTINGS.sessionsPerToken));
+    expect(byKey('rateLimitPerMinute').defaultValue).toBe(DEFAULT_SETTINGS.rateLimitPerMinute);
+    // Derived key: minutes have no settings default (0 ms means never), so
+    // the suggested 60 is the refill.
+    expect(byKey('sessionTimeoutMinutes').defaultValue).toBe(60);
   });
 
   it('the port validator rejects out-of-range values and accepts a good one', () => {

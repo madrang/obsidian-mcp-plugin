@@ -29,12 +29,20 @@ export class FormulaEngine {
     }
 
     try {
-      // Evaluate the expression
-      const result = await this.expressionEvaluator.evaluate(expression, context);
-      
+      // Strict pipeline: a failing formula throws here and surfaces as
+      // null, so an error never reads as the computed boolean false.
+      // Unknown functions do not throw — the callee resolves to nothing —
+      // so an undefined result is normalized to null under the same
+      // contract: a formula that cannot produce a value evaluates to null.
+      const result = await this.expressionEvaluator.evaluateStrict(expression, context);
+      if (result === undefined) {
+        Debug.log(`Formula evaluated to nothing: ${expression}`);
+        return null;
+      }
+
       // Cache the result
       this.formulaCache.set(cacheKey, result);
-      
+
       return result;
     } catch (error) {
       const errorHint = BasesReference.getErrorHint(error as Error, { expression });

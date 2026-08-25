@@ -42,7 +42,7 @@ registerOperation({
     }
     , source: {
       type: 'string'
-      , description: 'The source filter for pages (list). Examples: "folder/path" (folder), "#tag" (tag), "[[Note Name]]" (backlinks), "" (all pages)'
+      , description: 'The source filter for pages (list). Examples: "folder/path" (folder), "#tag" (tag), "[[Note Name]]" (backlinks), "" or omitted (all pages)'
     }
     , ...pathParam
   }

@@ -18,13 +18,18 @@ function makeFile(path: string): TFile {
   return f;
 }
 
-// Projects/a.md links to Projects/b.md, Projects/c.md, and Other/d.md.
-// Tagged: a and b carry #core. d carries #core and #extra. c carries none.
+// Projects/a.md links to Projects/b.md, Projects/c.md, Other/d.md, and
+// Projects/e.md. Tagged: a and b carry #core inline. d carries #core and
+// #extra inline. c carries none. e carries #fm in FRONTMATTER only — the
+// regression shape for the tagFilter bug: reading cache.tags alone sees
+// inline #tags, and a vault that keeps tags in frontmatter failed every
+// tag filter.
 const FILES = new Map<string, TFile>([
   ['Projects/a.md', makeFile('Projects/a.md')],
   ['Projects/b.md', makeFile('Projects/b.md')],
   ['Projects/c.md', makeFile('Projects/c.md')],
   ['Other/d.md', makeFile('Other/d.md')],
+  ['Projects/e.md', makeFile('Projects/e.md')],
 ]);
 
 const TAGS: Record<string, string[]> = {
@@ -32,13 +37,19 @@ const TAGS: Record<string, string[]> = {
   'Projects/b.md': ['#core'],
   'Projects/c.md': [],
   'Other/d.md': ['#core', '#extra'],
+  'Projects/e.md': [],
+};
+
+const FRONTMATTER_TAGS: Record<string, string[]> = {
+  'Projects/e.md': ['fm'],
 };
 
 const RESOLVED_LINKS: Record<string, Record<string, number>> = {
-  'Projects/a.md': { 'Projects/b.md': 1, 'Projects/c.md': 1, 'Other/d.md': 1 },
+  'Projects/a.md': { 'Projects/b.md': 1, 'Projects/c.md': 1, 'Other/d.md': 1, 'Projects/e.md': 1 },
   'Projects/b.md': {},
   'Projects/c.md': {},
   'Other/d.md': {},
+  'Projects/e.md': {},
 };
 
 function makeApp(): App {
@@ -53,7 +64,10 @@ function makeApp(): App {
     metadataCache: {
       resolvedLinks: RESOLVED_LINKS,
       unresolvedLinks: {},
-      getFileCache: (f: TFile) => ({ tags: (TAGS[f.path] ?? []).map(tag => ({ tag })) }),
+      getFileCache: (f: TFile) => ({
+        tags: (TAGS[f.path] ?? []).map(tag => ({ tag })),
+        ...(f.path in FRONTMATTER_TAGS ? { frontmatter: { tags: FRONTMATTER_TAGS[f.path] } } : {}),
+      }),
       trigger: () => undefined,
     },
   } as unknown as App;
@@ -99,8 +113,10 @@ describe('fileFilter on the listing actions', () => {
   it('neighbors without filters returns every neighbor', async () => {
     const result = tool().search({ operation: 'neighbors', sourcePath: 'Projects/a.md' });
     expect(paths(result).sort()).toEqual([
-      'Other/d.md', 'Projects/a.md', 'Projects/b.md', 'Projects/c.md',
+      'Other/d.md', 'Projects/a.md', 'Projects/b.md', 'Projects/c.md', 'Projects/e.md',
     ].sort());
+    // No filters, so the handler's own count line stands.
+    expect(result.message).toContain('Found 4 direct neighbors');
   });
 
   it('neighbors with a fileFilter drops non-matching nodes and their edges', () => {
@@ -109,8 +125,11 @@ describe('fileFilter on the listing actions', () => {
       , sourcePath: 'Projects/a.md'
       , fileFilter: '^Projects/',
     });
-    expect(paths(result).sort()).toEqual(['Projects/a.md', 'Projects/b.md', 'Projects/c.md'].sort());
+    expect(paths(result).sort()).toEqual(['Projects/a.md', 'Projects/b.md', 'Projects/c.md', 'Projects/e.md'].sort());
     expect(result.edges?.every(e => e.target !== 'Other/d.md')).toBe(true);
+    // The message restates the count against the kept set: the pre-filter
+    // line ("Found 4 direct neighbors") no longer disagrees with the list.
+    expect(result.message).toBe('Filters kept 4 of 5 notes');
   });
 
   it('neighbors with a folderFilter keeps only the subtree', () => {
@@ -156,6 +175,24 @@ describe('buildTagPredicate', () => {
 });
 
 describe('tagFilter on the listing actions', () => {
+  it('tagFilter sees frontmatter tags, not only inline #tags', () => {
+    // Nodes built from cache.tags alone see inline #tags only; a vault
+    // keeping tags in frontmatter then fails every tag filter. getAllTags
+    // merges both sources.
+    const result = tool().search({
+      operation: 'neighbors'
+      , sourcePath: 'Projects/a.md'
+      , tagFilter: ['fm'],
+    });
+    expect(paths(result)).toContain('Projects/e.md');
+  });
+
+  it('a node without inline tags reports its frontmatter tags', () => {
+    const result = tool().search({ operation: 'neighbors', sourcePath: 'Projects/a.md' });
+    const e = (result.nodes ?? []).find(n => n.path === 'Projects/e.md');
+    expect(e?.tags).toEqual(['#fm']);
+  });
+
   it('neighbors with a tagFilter keeps only tagged nodes and their edges', () => {
     const result = tool().search({
       operation: 'neighbors'

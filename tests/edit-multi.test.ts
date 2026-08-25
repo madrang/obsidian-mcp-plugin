@@ -99,6 +99,16 @@ describe('edit.multi', () => {
     expect(api.mutations[0].content).toBe('y x x');
   });
 
+  test('a pair matches across the quote classes (typographic file, ASCII pair)', async () => {
+    api['files'].set('typo.md', { content: 'l\u2019équipement is ready', mtime: 1000 });
+    await router.route({
+      operation: 'edit',
+      action: 'multi',
+      params: { path: 'typo.md', edits: pairs(["l'équipement", 'the equipment']) },
+    });
+    expect(api.mutations[0].content).toBe('the equipment is ready');
+  });
+
   test('a pair that does not match refuses the whole batch, nothing written', async () => {
     const response: any = await router.route({
       operation: 'edit',

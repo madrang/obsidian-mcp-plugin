@@ -84,6 +84,19 @@ export class SecurePathValidator {
 		// This handles things like converting backslashes to forward slashes
 		const obsidianNormalized = normalizePath(anchored);
 
+		// Layer 4.5: Hidden-path rejection. Obsidian's vault index excludes
+		// dot-prefixed path segments (.obsidian, .trash, dotfiles): a write
+		// reaches the disk through the adapter, but getAbstractFileByPath
+		// then returns null forever — the file can never be read, listed,
+		// moved, or deleted through the vault. Reject up front with the
+		// cause instead of stranding an unreachable file.
+		if (obsidianNormalized.split('/').some((segment: string) => segment.startsWith('.'))) {
+			throw new SecurityError(
+				`Hidden path "${obsidianNormalized}": Obsidian excludes dot-prefixed segments from the vault index, so the file would be unreachable after the write.`,
+				'HIDDEN_PATH'
+			);
+		}
+
 		// Layer 5: Node.js path resolution - Resolve to absolute path
 		const resolved = path.resolve(this.baseDir, obsidianNormalized);
 		

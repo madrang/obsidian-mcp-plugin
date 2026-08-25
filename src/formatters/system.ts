@@ -13,7 +13,7 @@ import {
 
 /**
  * Format system.info response
- * Actual response: { authenticated, cors, ok, service, versions: {obsidian, self}, mcp: {running, port, connections, vault} }
+ * Actual response: { authenticated, cors, ok, service, versions: {obsidian, self}, mcp: {running, port, connections, maxSessions, vault} }
  */
 export interface SystemInfoResponse {
   authenticated?: boolean;
@@ -31,6 +31,7 @@ export interface SystemInfoResponse {
     httpPort?: number;
     httpsPort?: number;
     connections?: number;
+    maxSessions?: number;
     vault?: string;
   };
   // Legacy format support
@@ -81,7 +82,15 @@ export function formatSystemInfo(response: SystemInfoResponse): string {
         lines.push(property('Port', response.mcp.port.toString(), 0));
       }
       if (response.mcp.connections !== undefined) {
-        lines.push(property('Connections', response.mcp.connections.toString(), 0));
+        // Same policy as the settings grid: text when stopped, Unknown for
+        // the -1 sentinel, otherwise the count.
+        const connectionsText = response.mcp.running === false
+          ? 'Server stopped'
+          : response.mcp.connections === -1 ? 'Unknown' : response.mcp.connections.toString();
+        lines.push(property('Connections', connectionsText, 0));
+      }
+      if (response.mcp.maxSessions !== undefined) {
+        lines.push(property('Max sessions', response.mcp.maxSessions.toString(), 0));
       }
       if (response.mcp.vault) {
         lines.push(property('Vault', response.mcp.vault, 0));

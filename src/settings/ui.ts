@@ -26,6 +26,7 @@ import { ALL_OPERATIONS, getActionsForOperation } from '../tools/semantic-tools'
 import { getActionDescriptionLines, getStaticDescriptionLines, getOperationDefinition } from '../tools/tool-registry';
 import { classifyFromSettings } from '../utils/network-classifier';
 import { Debug } from '../utils/debug';
+import { DEFAULT_SETTINGS } from './plugin-settings';
 import type { MCPPluginSettings } from './plugin-settings';
 import type { SettingsUIHost } from './host-types';
 
@@ -99,6 +100,11 @@ function validateSessionCap(value: number): string | void {
     return 'The limit must be at least 1';
   }
 }
+
+// The shipped default is "never" (sessionTimeoutMs 0). 60 minutes is the
+// suggested value once expiry is on, so it is both the placeholder and the
+// refill when the field is emptied.
+const DEFAULT_SESSION_TIMEOUT_MINUTES = 60;
 
 function validateRateLimit(value: number): string | void {
   if (!Number.isInteger(value) || value < 0) {
@@ -299,7 +305,12 @@ function connectionStatusGroup(host: SettingsUIHost): Group {
         versionEl.addEventListener('click', () => host.onVersionClick());
         createStatusItem('Tools', info.toolsCount.toString());
         createStatusItem('Resources', info.resourcesCount.toString());
-        createStatusItem('Connections', info.connections.toString());
+        // The row keeps its grid slot: text when stopped, unknown for the
+        // -1 sentinel, otherwise the count.
+        const connectionsText = !info.running
+          ? 'Server stopped'
+          : info.connections >= 0 ? info.connections.toString() : 'unknown';
+        createStatusItem('Connections', connectionsText);
         if (info.poolStats?.enabled && info.poolStats.stats) {
           const poolStats = info.poolStats.stats;
           createStatusItem('Active Sessions', `${poolStats.activeConnections}/${poolStats.maxConnections}`);
@@ -330,7 +341,7 @@ function serverConfigGroup(host: SettingsUIHost): Group {
         name: 'Server port'
         , desc: 'Port for the server (default: 3011). Applies on change; restarts the server when it is running.'
         , aliases: ['http', 'port']
-        , control: { type: 'number', key: 'httpPort', placeholder: '3011', validate: validatePort }
+        , control: { type: 'number', key: 'httpPort', placeholder: String(DEFAULT_SETTINGS.httpPort), defaultValue: DEFAULT_SETTINGS.httpPort, validate: validatePort }
       }
       , {
         name: 'Auto-detect port conflicts'
@@ -349,19 +360,19 @@ function serverConfigGroup(host: SettingsUIHost): Group {
         , desc: 'Idle time after which a session expires'
         , aliases: ['session', 'expire', 'timeout']
         , visible: () => host.settings.sessionTimeoutMs > 0
-        , control: { type: 'number', key: 'sessionTimeoutMinutes', placeholder: '60', validate: validateMinutes }
+        , control: { type: 'number', key: 'sessionTimeoutMinutes', placeholder: String(DEFAULT_SESSION_TIMEOUT_MINUTES), defaultValue: DEFAULT_SESSION_TIMEOUT_MINUTES, validate: validateMinutes }
       }
       , {
         name: 'Sessions per token'
         , desc: 'How many sessions one credential can hold at once, including the main key. A new session past the limit invalidates the oldest session of that credential.'
         , aliases: ['session', 'token', 'limit']
-        , control: { type: 'number', key: 'sessionsPerToken', placeholder: '1', validate: validateSessionCap }
+        , control: { type: 'number', key: 'sessionsPerToken', placeholder: String(DEFAULT_SETTINGS.sessionsPerToken), defaultValue: DEFAULT_SETTINGS.sessionsPerToken, min: 1, validate: validateSessionCap }
       }
       , {
         name: 'Tool call rate limit'
         , desc: "Maximum tool calls per credential per minute, across all of that credential's sessions. 0 disables the limit (default). Takes effect immediately; a refused call returns the RATE_LIMITED error with a retry delay."
         , aliases: ['rate', 'limit', 'throttle', 'per minute', 'calls']
-        , control: { type: 'number', key: 'rateLimitPerMinute', placeholder: '0', validate: validateRateLimit }
+        , control: { type: 'number', key: 'rateLimitPerMinute', placeholder: String(DEFAULT_SETTINGS.rateLimitPerMinute), defaultValue: DEFAULT_SETTINGS.rateLimitPerMinute, validate: validateRateLimit }
       }
     ]
   };
@@ -464,7 +475,7 @@ function secureTransportGroup(host: SettingsUIHost): Group {
         , desc: 'Port for secure connections (default: 3444)'
         , aliases: ['https', 'port']
         , visible: httpsOn
-        , control: { type: 'number', key: 'httpsPort', placeholder: '3444', validate: validatePort }
+        , control: { type: 'number', key: 'httpsPort', placeholder: String(DEFAULT_SETTINGS.httpsPort), defaultValue: DEFAULT_SETTINGS.httpsPort, validate: validatePort }
       }
       , {
         name: 'Auto-generate certificate'
