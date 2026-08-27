@@ -4,7 +4,7 @@
  * files.create with format "base". Query with `format` covers export.
  */
 import { registerOperation } from '../tool-registry';
-import { executeBasesOperation } from '../../semantic/operations/bases';
+import { executeBasesOperation } from '../operations/bases';
 
 registerOperation({
   name: 'bases'
@@ -52,7 +52,7 @@ registerOperation({
             , description: 'How to compare the property with the value'
           }
           , value: { type: ['string', 'number', 'boolean', 'array'], description: 'The comparison value. An array for between, in, and not_in. Omit it for is_empty and is_not_empty' }
-          , caseSensitive: { type: 'boolean', description: 'Compare strings byte for byte (default: false, case-insensitive)' }
+          , caseSensitive: { type: 'boolean', description: 'Compare strings byte for byte (case-insensitive when omitted)', default: false }
         }
         , required: ['property', 'operator']
       }
@@ -65,15 +65,18 @@ registerOperation({
     , sortOrder: {
       type: 'string'
       , enum: ['asc', 'desc']
-      , description: 'The sort direction for sortBy (default: "asc")'
+      , description: 'The sort direction for sortBy'
+      , default: 'asc'
     }
     , page: {
       type: 'number'
-      , description: 'query: the page of results to return (default: 1). The view limit cuts the results first, then pages apply'
+      , description: 'query: the page of results to return. The view limit cuts the results first, then pages apply'
+      , default: 1
     }
     , pageSize: {
       type: 'number'
-      , description: 'query: the number of results per page (default: 20)'
+      , description: 'query: the number of results per page'
+      , default: 20
     }
     , properties: {
       type: 'array'

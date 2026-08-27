@@ -3,9 +3,9 @@
  * concat). Registers itself into the tool registry at import time.
  */
 import { registerOperation, pathParam } from '../tool-registry';
-import { executeFilesOperation, FILES_ACTIONS, executeConcat } from '../../semantic/operations/files';
-import { executeBasesOperation } from '../../semantic/operations/bases';
-import { paramStr } from '../../semantic/operations/shared';
+import { executeFilesOperation, FILES_ACTIONS, executeConcat } from '../operations/files';
+import { executeBasesOperation } from '../operations/bases';
+import { paramStr } from '../operations/shared';
 
 registerOperation({
   name: 'files'
@@ -66,7 +66,8 @@ registerOperation({
     }
     , overwrite: {
       type: 'boolean'
-      , description: 'Overwrite the destination (move, copy, concat) or the file itself (create) when it already exists (default: false). Without it, an existing destination is refused. Overwriting requires the update permission and the Allow overwrite setting. A missing grant refuses the write with OVERWRITE_DISABLED'
+      , description: 'Overwrite the destination (move, copy, concat) or the file itself (create) when it already exists. Without it, an existing destination is refused. Overwriting requires the update permission and the Allow overwrite setting. A missing grant refuses the write with OVERWRITE_DISABLED'
+      , default: false
     }
     // Split operation parameters
     , splitBy: {
@@ -76,23 +77,28 @@ registerOperation({
     }
     , delimiter: {
       type: 'string'
-      , description: 'The delimiter string for the delimiter strategy (default: "---")'
+      , description: 'The delimiter string for the delimiter strategy'
+      , default: '---'
     }
     , level: {
       type: 'number'
-      , description: 'The heading level for the heading strategy (1-6, default: 1). The split cuts at headings of exactly this level. Each output file starts with its heading line. Text before the first heading becomes its own file. Without such a heading, the whole file becomes one output'
+      , description: 'The heading level for the heading strategy (1-6). The split cuts at headings of exactly this level. Each output file starts with its heading line. Text before the first heading becomes its own file. Without such a heading, the whole file becomes one output'
+      , default: 1
     }
     , linesPerFile: {
       type: 'number'
-      , description: 'The number of lines per file for the lines strategy (default: 100)'
+      , description: 'The number of lines per file for the lines strategy'
+      , default: 100
     }
     , maxSize: {
       type: 'number'
-      , description: 'The maximum number of characters per file for the size strategy (default: 10000)'
+      , description: 'The maximum number of characters per file for the size strategy'
+      , default: 10000
     }
     , outputPattern: {
       type: 'string'
-      , description: 'The naming pattern for the output files (default: "{filename}-{index}{ext}"). Placeholders: {filename} (name without extension), {index} (1-based, zero-padded to 3 digits), {ext} (extension with its dot, empty without one).'
+      , description: 'The naming pattern for the output files. Placeholders: {filename} (name without extension), {index} (1-based, zero-padded to 3 digits), {ext} (extension with its dot, empty without one).'
+      , default: '{filename}-{index}{ext}'
     }
     , outputDirectory: {
       type: 'string'
@@ -106,11 +112,13 @@ registerOperation({
     }
     , separator: {
       type: 'string'
-      , description: 'The content separator between the joined files (default: "\\n\\n---\\n\\n")'
+      , description: 'The content separator between the joined files'
+      , default: '\n\n---\n\n'
     }
     , includeFilenames: {
       type: 'boolean'
-      , description: 'Include the source filenames as headers (default: false)'
+      , description: 'Include the source filenames as headers'
+      , default: false
     }
     , sortBy: {
       type: 'string'
@@ -120,7 +128,8 @@ registerOperation({
     , sortOrder: {
       type: 'string'
       , enum: ['asc', 'desc']
-      , description: 'The sort order (default: "asc")'
+      , description: 'The sort order'
+      , default: 'asc'
     },
   }
 });

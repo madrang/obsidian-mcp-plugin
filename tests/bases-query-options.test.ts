@@ -1,7 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { BasesAPI } from '../src/utils/bases-api';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
-import { SemanticRouter } from '../src/semantic/router';
+import { VaultRouter } from '../src/tools/router';
 
 // bases.query caller options (the merged export): structured filters,
 // sortBy/sortOrder, page/pageSize, and properties projection, all pinned
@@ -292,7 +292,7 @@ describe('bases.query router wiring — flat params and format routing', () => {
 
   it('maps sortBy/sortOrder/page/pageSize onto the options object', async () => {
     const api = new RecordingAPI();
-    await new SemanticRouter(api).route({
+    await new VaultRouter(api).route({
       operation: 'bases',
       action: 'query',
       params: {
@@ -320,7 +320,7 @@ describe('bases.query router wiring — flat params and format routing', () => {
 
   it('routes format to the serialized export path with the same options', async () => {
     const api = new RecordingAPI();
-    const response: any = await new SemanticRouter(api).route({
+    const response: any = await new VaultRouter(api).route({
       operation: 'bases',
       action: 'query',
       params: { path: 'dash.base', format: 'csv', sortBy: 'priority' },
@@ -331,7 +331,7 @@ describe('bases.query router wiring — flat params and format routing', () => {
 
   it('sends no options object when no option param is given', async () => {
     const api = new RecordingAPI();
-    await new SemanticRouter(api).route({
+    await new VaultRouter(api).route({
       operation: 'bases',
       action: 'query',
       params: { path: 'dash.base', viewName: 'main' },

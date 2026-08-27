@@ -4,9 +4,9 @@
  * edit.replace accepts, so the addresses must be exact: 1-based line and
  * column, one entry per match, in line order.
  */
-import { SemanticRouter } from '../src/semantic/router';
+import { VaultRouter } from '../src/tools/router';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
-import { createSemanticTools } from '../src/tools/semantic-tools';
+import { createTools } from '../src/tools/tool-factory';
 import { grepContent } from '../src/utils/grep-search';
 import { App } from 'obsidian';
 
@@ -36,7 +36,7 @@ describe('view.grep', () => {
   function setup(files: Record<string, string>) {
     const api = new GrepAPI();
     for (const [path, content] of Object.entries(files)) api.files.set(path, content);
-    const router = new SemanticRouter(api, makeApp(Object.keys(files)));
+    const router = new VaultRouter(api, makeApp(Object.keys(files)));
     return { api, router };
   }
 
@@ -134,7 +134,7 @@ describe('view.grep', () => {
   });
 
   test('the tool schema advertises grep with pattern required', () => {
-    const view = createSemanticTools().find(t => t.name === 'view');
+    const view = createTools().find(t => t.name === 'view');
     const enumActions = (view!.inputSchema.properties.action as { enum: string[] }).enum;
     expect(enumActions).toContain('grep');
     const conditional = (view!.inputSchema.allOf ?? []).find(

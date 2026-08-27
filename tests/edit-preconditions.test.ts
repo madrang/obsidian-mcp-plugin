@@ -7,7 +7,7 @@
  * refusal means nothing if the write already landed (the same pattern as
  * the #210 dispatch-guard tests).
  */
-import { SemanticRouter } from '../src/semantic/router';
+import { VaultRouter } from '../src/tools/router';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 import { contentHash } from '../src/utils/content-hash';
 import { FileStatResponse } from '../src/types/obsidian';
@@ -67,11 +67,11 @@ class PreconditionAPI extends ObsidianAPI {
 
 describe('edit write preconditions', () => {
   let api: PreconditionAPI;
-  let router: SemanticRouter;
+  let router: VaultRouter;
 
   beforeEach(() => {
     api = new PreconditionAPI();
-    router = new SemanticRouter(api);
+    router = new VaultRouter(api);
   });
 
   test('matching ifHash lets the write through', async () => {

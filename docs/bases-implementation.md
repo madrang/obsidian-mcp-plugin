@@ -114,10 +114,10 @@ interface BaseNote {
 }
 ```
 
-### 3. Semantic Router Integration
+### 3. Router Integration
 
 ```typescript
-// Add to SemanticRouter.executeOperation()
+// Add to VaultRouter.executeOperation()
 case 'bases':
   return this.executeBasesOperation(action, params);
 
@@ -266,7 +266,7 @@ private async executeBasesOperation(action: string, params: any): Promise<any> {
 ## Testing Strategy
 
 1. **Unit Tests**: Test each ObsidianAPI method
-2. **Integration Tests**: Test semantic router integration
+2. **Integration Tests**: Test router integration
 3. **Performance Tests**: Benchmark large base queries
 4. **Compatibility Tests**: Ensure works with different Obsidian versions
 
@@ -283,7 +283,7 @@ private async executeBasesOperation(action: string, params: any): Promise<any> {
 2. ✅ Analyze current codebase structure
 3. ✅ Design MCP operations for Bases
 4. ⏳ Implement ObsidianAPI extensions
-5. ⏳ Add semantic router handlers
+5. ⏳ Add operation handlers
 6. ⏳ Create comprehensive tests
 7. ⏳ Update documentation
 8. ⏳ Release as beta feature

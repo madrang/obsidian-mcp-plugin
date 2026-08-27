@@ -1,6 +1,6 @@
 /**
  * Shared reference data for Obsidian Bases
- * This provides semantic hints and documentation for error handling
+ * This provides recovery hints and documentation for error handling
  */
 
 export interface FunctionReference {
@@ -172,7 +172,7 @@ export class BasesReference {
   }
 
   /**
-   * Generate semantic error hint based on error message
+   * Generate an error hint based on the error message
    */
   static getErrorHint(error: Error | string, context?: { expression?: string; property?: string }): {
     error: string;

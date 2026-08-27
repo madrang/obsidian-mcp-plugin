@@ -3,7 +3,7 @@
  * into the tool registry at import time.
  */
 import { registerOperation } from '../tool-registry';
-import { executeGraphOperation } from '../../semantic/operations/graph';
+import { executeGraphOperation } from '../operations/graph';
 
 registerOperation({
   name: 'graph'
@@ -57,27 +57,33 @@ registerOperation({
     }
     , maxDepth: {
       type: 'number'
-      , description: 'The maximum depth for traversal (traverse. Default: 3)'
+      , description: 'The maximum depth for traversal (traverse)'
+      , default: 3
     }
     , maxNodes: {
       type: 'number'
-      , description: 'The maximum number of nodes to return (traverse. Default: 100)'
+      , description: 'The maximum number of nodes to return (traverse)'
+      , default: 100
     }
     , includeUnresolved: {
       type: 'boolean'
-      , description: 'Include unresolved links in the results (forwardlinks. Default: false)'
+      , description: 'Include unresolved links in the results (forwardlinks)'
+      , default: false
     }
     , followBacklinks: {
       type: 'boolean'
-      , description: 'Follow backlinks during traversal (traverse. Default: true)'
+      , description: 'Follow backlinks during traversal (traverse)'
+      , default: true
     }
     , followForwardLinks: {
       type: 'boolean'
-      , description: 'Follow forward links during traversal (traverse. Default: true)'
+      , description: 'Follow forward links during traversal (traverse)'
+      , default: true
     }
     , followTags: {
       type: 'boolean'
-      , description: 'Follow the tag connections during traversal (traverse. Default: false)'
+      , description: 'Follow the tag connections during traversal (traverse)'
+      , default: false
     }
     , fileFilter: {
       type: 'string'
@@ -108,11 +114,13 @@ registerOperation({
     }
     , maxSnippetsPerNode: {
       type: 'number'
-      , description: 'The maximum number of snippets to extract per node (search-traverse, advanced-traverse, tag-traverse. Default: 2)'
+      , description: 'The maximum number of snippets to extract per node (search-traverse, advanced-traverse, tag-traverse)'
+      , default: 2
     }
     , scoreThreshold: {
       type: 'number'
-      , description: 'The minimum score threshold for including nodes (0-1, search-traverse, advanced-traverse, tag-traverse. Default: 0.5)'
+      , description: 'The minimum score threshold for including nodes (0-1, search-traverse, advanced-traverse, tag-traverse)'
+      , default: 0.5
     }
     // Unwired (verified 2026-08-23): strategy is only echoed into a response
     // label and beamWidth feeds options that ignore it. See the vault TODO
@@ -128,7 +136,8 @@ registerOperation({
     }
     , includeOrphans: {
       type: 'boolean'
-      , description: 'Include orphaned notes in the traversal (search-traverse, advanced-traverse, tag-traverse. Default: false)'
+      , description: 'Include orphaned notes in the traversal (search-traverse, advanced-traverse, tag-traverse)'
+      , default: false
     }
     , filePattern: {
       type: 'string'
@@ -137,7 +146,8 @@ registerOperation({
     // Tag-based graph parameters
     , tagWeight: {
       type: 'number'
-      , description: 'The weight factor for tag connections (tag-traverse. 0-1, default: 0.8)'
+      , description: 'The weight factor for tag connections (tag-traverse. 0-1)'
+      , default: 0.8
     }
   }
 });

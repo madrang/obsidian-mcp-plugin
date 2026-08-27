@@ -5,7 +5,7 @@
  * before the pre-flight, outputs written ahead of the collision stayed on
  * disk.
  */
-import { SemanticRouter } from '../src/semantic/router';
+import { VaultRouter } from '../src/tools/router';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 import { App } from 'obsidian';
 
@@ -40,11 +40,11 @@ class MockObsidianAPI extends ObsidianAPI {
 function setup(existing: string[] = [SOURCE]) {
   const app = { vault: {} } as unknown as App;
   const api = new MockObsidianAPI(new Set(existing), app);
-  const router = new SemanticRouter(api, app);
+  const router = new VaultRouter(api, app);
   return { api, router };
 }
 
-async function split(router: SemanticRouter, params: Record<string, unknown>) {
+async function split(router: VaultRouter, params: Record<string, unknown>) {
   return router.route({ operation: 'files', action: 'split', params });
 }
 

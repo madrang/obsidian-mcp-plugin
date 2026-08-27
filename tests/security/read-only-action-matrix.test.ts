@@ -20,7 +20,7 @@
  * no writes and looks "correctly blocked" while testing nothing at all.
  */
 import { SecureObsidianAPI, VaultSecurityManager } from '../../src/security';
-import { createSemanticTools, getActionsForOperation, ALL_OPERATIONS } from '../../src/tools/semantic-tools';
+import { createTools, getActionsForOperation, ALL_OPERATIONS } from '../../src/tools/tool-factory';
 import { App, TFile } from 'obsidian';
 
 jest.mock('obsidian');
@@ -205,7 +205,7 @@ async function invoke(
     app, undefined, plugin as never,
     mode === 'permissive' ? PERMISSIVE : VaultSecurityManager.presets.readOnly(),
   );
-  const tool = createSemanticTools(api)!.find(t => t.name === operation);
+  const tool = createTools(api)!.find(t => t.name === operation);
   if (!tool) throw new Error(`tool not found: ${operation}`);
 
   SETUP[`${operation}.${action}`]?.();
@@ -228,7 +228,7 @@ describe('read-only enforcement — exhaustive action matrix', () => {
 
   /**
    * Operations whose tool exists in this environment. `dataview` is gated behind
-   * the Dataview plugin being installed, so createSemanticTools omits it here and
+   * the Dataview plugin being installed, so createTools omits it here and
    * its actions cannot be invoked. They are still CLASSIFIED above — the
    * fail-closed coverage check below covers the whole shipped surface — but the
    * behavioural assertions can only run against tools that exist.
@@ -238,7 +238,7 @@ describe('read-only enforcement — exhaustive action matrix', () => {
     const probeApi = new SecureObsidianAPI(
       makeApp(probeWrites), undefined, { settings: {} } as never, PERMISSIVE,
     );
-    const names = new Set((createSemanticTools(probeApi) ?? []).map(t => t.name));
+    const names = new Set((createTools(probeApi) ?? []).map(t => t.name));
     return (op: string) => names.has(op);
   })();
 
@@ -318,7 +318,7 @@ describe('read-only enforcement — exhaustive action matrix', () => {
         makeApp(writes), undefined, { settings: { readOnlyMode: true } } as never,
         VaultSecurityManager.presets.readOnly(),
       );
-      const tool = createSemanticTools(api)!.find(t => t.name === op)!;
+      const tool = createTools(api)!.find(t => t.name === op)!;
 
       const res = await tool.handler(api, { action, path: 'note.md' }).catch(e => ({
         content: [{ type: 'text' as const, text: String(e) }],
@@ -342,7 +342,7 @@ describe('read-only enforcement — exhaustive action matrix', () => {
         app, undefined, { settings: { readOnlyMode: true } } as never,
         VaultSecurityManager.presets.readOnly(),
       );
-      const tool = createSemanticTools(api)!.find(t => t.name === op)!;
+      const tool = createTools(api)!.find(t => t.name === op)!;
 
       // Params are best-effort, so other errors are tolerated; the point is that
       // read-only must never be the reason a read fails.

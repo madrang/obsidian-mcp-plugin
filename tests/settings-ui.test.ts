@@ -15,7 +15,7 @@
 import { App } from 'obsidian';
 import { buildSettingsUI, SettingsUIHost } from '../src/settings/ui';
 import { DEFAULT_SETTINGS, MCPPluginSettings } from '../src/settings/plugin-settings';
-import { ALL_OPERATIONS, getActionsForOperation } from '../src/tools/semantic-tools';
+import { ALL_OPERATIONS, getActionsForOperation } from '../src/tools/tool-factory';
 import type { SettingDefinitionItem } from 'obsidian';
 
 jest.mock('obsidian');

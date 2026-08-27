@@ -3,13 +3,13 @@
  *
  * Each module in ./definitions declares one tool of the MCP surface (its
  * description, actions, annotations, and parameter schema) and registers it
- * here at import time. The registry lives apart from semantic-tools.ts so a
+ * here at import time. The registry lives apart from tool-factory.ts so a
  * definition module never imports the factory it registers into. That cycle
  * would run registerOperation before the registry exists.
  */
 
-import type { RouterContext } from '../semantic/operations/router-context';
-import type { Params } from '../semantic/operations/shared';
+import type { RouterContext } from './operations/router-context';
+import type { Params } from './operations/shared';
 
 /** MCP ToolAnnotations (spec 2026-07-28): behavior hints, not guarantees */
 export interface ToolAnnotations {
@@ -20,7 +20,7 @@ export interface ToolAnnotations {
   openWorldHint?: boolean;
 }
 
-/** The execution half of a tool: what SemanticRouter.executeOperation calls. */
+/** The execution half of a tool: what VaultRouter.executeOperation calls. */
 export type OperationHandler = (
   ctx: RouterContext,
   action: string,

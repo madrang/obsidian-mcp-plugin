@@ -12,7 +12,7 @@ domains:
   tools:
     range: [200, 299]
     name: Tools & API
-    description: MCP tool design, semantic operations, graph operations, formatters
+    description: MCP tool design, operation handlers, graph operations, formatters
     folder: tools
 
   delivery:

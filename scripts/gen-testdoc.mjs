@@ -6,28 +6,66 @@
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
-const CATEGORY_OF = suite => {
-  if (suite === 'tests/test-contract.test.ts') return 'Meta';
-  if (suite.startsWith('tests/security/') || suite === 'tests/read-only-mode.test.ts') return 'Security';
-  if (suite.startsWith('tests/formatters/') || suite === 'tests/combine-format.test.ts' || suite === 'tests/web-fetch-large-response.test.ts') return 'Formatters';
-  if (['tests/mcp-server.test.ts', 'tests/mcp-session-reinit.test.ts', 'tests/sse-socket-timeout.test.ts',
-    'tests/session-lifetime.test.ts', 'tests/bridge-bootstrap.test.ts', 'tests/bridge-self-heal.test.ts',
-    'tests/network-exposure-integration.test.ts', 'tests/network-classifier.test.ts'].includes(suite)) return 'Server and transport';
-  if (['tests/description-parity.test.ts', 'tests/tool-action-required-params.test.ts',
-    'tests/dispatch-param-guards.test.ts', 'tests/settings-ui.test.ts'].includes(suite)) return 'Surface and dispatch';
-  if (['tests/edit-preconditions.test.ts', 'tests/edit-multi.test.ts', 'tests/edit-replace-count.test.ts',
-    'tests/patch-operations.test.ts', 'tests/file-lock-edit-serialization.test.ts'].includes(suite)) return 'Edit tool';
-  if (['tests/view-grep.test.ts', 'tests/view-lines.test.ts', 'tests/view-read-fidelity.test.ts',
-    'tests/view-read-stats.test.ts', 'tests/view-folder-glob.test.ts', 'tests/fragments-path-scope.test.ts'].includes(suite)) return 'View and read';
-  if (['tests/search-diacritics.test.ts', 'tests/search-tag-operator.test.ts', 'tests/fuzzy-match.test.ts'].includes(suite)) return 'Search';
-  if (['tests/files-concat-router.test.ts', 'tests/files-move-extension.test.ts', 'tests/recursive-copy.test.ts',
-    'tests/list-files-recursive.test.ts', 'tests/folder-suggest.test.ts'].includes(suite)) return 'Files operations';
-  if (suite.startsWith('tests/graph-')) return 'Graph';
-  if (suite.startsWith('tests/bases-')) return 'Bases';
-  if (suite === 'tests/dataview-integration.test.ts') return 'Dataview';
-  if (['src/utils/__tests__/response-limiter.test.ts', 'tests/validation/input-validator.test.ts'].includes(suite)) return 'Core and validation';
-  return 'Uncategorized';
+// Suite-to-category rules. An exact name wins over a prefix rule; prefixes
+// cover whole folders (tests/security/, tests/formatters/).
+const SUITE_CATEGORY = {
+  'tests/test-contract.test.ts': 'Meta'
+  , 'tests/read-only-mode.test.ts': 'Security'
+  , 'tests/mcp-server.test.ts': 'Server and transport'
+  , 'tests/mcp-session-reinit.test.ts': 'Server and transport'
+  , 'tests/sse-socket-timeout.test.ts': 'Server and transport'
+  , 'tests/session-lifetime.test.ts': 'Server and transport'
+  , 'tests/bridge-bootstrap.test.ts': 'Server and transport'
+  , 'tests/bridge-self-heal.test.ts': 'Server and transport'
+  , 'tests/network-exposure-integration.test.ts': 'Server and transport'
+  , 'tests/network-classifier.test.ts': 'Server and transport'
+  , 'tests/description-parity.test.ts': 'Surface and dispatch'
+  , 'tests/tool-action-required-params.test.ts': 'Surface and dispatch'
+  , 'tests/dispatch-param-guards.test.ts': 'Surface and dispatch'
+  , 'tests/settings-ui.test.ts': 'Surface and dispatch'
+  , 'tests/edit-preconditions.test.ts': 'Edit tool'
+  , 'tests/edit-multi.test.ts': 'Edit tool'
+  , 'tests/edit-replace-count.test.ts': 'Edit tool'
+  , 'tests/edit-replace-behavior.test.ts': 'Edit tool'
+  , 'tests/patch-operations.test.ts': 'Edit tool'
+  , 'tests/patch-frontmatter-values.test.ts': 'Edit tool'
+  , 'tests/buffer-flag.test.ts': 'Edit tool'
+  , 'tests/quote-normalize.test.ts': 'Edit tool'
+  , 'tests/file-lock-edit-serialization.test.ts': 'Edit tool'
+  , 'tests/view-grep.test.ts': 'View and read'
+  , 'tests/view-lines.test.ts': 'View and read'
+  , 'tests/view-window.test.ts': 'View and read'
+  , 'tests/view-read-fidelity.test.ts': 'View and read'
+  , 'tests/view-read-stats.test.ts': 'View and read'
+  , 'tests/view-folder-glob.test.ts': 'View and read'
+  , 'tests/fragments-path-scope.test.ts': 'View and read'
+  , 'tests/fuzzy-match.test.ts': 'Search'
+  , 'tests/files-concat-router.test.ts': 'Files operations'
+  , 'tests/files-move-extension.test.ts': 'Files operations'
+  , 'tests/files-split.test.ts': 'Files operations'
+  , 'tests/files-split-preflight.test.ts': 'Files operations'
+  , 'tests/recursive-copy.test.ts': 'Files operations'
+  , 'tests/list-files-recursive.test.ts': 'Files operations'
+  , 'tests/folder-suggest.test.ts': 'Files operations'
+  , 'tests/dataview-integration.test.ts': 'Dataview'
+  , 'src/utils/__tests__/response-limiter.test.ts': 'Core and validation'
+  , 'tests/validation/input-validator.test.ts': 'Core and validation'
+  , 'tests/combine-format.test.ts': 'Formatters'
+  , 'tests/web-fetch-large-response.test.ts': 'Formatters'
 };
+
+const SUITE_CATEGORY_PREFIXES = [
+  ['tests/security/', 'Security']
+  , ['tests/formatters/', 'Formatters']
+  , ['tests/search-', 'Search']
+  , ['tests/graph-', 'Graph']
+  , ['tests/bases-', 'Bases']
+];
+
+const CATEGORY_OF = suite =>
+  SUITE_CATEGORY[suite] ??
+  SUITE_CATEGORY_PREFIXES.find(([prefix]) => suite.startsWith(prefix))?.[1] ??
+  'Uncategorized';
 
 const ORDER = ['Security', 'Server and transport', 'Surface and dispatch', 'Edit tool', 'View and read',
   'Search', 'Files operations', 'Graph', 'Bases', 'Dataview', 'Formatters', 'Core and validation', 'Meta'];
@@ -124,7 +162,8 @@ process.stdin.on('end', () => {
   index.push('---');
   index.push('# Tests index');
   index.push('');
-  index.push(`Generated from \`npx jest --verbose\` on 2026-08-23. ${suites.length} suites, ${grandTotal} tests.`);
+  const generatedOn = new Date().toISOString().slice(0, 10);
+  index.push(`Generated from \`npx jest --verbose\` on ${generatedOn}. ${suites.length} suites, ${grandTotal} tests.`);
   index.push('Regenerate: \`npx jest --verbose 2>&1 | node scripts/gen-testdoc.mjs testdoc-out\`, then refresh the notes in this folder through the Obsidian MCP tools.');
   index.push('Before writing a new test, check the category note below. The purpose of this index is to prevent duplicate coverage.');
   index.push('');

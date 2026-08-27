@@ -14,7 +14,7 @@
  * assert the call threw AND that no mutation was recorded. The guard must
  * run before any sink, not after.
  */
-import { SemanticRouter } from '../src/semantic/router';
+import { VaultRouter } from '../src/tools/router';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 import { App } from 'obsidian';
 
@@ -68,11 +68,11 @@ class RecordingAPI extends ObsidianAPI {
 
 describe('dispatch-level param guards (#210)', () => {
   let api: RecordingAPI;
-  let router: SemanticRouter;
+  let router: VaultRouter;
 
   beforeEach(() => {
     api = new RecordingAPI();
-    router = new SemanticRouter(api);
+    router = new VaultRouter(api);
   });
 
   // Whole-file replacement is create with overwrite=true: the write goes

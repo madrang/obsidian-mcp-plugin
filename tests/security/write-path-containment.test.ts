@@ -18,7 +18,7 @@
  * message means nothing if the write already landed.
  */
 import { SecureObsidianAPI, VaultSecurityManager, SecurityError } from '../../src/security';
-import { SemanticRouter } from '../../src/semantic/router';
+import { VaultRouter } from '../../src/tools/router';
 import { App, TFile } from 'obsidian';
 
 jest.mock('obsidian');
@@ -196,7 +196,7 @@ describe('write-path containment', () => {
     function router(existing: string[]) {
       const app = makeApp(existing, writes);
       const api = new SecureObsidianAPI(app, undefined, { settings: {} } as never, PERMISSIVE);
-      return new SemanticRouter(api, app);
+      return new VaultRouter(api, app);
     }
 
     it('files.move cannot relocate a file outside the vault', async () => {
@@ -237,7 +237,7 @@ describe('write-path containment', () => {
         app, undefined, { settings: {} } as never,
         VaultSecurityManager.presets.readOnly(),
       );
-      const r = new SemanticRouter(api, app);
+      const r = new VaultRouter(api, app);
 
       const res = await r.route({
         operation: 'files',

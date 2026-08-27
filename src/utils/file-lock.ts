@@ -1,7 +1,7 @@
 /**
  * Per-file write serialization (issue #139).
  *
- * A new `SemanticRouter` is constructed per request, so a per-instance lock
+ * A new `VaultRouter` is constructed per request, so a per-instance lock
  * cannot serialize concurrent requests. This is a process-wide singleton
  * (same pattern as `ContentBufferManager`) that serializes operations
  * targeting the *same* file path while leaving operations on *different*

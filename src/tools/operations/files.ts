@@ -13,22 +13,25 @@ import { readFileWithFragments } from '../../utils/file-reader';
 import { ValidationException } from '../../validation/input-validator';
 import { SecurityError } from '../../security';
 import { RouterContext } from './router-context';
-import { Params, paramStr, paramNum, paramBool, requireParamStr } from './shared';
+import { Params, paramStr, paramNum, paramBool, requireParamStr, readPageArgs } from './shared';
 import { FileLockManager } from '../../utils/file-lock';
+import { contentPage, jsonSize, CONTENT_PAGE_DEFAULT_SIZE } from '../../utils/content-page';
 
-type FragmentStrategy = 'auto' | 'adaptive' | 'proximity' | 'semantic';
+/** Fetch cap for the folder universe before the content-budget window cuts it. */
+const FOLDER_FETCH_ALL = 1000000;
+/** Fetch cap for search results before the content-budget window cuts them. */
+const SEARCH_FETCH_CAP = 5000;
+
+type FragmentStrategy = 'auto' | 'adaptive' | 'proximity' | 'structure';
 
 /**
  * Resolve the caller-facing fragment strategy onto the internal one.
  *
- * 'structure' is the honest name for what the index does — it cuts on the document's own
- * headings and paragraphs. It is exposed instead of 'semantic', which reads as
- * embedding/vector similarity to anything trained on the last decade of retrieval
- * literature and led callers to expect matching this index does not do. 'semantic' stays
- * accepted so existing callers keep working.
+ * 'structure' cuts on the document's own headings and paragraphs. It never does
+ * embedding or vector similarity, which the index does not implement.
  */
 function resolveFragmentStrategy(strategy: string | undefined): FragmentStrategy {
-  if (strategy === 'structure' || strategy === 'semantic') return 'semantic';
+  if (strategy === 'structure') return 'structure';
   if (strategy === 'adaptive' || strategy === 'proximity') return strategy;
   return 'auto';
 }
@@ -70,14 +73,23 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
         // already recursive (getAllLoadedFiles), so we leave
         // recursive=false there. The listFilesPaginated call routes
         // through the same path regardless.
-        if (pattern !== undefined || params.page || params.pageSize) {
-          // MCP clients send these as JSON numbers. paramStr returns undefined
-          // for non-strings, so parseInt(paramStr(...) ?? '1') silently
-          // collapsed to defaults and made pagination a no-op.
-          const page = paramNum(params, 'page') ?? 1;
-          const pageSize = paramNum(params, 'pageSize') ?? 20;
+        if (pattern !== undefined || params.page || params.pageSize || params.limit) {
+          const { page, pageSize, limit } = readPageArgs(params, 'view.folder');
           const recursive = directory !== undefined;
-          return await ctx.api.listFilesPaginated(directory, page, pageSize, recursive, pattern);
+          // Fetch the full filtered universe, then window it by content
+          // budget. The non-paginated path already returns the whole vault,
+          // so this changes nothing about worst-case work.
+          const universe = await ctx.api.listFilesPaginated(directory, 1, FOLDER_FETCH_ALL, recursive, pattern);
+          const windowed = contentPage('view.folder', universe.files, { page, pageSize, limit }, jsonSize);
+          return {
+            ...universe
+            , files: windowed.items
+            , page: windowed.page
+            , pageSize: windowed.pageSize
+            , ...(limit !== undefined ? { limit } : {})
+            , totalPages: windowed.totalPages
+            , hasMore: windowed.hasMore
+          };
         }
 
         // Fallback to simple list for backwards compatibility
@@ -88,13 +100,15 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
         const strategy = paramStr(params, 'strategy') !== undefined
           ? resolveFragmentStrategy(paramStr(params, 'strategy'))
           : undefined;
+        const { page, pageSize, limit } = readPageArgs(params, 'view.read');
         return await readFileWithFragments(ctx.api, ctx.fragmentRetriever, {
           path
           , returnFullFile: paramBool(params, 'returnFullFile')
-          , page: paramNum(params, 'page')
+          , page
+          , pageSize
+          , limit
           , query: paramStr(params, 'query')
           , strategy
-          , maxFragments: paramNum(params, 'maxFragments')
         });
       }
       case 'fragments': {
@@ -146,7 +160,7 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
           } else {
             // Only index files that match the query to avoid indexing entire vault
             // This is a lazy indexing approach - index on demand
-            const searchResults = await ctx.api.searchPaginated(fragmentQuery, 1, 20, 'combined', false);
+            const searchResults = await ctx.api.searchPaginated(fragmentQuery, 1, 20, 'combined');
 
             if (searchResults && searchResults.results && searchResults.results.length > 0) {
               for (const result of searchResults.results.slice(0, 20)) { // Limit to first 20 files
@@ -155,12 +169,34 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
             }
           }
 
+          const { page: fragmentPage, pageSize: fragmentBudget, limit: fragmentLimit } = readPageArgs(params, 'view.fragments');
+
+          // The retriever caps what it fetches. With a limit the universe is
+          // the limit itself. Without one, over-fetch for the requested page
+          // and let the budget window cut. A full fetch means more pages may
+          // exist.
+          const fetchCap = fragmentLimit ?? Math.max((fragmentPage ?? 1) * 50, 50);
+
           // Search for fragments in indexed documents
           const fragmentResponse = ctx.fragmentRetriever.retrieveFragments(fragmentQuery, {
             strategy: resolveFragmentStrategy(paramStr(params, 'strategy'))
-            , maxFragments: paramNum(params, 'maxFragments') || 5
+            , maxFragments: fetchCap
             , scopePath: fragmentPath
           });
+
+          if (fragmentResponse && Array.isArray(fragmentResponse.result)) {
+            const windowed = contentPage('view.fragments', fragmentResponse.result, { page: fragmentPage, pageSize: fragmentBudget, limit: fragmentLimit }, jsonSize);
+            return {
+              ...fragmentResponse
+              , result: windowed.items
+              , page: windowed.page
+              , pageSize: windowed.pageSize
+              , ...(fragmentLimit !== undefined ? { limit: fragmentLimit } : {})
+              , totalFragments: windowed.totalItems
+              , totalPages: windowed.totalPages
+              , hasMore: windowed.hasMore || (fragmentLimit === undefined && fragmentResponse.result.length === fetchCap)
+            };
+          }
 
           return fragmentResponse;
         } catch (error) {
@@ -225,9 +261,8 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
 
         // Use advanced search with ranking and snippets
         try {
-          // MCP clients send these as JSON numbers — use paramNum, not paramStr.
-          const page = paramNum(params, 'page') ?? 1;
-          const pageSize = paramNum(params, 'pageSize') ?? 10;
+          const { page, pageSize, limit } = readPageArgs(params, 'view.search');
+          const pageBudget = pageSize ?? CONTENT_PAGE_DEFAULT_SIZE;
           // One strategy parameter for the whole view tool. Only the search
           // strategies apply here. Anything else (a fragment strategy, auto,
           // or nothing) falls back to combined.
@@ -236,40 +271,56 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
             requestedStrategy === 'filename' || requestedStrategy === 'content' || requestedStrategy === 'combined'
               ? requestedStrategy
               : 'combined';
-          const includeContent = params.includeContent !== false; // Default to true
+
+          // Snippet sizing: with a limit, each item gets an even share of
+          // the page budget, capped at the proven 300-char excerpt. Below
+          // 100 chars per item the snippet is noise: return the matches with
+          // metadata only instead.
+          const snippetSpan = limit !== undefined ? Math.floor(pageBudget * 0.75 / limit) : 300;
 
           // Build search options from new parameters
           const searchOptions: {
             ranked?: boolean;
             includeSnippets?: boolean;
             snippetLength?: number;
+            maxResults?: number;
           } = {};
 
           if (params.ranked !== undefined) {
             searchOptions.ranked = Boolean(params.ranked);
           }
-          if (params.includeSnippets !== undefined) {
-            searchOptions.includeSnippets = Boolean(params.includeSnippets);
-          }
-          if (params.snippetLength !== undefined) {
-            searchOptions.snippetLength = paramNum(params, 'snippetLength') ?? 0;
+          if (snippetSpan >= 100) {
+            searchOptions.snippetLength = snippetSpan;
+          } else {
+            searchOptions.includeSnippets = false;
           }
 
-          const searchResults = await ctx.api.searchPaginated(
+          // Fetch enough items for the requested page: a hit is never smaller
+          // than ~40 serialized chars, so the page always ends inside the
+          // fetch. With a limit the universe is the limit itself.
+          const fetchCount = Math.min(limit ?? Math.ceil((page ?? 1) * pageBudget / 40), SEARCH_FETCH_CAP);
+          searchOptions.maxResults = fetchCount;
+
+          const found = await ctx.api.searchPaginated(
             queryStr,
-            page,
-            pageSize,
+            1,
+            fetchCount,
             strategy,
-            includeContent,
             searchOptions
           );
 
-          // Check if results are valid
-          if (!searchResults || typeof searchResults !== 'object') {
-            throw new Error('Invalid search response from API');
-          }
-
-          return searchResults;
+          const windowed = contentPage('view.search', found.results, { page, pageSize, limit }, jsonSize);
+          return {
+            ...found
+            , results: windowed.items
+            , page: windowed.page
+            , pageSize: windowed.pageSize
+            , ...(limit !== undefined ? { limit } : {})
+            , totalPages: windowed.totalPages
+            , pageStart: windowed.pageStart
+            , pageEnd: windowed.pageEnd
+            , hasMore: windowed.hasMore || (limit === undefined && found.results.length === fetchCount)
+          };
         } catch (searchError) {
           Debug.error('Search failed:', searchError);
 
@@ -279,8 +330,7 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
               queryStr,
               1,
               10,
-              'filename', // Use simple filename search as fallback
-              false // Do not include content, to avoid errors
+              'filename' // Use simple filename search as fallback
             );
 
             if (fallbackResults && fallbackResults.results && fallbackResults.results.length > 0) {

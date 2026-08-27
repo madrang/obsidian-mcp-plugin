@@ -1,5 +1,5 @@
 /**
- * Types for the semantic workflow system
+ * Types for the workflow hinting system
  * 
  * IMPORTANT: All workflow hints and suggestions are OPTIONAL guidance.
  * Agents and users are free to:
@@ -8,11 +8,11 @@
  * - Choose their own path through the tools
  * - Follow user instructions that override hints
  * 
- * The semantic hints are designed to suggest efficient patterns and
+ * The hints are designed to suggest efficient patterns and
  * prevent common mistakes, but they are NOT prescriptive or mandatory.
  */
 
-export interface SemanticResponse<T = unknown> {
+export interface OperationResponse<T = unknown> {
   // The actual operation result
   result: T;
   
@@ -94,7 +94,7 @@ export interface EfficiencyRule {
   hint: string;
 }
 
-export interface SemanticContext {
+export interface OperationContext {
   operation?: string;
   action?: string;
   last_file?: string;
@@ -103,7 +103,7 @@ export interface SemanticContext {
   file_history?: string[];
 }
 
-export interface SemanticRequest {
+export interface OperationRequest {
   operation: string;
   action: string;
   params: Record<string, unknown>;

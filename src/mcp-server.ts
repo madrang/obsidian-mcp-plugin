@@ -219,7 +219,7 @@ export class MCPHttpServer {
 
     // No 'process' dispatch handler is registered here, deliberately.
     //
-    // There was one, and it resolved tools from the module-level `semanticTools`
+    // There was one, and it resolved tools from the old module-level tool list
     // const — which is built with NO visibility argument, so neither the enum
     // filter nor the ACTION_DISABLED check existed on that path: a complete
     // bypass of tool visibility. It was dead code (nothing calls the pool's

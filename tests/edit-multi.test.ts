@@ -6,10 +6,10 @@
  * Assertions are on recorded writes: a refused batch must leave zero
  * mutations, the #210 discipline.
  */
-import { SemanticRouter } from '../src/semantic/router';
+import { VaultRouter } from '../src/tools/router';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 import { contentHash } from '../src/utils/content-hash';
-import { createSemanticTools } from '../src/tools/semantic-tools';
+import { createTools } from '../src/tools/tool-factory';
 import { App } from 'obsidian';
 
 class MultiAPI extends ObsidianAPI {
@@ -54,11 +54,11 @@ class MultiAPI extends ObsidianAPI {
 
 describe('edit.multi', () => {
   let api: MultiAPI;
-  let router: SemanticRouter;
+  let router: VaultRouter;
 
   beforeEach(() => {
     api = new MultiAPI();
-    router = new SemanticRouter(api);
+    router = new VaultRouter(api);
   });
 
   const pairs = (...list: [string, string][]) =>
@@ -179,7 +179,7 @@ describe('edit.multi', () => {
   });
 
   test('the tool schema advertises multi with path and edits required', () => {
-    const edit = createSemanticTools().find(t => t.name === 'edit');
+    const edit = createTools().find(t => t.name === 'edit');
     const enumActions = (edit!.inputSchema.properties.action as { enum: string[] }).enum;
     expect(enumActions).toContain('multi');
     const conditional = (edit!.inputSchema.allOf ?? []).find(

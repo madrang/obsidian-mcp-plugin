@@ -9,10 +9,10 @@
  * look identical from the client side. The server-side function is the only
  * place the question has a clean answer.
  */
-import { createSemanticTools } from '../../src/tools/semantic-tools';
+import { createTools } from '../../src/tools/tool-factory';
 
 const systemTool = (webFetchEnabled?: boolean) =>
-  createSemanticTools(undefined, undefined, webFetchEnabled).find(t => t.name === 'system');
+  createTools(undefined, undefined, webFetchEnabled).find(t => t.name === 'system');
 
 const actionsOf = (tool: ReturnType<typeof systemTool>): string[] =>
   (tool?.inputSchema.properties.action as { enum: string[] }).enum;
@@ -49,8 +49,8 @@ describe('fetch_web enumeration', () => {
   });
 
   it('does not disturb other operations', () => {
-    const disabled = createSemanticTools(undefined, undefined, false);
-    const enabled = createSemanticTools(undefined, undefined, true);
+    const disabled = createTools(undefined, undefined, false);
+    const enabled = createTools(undefined, undefined, true);
     expect(disabled.map(t => t.name)).toEqual(enabled.map(t => t.name));
     const vaultActions = (tools: typeof disabled) =>
       (tools.find(t => t.name === 'files')?.inputSchema.properties.action as { enum: string[] }).enum;

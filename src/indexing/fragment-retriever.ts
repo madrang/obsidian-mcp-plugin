@@ -1,17 +1,17 @@
 import { AdaptiveTextIndex } from './adaptive-index';
 import { ProximityFragmentIndex } from './proximity-index';
-import { SemanticChunkIndex } from './semantic-chunk-index';
+import { ChunkIndex } from './chunk-index';
 import { Fragment, RetrievalOptions } from '../types/fragment';
-import { SemanticResponse } from '../types/semantic';
+import { OperationResponse } from '../types/operations';
 
 /**
  * Unified fragment retrieval system that automatically selects the best strategy
- * Integrates with the MCP semantic flow and hinting system
+ * Integrates with the MCP operation flow and hinting system
  */
 export class UniversalFragmentRetriever {
   private adaptiveIndex = new AdaptiveTextIndex();
   private proximityIndex = new ProximityFragmentIndex();
-  private semanticIndex = new SemanticChunkIndex();
+  private chunkIndex = new ChunkIndex();
   private indexedDocs = new Set<string>();
   
   /**
@@ -21,17 +21,17 @@ export class UniversalFragmentRetriever {
     // Index in all three strategies for flexibility
     this.adaptiveIndex.indexDocument(docId, filePath, content, metadata);
     this.proximityIndex.indexDocument(docId, filePath, content);
-    this.semanticIndex.indexDocument(docId, filePath, content);
+    this.chunkIndex.indexDocument(docId, filePath, content);
     this.indexedDocs.add(docId);
   }
   
   /**
-   * Retrieve fragments based on query with semantic hints
+   * Retrieve fragments based on query, with workflow hints
    */
   retrieveFragments(
     query: string,
     options: RetrievalOptions = {}
-  ): SemanticResponse<Fragment[]> {
+  ): OperationResponse<Fragment[]> {
     const { strategy = 'auto', maxFragments = 5, scopePath } = options;
 
     let fragments: Fragment[] = [];
@@ -56,8 +56,8 @@ export class UniversalFragmentRetriever {
         fragments = this.proximityIndex.searchWithProximity(query);
         break;
 
-      case 'semantic':
-        fragments = this.semanticIndex.searchWithContext(query, { maxFragments: candidateCount });
+      case 'structure':
+        fragments = this.chunkIndex.searchWithContext(query, { maxFragments: candidateCount });
         break;
 
       default:
@@ -73,8 +73,8 @@ export class UniversalFragmentRetriever {
     // Limit to requested number of fragments
     fragments = fragments.slice(0, maxFragments);
     
-    // Build semantic response with hints - pass original strategy for efficiency hints
-    return this.buildSemanticResponse(fragments, query, selectedStrategy, strategy);
+    // Build the operation response with hints - pass original strategy for efficiency hints
+    return this.buildOperationResponse(fragments, query, selectedStrategy, strategy);
   }
   
   /**
@@ -83,7 +83,7 @@ export class UniversalFragmentRetriever {
   clearIndexes(): void {
     this.adaptiveIndex = new AdaptiveTextIndex();
     this.proximityIndex = new ProximityFragmentIndex();
-    this.semanticIndex = new SemanticChunkIndex();
+    this.chunkIndex = new ChunkIndex();
     this.indexedDocs.clear();
   }
   
@@ -110,8 +110,8 @@ export class UniversalFragmentRetriever {
       // Medium queries benefit from proximity search
       return 'proximity';
     } else {
-      // Long queries benefit from semantic chunking
-      return 'semantic';
+      // Long queries benefit from structure-aligned chunking
+      return 'structure';
     }
   }
   
@@ -119,7 +119,7 @@ export class UniversalFragmentRetriever {
     // Get results from all strategies (all search methods are synchronous)
     const adaptiveResults = this.adaptiveIndex.search(query, maxFragments * 2);
     const proximityResults = this.proximityIndex.searchWithProximity(query);
-    const semanticResults = this.semanticIndex.searchWithContext(query, { maxFragments: maxFragments * 2 });
+    const contextResults = this.chunkIndex.searchWithContext(query, { maxFragments: maxFragments * 2 });
     
     // Merge and deduplicate results
     const fragmentMap = new Map<string, Fragment>();
@@ -128,7 +128,7 @@ export class UniversalFragmentRetriever {
     const weights = {
       adaptive: 0.4
       , proximity: 0.3
-      , semantic: 0.3
+      , structure: 0.3
     };
     
     // Process adaptive results
@@ -154,16 +154,16 @@ export class UniversalFragmentRetriever {
       }
     });
     
-    // Merge semantic results
-    semanticResults.forEach(fragment => {
+    // Merge structure-chunk results
+    contextResults.forEach(fragment => {
       const key = `${fragment.docPath}:${fragment.lineStart}`;
       if (fragmentMap.has(key)) {
         const existing = fragmentMap.get(key)!;
-        existing.score += fragment.score * weights.semantic;
+        existing.score += fragment.score * weights.structure;
       } else {
         fragmentMap.set(key, {
           ...fragment
-          , score: fragment.score * weights.semantic
+          , score: fragment.score * weights.structure
         });
       }
     });
@@ -174,13 +174,13 @@ export class UniversalFragmentRetriever {
       .slice(0, maxFragments);
   }
   
-  private buildSemanticResponse(
+  private buildOperationResponse(
     fragments: Fragment[], 
     query: string, 
     strategy: string,
     originalStrategy?: string
-  ): SemanticResponse<Fragment[]> {
-    const response: SemanticResponse<Fragment[]> = {
+  ): OperationResponse<Fragment[]> {
+    const response: OperationResponse<Fragment[]> = {
       result: fragments
     };
     
@@ -232,7 +232,7 @@ export class UniversalFragmentRetriever {
         , alternatives: [
           'Use strategy:"adaptive" for keyword matching'
           , 'Use strategy:"proximity" for finding related terms'
-          , 'Use strategy:"semantic" for conceptual search'
+          , 'Use strategy:"structure" for heading-aligned passages'
         ]
       };
     }

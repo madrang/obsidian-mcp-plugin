@@ -9,7 +9,7 @@
  * create false gaps. The procedure and the verdict ledger live in the vault:
  * Projects/Scoped Vault MCP/Descriptor Review/.
  *
- * The parameters come from createSemanticTools, not the raw registry
+ * The parameters come from createTools, not the raw registry
  * definitions: the tool factory adds `action` and `raw` to every schema in
  * production. Dumping the registry directly hid those, and an early round
  * flagged a `raw` parameter gap that production clients do receive.
@@ -24,7 +24,7 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const entry = `
 import { App } from 'obsidian';
 import { getRegisteredOperations, buildDescription } from '../src/tools/tool-registry';
-import { createSemanticTools } from '../src/tools/semantic-tools';
+import { createTools } from '../src/tools/tool-factory';
 import '../src/tools/definitions/files';
 import '../src/tools/definitions/edit';
 import '../src/tools/definitions/view';
@@ -37,7 +37,7 @@ const api = { getApp: () => new App() };
 // Gates on: the dump documents the full surface a session can see, so both
 // toggles are on and no conditional line is dropped. The factory only needs
 // the getApp() shape for the dataview availability probe.
-const tools = new Map(createSemanticTools(api as never, undefined, true, true).map(t => [t.name, t]));
+const tools = new Map(createTools(api as never, undefined, true, true).map(t => [t.name, t]));
 
 const ops = getRegisteredOperations().map(d => {
   const tool = tools.get(d.name);

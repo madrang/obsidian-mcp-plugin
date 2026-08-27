@@ -1,12 +1,12 @@
 import { Debug } from '../utils/debug';
 import { ObsidianAPI } from '../utils/obsidian-api';
-import { SemanticRouter } from '../semantic/router';
-import { SemanticRequest } from '../types/semantic';
+import { VaultRouter } from './router';
+import { OperationRequest } from '../types/operations';
 import { ObsidianImageFile } from '../types/obsidian';
 import { isDataviewToolAvailable } from './dataview-tool';
 import { formatResponse } from '../formatters';
 import { getOperationDefinition, getRegisteredOperations, buildDescription, type ToolAnnotations } from './tool-registry';
-import type { DataviewResult } from '../semantic/operations/dataview';
+import type { DataviewResult } from './operations/dataview';
 
 export type { ToolAnnotations } from './tool-registry';
 
@@ -49,8 +49,8 @@ interface ToolArgs {
   [key: string]: unknown;
 }
 
-/** Semantic tool definition */
-export interface SemanticTool {
+/** Definition of one MCP tool */
+export interface ToolDefinition {
   name: string;
   title?: string;
   description: string;
@@ -77,14 +77,14 @@ interface PluginWithSettings {
 }
 
 /**
- * Unified semantic tools: one tool per operation group, actions as an enum
+ * Unified tool surface: one tool per operation group, actions as an enum
  * parameter. Each tool's static surface (description, actions, annotations,
  * and parameter schema) lives in ./definitions and self-registers into
  * ./tool-registry at import time. This module is the factory: it turns each
- * registered definition into a SemanticTool with the dispatch handler.
+ * registered definition into a ToolDefinition with the dispatch handler.
  */
 
-const createSemanticTool = (operation: string, visibility?: ToolVisibility, webFetchEnabled?: boolean, allowCreateOverwrite?: boolean): SemanticTool | null => {
+const createOperationTool = (operation: string, visibility?: ToolVisibility, webFetchEnabled?: boolean, allowCreateOverwrite?: boolean): ToolDefinition | null => {
   // Check operation-level toggle
   if (visibility && visibility[operation] === false) return null;
 
@@ -121,7 +121,7 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
     visibleKeys
   );
 
-  const properties: SemanticTool['inputSchema']['properties'] = {
+  const properties: ToolDefinition['inputSchema']['properties'] = {
     action: {
       type: 'string'
       , description: 'The specific action to perform'
@@ -311,7 +311,7 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
     // returns a DataviewResult with structured errors. The handler is
     // registered like every other operation and called with the router as
     // context.
-    const router = new SemanticRouter(api, app);
+    const router = new VaultRouter(api, app);
 
     // Handle Dataview operations separately
     if (operation === 'dataview') {
@@ -348,7 +348,7 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
 
     // The tool surface and the router share one naming scheme: view owns
     // folder/read/search/fragments, files owns the structural writes.
-    const request: SemanticRequest = {
+    const request: OperationRequest = {
       operation
       , action: args.action
       , params: args
@@ -442,7 +442,7 @@ const createSemanticTool = (operation: string, visibility?: ToolVisibility, webF
 
 export function getOperationDescription(operation: string): string {
   // Full surface — every action and both gates. The settings UI shows this;
-  // sessions get the visibility-filtered build inside createSemanticTool.
+  // sessions get the visibility-filtered build inside createOperationTool.
   const definition = getOperationDefinition(operation);
   if (!definition) return 'Unknown operation';
   const visible = new Set<string>([
@@ -469,9 +469,9 @@ function getParametersForOperation(operation: string): Record<string, unknown> {
 }
 
 /**
- * Create semantic tools array with optional Dataview support
+ * Create the tool array with optional Dataview support
  */
-export function createSemanticTools(api?: ObsidianAPI, visibility?: ToolVisibility, webFetchEnabled?: boolean, allowCreateOverwrite?: boolean): SemanticTool[] {
+export function createTools(api?: ObsidianAPI, visibility?: ToolVisibility, webFetchEnabled?: boolean, allowCreateOverwrite?: boolean): ToolDefinition[] {
   // Dataview joins the surface only when the plugin is installed and enabled.
   const operations = getRegisteredOperations()
     .map(definition => definition.name)
@@ -479,21 +479,21 @@ export function createSemanticTools(api?: ObsidianAPI, visibility?: ToolVisibili
 
   // Create tools, filtering by visibility (null = operation fully disabled)
   return operations
-    .map(op => createSemanticTool(op, visibility, webFetchEnabled, allowCreateOverwrite))
-    .filter((tool): tool is SemanticTool => tool !== null);
+    .map(op => createOperationTool(op, visibility, webFetchEnabled, allowCreateOverwrite))
+    .filter((tool): tool is ToolDefinition => tool !== null);
 }
 
 /** All operation group names (for UI enumeration), in registration order */
 export const ALL_OPERATIONS: readonly string[] = getRegisteredOperations().map(definition => definition.name);
 
-// Export the base semantic tools (for backward compatibility, no visibility filtering)
+// Export the base tools (for backward compatibility, no visibility filtering)
 // There is deliberately no exported module-level tool list.
 //
-// One existed, built by calling createSemanticTool() with no visibility argument,
+// One existed, built by calling createOperationTool() with no visibility argument,
 // which produced tools that neither filtered their action enum nor performed the
 // ACTION_DISABLED check — a complete bypass of tool visibility for any caller
 // that picked it up. mcp-server.ts did, on a dead request-dispatch path.
 //
-// Tools must be built per session via createSemanticTools(api, visibility) so the
+// Tools must be built per session via createTools(api, visibility) so the
 // live settings apply. Anything needing the list of operations wants
-// ALL_OPERATIONS; anything needing a tool wants createSemanticTools().
+// ALL_OPERATIONS; anything needing a tool wants createTools().

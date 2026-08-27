@@ -4,7 +4,7 @@
  * import time.
  */
 import { registerOperation, pathParam } from '../tool-registry';
-import { executeEditOperation } from '../../semantic/operations/edit';
+import { executeEditOperation } from '../operations/edit';
 
 registerOperation({
   name: 'edit'
@@ -60,7 +60,8 @@ registerOperation({
     }
     , expected: {
       type: 'number'
-      , description: 'replace: the exact number of occurrences oldText must match. Default 1 — exactly one occurrence, that one is replaced. N above 1 — exactly N occurrences, all replaced. Any other count refuses the edit with MATCH_COUNT_MISMATCH and nothing is written. The count must be at least 1.'
+      , description: 'replace: the exact number of occurrences oldText must match. One occurrence: that one is replaced. N above 1: exactly N occurrences, all replaced. Any other count refuses the edit with MATCH_COUNT_MISMATCH and nothing is written. The count must be at least 1'
+      , default: 1
     }
     // Write preconditions, accepted by every edit action. The values come
     // from a view.read that returned the complete file — there is no way to
@@ -87,12 +88,14 @@ registerOperation({
     }
     , lineNumber: {
       type: 'number'
-      , description: 'The 1-based line number for the at_line action (default: 1). Line numbers shift after earlier edits, so re-derive them from a fresh read'
+      , description: 'The 1-based line number for the at_line action. Line numbers shift after earlier edits, so re-derive them from a fresh read'
+      , default: 1
     }
     , mode: {
       type: 'string'
       , enum: ['before', 'after', 'replace']
-      , description: 'The insert mode for at_line: before the line, after the line, or replace the line (default: replace)'
+      , description: 'The insert mode for at_line: before the line, after the line, or replace the line'
+      , default: 'replace'
     }
       , operation: {
         type: 'string'

@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Obsidian MCP Workflow Configuration",
-  "description": "Schema for semantic workflow hints and tool chaining",
+  "description": "Schema for workflow hints and tool chaining",
   "type": "object",
   "required": ["version", "operations"],
   "properties": {

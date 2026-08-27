@@ -3,8 +3,8 @@
  * Registers itself into the tool registry at import time.
  */
 import { registerOperation } from '../tool-registry';
-import { executeFilesOperation } from '../../semantic/operations/files';
-import { executeViewOperation } from '../../semantic/operations/view';
+import { executeFilesOperation } from '../operations/files';
+import { executeViewOperation } from '../operations/view';
 
 registerOperation({
   name: 'view'
@@ -80,7 +80,8 @@ registerOperation({
     // read action
     , page: {
       type: 'number'
-      , description: 'The page number for paginated results, default 1 (folder, search). Folder and search responses carry the total page count. For the read action: the page of a large file to read. Pages are 50000 characters. A shorter page is the last'
+      , description: 'The page number for paginated results (folder, search, fragments). Folder and search responses carry the total page count. For the read action: the page of a large file to read, or with query the page of fragments. File pages are 50000 characters. A shorter page is the last'
+      , default: 1
     }
     , query: {
       type: 'string'
@@ -88,12 +89,9 @@ registerOperation({
     }
     , strategy: {
       type: 'string'
-      , enum: ['auto', 'adaptive', 'proximity', 'structure', 'semantic', 'filename', 'content', 'combined']
-      , description: 'The retrieval strategy (default: auto). For read and fragments: adaptive (passages ranked by term frequency), proximity (passages where the query terms sit close together), or structure (passages cut on note headings and paragraphs). For search: filename, content, or combined (both). Auto resolves search to combined. For read and fragments, auto picks per query. "semantic" is a deprecated alias of "structure"'
-    }
-    , maxFragments: {
-      type: 'number'
-      , description: 'The maximum number of fragments to return (default: 5)'
+      , enum: ['auto', 'adaptive', 'proximity', 'structure', 'filename', 'content', 'combined']
+      , description: 'The retrieval strategy. For read and fragments: adaptive (passages ranked by term frequency), proximity (passages where the query terms sit close together), or structure (passages cut on note headings and paragraphs). For search: filename, content, or combined (both). Auto resolves search to combined. For read and fragments, auto picks per query'
+      , default: 'auto'
     }
     , returnFullFile: {
       type: 'boolean'
@@ -102,23 +100,16 @@ registerOperation({
     // search action
     , pageSize: {
       type: 'number'
-      , description: 'The number of results per page (default: 10 for search, 20 for folder)'
+      , description: 'The page content text size limit in characters. One default for every action. Items accumulate into a page until the next one would exceed the budget. For read: the content size of one file page. An invalid value (not a number, or under 1) returns an error'
+      , default: 50000
+    }
+    , limit: {
+      type: 'number'
+      , description: 'The maximum number of items to return (files, search hits, fragments). Optional: omit it to fill the pageSize budget. The page can return fewer items when the budget or the result count cuts first. A value under 1 returns an error'
     }
     , ranked: {
       type: 'boolean'
       , description: 'Use TF-IDF relevance scoring (default: auto-detect from the query type)'
-    }
-    , includeSnippets: {
-      type: 'boolean'
-      , description: 'Extract contextual snippets around the matches (default: true)'
-    }
-    , snippetLength: {
-      type: 'number'
-      , description: 'The maximum snippet length in characters (default: 300)'
-    }
-    , includeContent: {
-      type: 'boolean'
-      , description: 'Include the full file content in the search results, so each hit can be judged without a follow-up read (default: false)'
     }
     // grep + folder action
     , pattern: {
@@ -127,7 +118,8 @@ registerOperation({
     }
     , maxResults: {
       type: 'number'
-      , description: 'grep: the maximum number of matches to return (default: 200). A truncated result sets truncated: true'
+      , description: 'grep: the maximum number of matches to return. A truncated result sets truncated: true'
+      , default: 200
     }
   }
 });

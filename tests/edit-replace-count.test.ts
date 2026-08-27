@@ -5,7 +5,7 @@
  * nothing is written. Assertions are on recorded writes: a refusal that still
  * wrote would pass an error-string test and corrupt the file.
  */
-import { SemanticRouter } from '../src/semantic/router';
+import { VaultRouter } from '../src/tools/router';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 import { contentHash } from '../src/utils/content-hash';
 import { ContentBufferManager } from '../src/utils/content-buffer';
@@ -40,7 +40,7 @@ class CountAPI extends ObsidianAPI {
 describe('edit.replace count guard', () => {
   function setup(files: Record<string, string>) {
     const api = new CountAPI(files);
-    return { api, router: new SemanticRouter(api) };
+    return { api, router: new VaultRouter(api) };
   }
 
   test('default expected=1 replaces the single occurrence', async () => {

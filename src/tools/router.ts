@@ -1,33 +1,33 @@
 import { ObsidianAPI } from '../utils/obsidian-api';
 import {
-  SemanticResponse,
+  OperationResponse,
   WorkflowConfig,
-  SemanticContext,
-  SemanticRequest,
+  OperationContext,
+  OperationRequest,
   SuggestedAction,
   ConditionalSuggestions,
   EfficiencyRule
-} from '../types/semantic';
+} from '../types/operations';
 import { ContentBufferManager } from '../utils/content-buffer';
 import { StateTokenManager } from './state-tokens';
 import { limitResponse } from '../utils/response-limiter';
 import { UniversalFragmentRetriever } from '../indexing/fragment-retriever';
-import { GraphSearchTool } from '../tools/graph-search';
-import { GraphSearchTool as GraphSearchTraversalTool } from '../tools/graph-search-tool';
-import { GraphTagTool } from '../tools/graph-tag-tool';
+import { GraphSearchTool } from './graph-search';
+import { GraphSearchTool as GraphSearchTraversalTool } from './graph-search-tool';
+import { GraphTagTool } from './graph-tag-tool';
 import { App } from 'obsidian';
 import { InputValidator } from '../validation/input-validator';
 import { RouterContext } from './operations/router-context';
-import { getOperationDefinition } from '../tools/tool-registry';
+import { getOperationDefinition } from './tool-registry';
 // Side-effect import: populates the registry executeOperation dispatches
-// through. It must live here, not only in semantic-tools.ts, so a direct
-// SemanticRouter construction also sees every registered handler.
-import '../tools/definitions';
+// through. It must live here, not only in tool-factory.ts, so a direct
+// VaultRouter construction also sees every registered handler.
+import './definitions';
 import { Params, SearchResultItem, paramStr } from './operations/shared';
 
-export class SemanticRouter implements RouterContext {
+export class VaultRouter implements RouterContext {
   private config!: WorkflowConfig;
-  private context: SemanticContext = {};
+  private context: OperationContext = {};
   // Public to satisfy RouterContext — the router passes itself as the
   // dependency context to extracted operation modules (ADR-202, #199).
   readonly api: ObsidianAPI;
@@ -76,9 +76,9 @@ export class SemanticRouter implements RouterContext {
   }
   
   /**
-   * Route a semantic request to the appropriate handler and enrich the response
+   * Route an operation request to the appropriate handler and enrich the response
    */
-  async route(request: SemanticRequest): Promise<SemanticResponse> {
+  async route(request: OperationRequest): Promise<OperationResponse> {
     const { operation, action, params } = request;
     
     // Update context
@@ -91,7 +91,7 @@ export class SemanticRouter implements RouterContext {
       // Update tokens based on success
       this.tokenManager.updateTokens(operation, action, params, result, true);
       
-      // Enrich with semantic hints
+      // Enrich with workflow hints
       const response = this.enrichResponse(result, operation, action, params, false);
       
       // Update context with successful result
@@ -103,13 +103,13 @@ export class SemanticRouter implements RouterContext {
       // Update tokens for failure
       this.tokenManager.updateTokens(operation, action, params, null, false);
       
-      // Handle errors with semantic recovery hints
+      // Handle errors with recovery hints
       return this.handleError(error, operation, action, params);
     }
   }
   
   /**
-   * Dispatch a semantic request to the handler the operation registered in
+   * Dispatch an operation request to the handler the operation registered in
    * its definition module (src/tools/definitions).
    */
   private async executeOperation(operation: string, action: string, params: Params): Promise<unknown> {
@@ -120,7 +120,7 @@ export class SemanticRouter implements RouterContext {
     return definition.execute(this, action, params);
   }
 
-  private enrichResponse(result: unknown, operation: string, action: string, params: Params, isError: boolean): SemanticResponse {
+  private enrichResponse(result: unknown, operation: string, action: string, params: Params, isError: boolean): OperationResponse {
     const operationConfig = this.config?.operations?.[operation];
     const actionConfig = operationConfig?.actions?.[action];
     
@@ -130,7 +130,7 @@ export class SemanticRouter implements RouterContext {
     // Limit the result size to prevent token overflow (except for reads)
     const limitedResult = shouldLimit ? limitResponse(result) : result;
     
-    const response: SemanticResponse = {
+    const response: OperationResponse = {
       result: limitedResult
       , context: this.getCurrentContext()
     };
@@ -146,9 +146,9 @@ export class SemanticRouter implements RouterContext {
       }
     }
     
-    // Add enhanced semantic hints for search and other operations to encourage graph exploration
+    // Add enhanced hints for search and other operations to encourage graph exploration
     if (!isError) {
-      const enhancedHints = this.generateEnhancedSemanticHints(operation, action, params, result);
+      const enhancedHints = this.generateEnhancedHints(operation, action, params, result);
       if (enhancedHints && enhancedHints.suggested_next.length > 0) {
         if (response.workflow) {
           // Merge with existing workflow hints
@@ -347,7 +347,7 @@ export class SemanticRouter implements RouterContext {
     }
   }
   
-  private updateContextAfterSuccess(response: SemanticResponse, _params: Params) {
+  private updateContextAfterSuccess(response: OperationResponse, _params: Params) {
     // Update context based on the operation
     const tokens = this.tokenManager.getTokens();
     
@@ -389,7 +389,7 @@ export class SemanticRouter implements RouterContext {
     };
   }
   
-  private handleError(error: unknown, operation: string, action: string, params: Params): SemanticResponse {
+  private handleError(error: unknown, operation: string, action: string, params: Params): OperationResponse {
     const errorResponse = this.enrichResponse(
       null,
       operation,
@@ -421,7 +421,7 @@ export class SemanticRouter implements RouterContext {
     return errorResponse;
   }
   
-  generateWorkflowSuggestions(): { current_context: ReturnType<SemanticRouter['getCurrentContext']>; suggestions: SuggestedAction[] } {
+  generateWorkflowSuggestions(): { current_context: ReturnType<VaultRouter['getCurrentContext']>; suggestions: SuggestedAction[] } {
     // Generate contextual workflow suggestions based on current state
     const suggestions: SuggestedAction[] = [];
     
@@ -458,9 +458,9 @@ export class SemanticRouter implements RouterContext {
   }
 
   /**
-   * Generate enhanced semantic hints that encourage graph exploration over simple search
+   * Generate enhanced hints that encourage graph exploration over simple search
    */
-  private generateEnhancedSemanticHints(operation: string, action: string, params: Params, result: unknown): { message: string; suggested_next: SuggestedAction[] } | null {
+  private generateEnhancedHints(operation: string, action: string, params: Params, result: unknown): { message: string; suggested_next: SuggestedAction[] } | null {
     const suggestions: SuggestedAction[] = [];
     let message = '';
 

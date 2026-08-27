@@ -35,7 +35,7 @@ _Server architecture, transport, connection handling, plugin lifecycle_
 | [ADR-112](./core/ADR-112-per-credential-tool-call-rate-limit-opt-in.md) | Per-credential tool call rate limit, opt-in only | Accepted |
 
 ## Tools & API
-_MCP tool design, semantic operations, graph operations, formatters_
+_MCP tool design, operation handlers, graph operations, formatters_
 
 | ADR | Title | Status |
 |-----|-------|--------|

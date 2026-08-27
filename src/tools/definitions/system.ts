@@ -4,7 +4,7 @@
  * registry at import time.
  */
 import { registerOperation } from '../tool-registry';
-import { executeSystemOperation } from '../../semantic/operations/system';
+import { executeSystemOperation } from '../operations/system';
 
 registerOperation({
   name: 'system'

@@ -9,7 +9,7 @@
  *     read-modify-write with an await gap. Without serialization, three
  *     parallel edit.append calls lose updates; with the #139 fix all land.
  */
-import { SemanticRouter } from '../src/semantic/router';
+import { VaultRouter } from '../src/tools/router';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 import { FileLockManager } from '../src/utils/file-lock';
 import { App } from 'obsidian';
@@ -92,7 +92,7 @@ describe('edit.append parallel calls against one file (#139, router level)', () 
     // Fresh router per call — faithful to production (router is per-request;
     // FileLockManager is the process-wide singleton that actually serializes).
     const append = (line: string) =>
-      new SemanticRouter(api).route({
+      new VaultRouter(api).route({
         operation: 'edit',
         action: 'append',
         params: { path: '_test.md', newText: line },
@@ -122,8 +122,8 @@ describe('edit.append parallel calls against one file (#139, router level)', () 
 
     const start = Date.now();
     await Promise.all([
-      new SemanticRouter(api).route({ operation: 'edit', action: 'append', params: { path: '_test.md', newText: 'A' } }),
-      new SemanticRouter(api).route({ operation: 'edit', action: 'append', params: { path: 'other.md', newText: 'B' } }),
+      new VaultRouter(api).route({ operation: 'edit', action: 'append', params: { path: '_test.md', newText: 'A' } }),
+      new VaultRouter(api).route({ operation: 'edit', action: 'append', params: { path: 'other.md', newText: 'B' } }),
     ]);
     // Two independent ~5ms ops in parallel should not take ~10ms+ serially.
     expect(Date.now() - start).toBeLessThan(40);

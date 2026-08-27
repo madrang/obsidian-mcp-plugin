@@ -19,7 +19,7 @@ const SUMMARY = resolve('coverage/coverage-summary.json');
 // Tiers are ordered: the first matching pattern wins.
 const TIERS = [
   { name: 'security boundary', re: /^src\/(security|validation)\// },
-  { name: 'core api + routing', re: /^src\/(semantic|utils\/obsidian-api|tools|mcp-server)/ },
+  { name: 'core api + routing', re: /^src\/(utils\/obsidian-api|tools|mcp-server)/ },
   { name: 'supporting', re: /.*/ }
 ];
 

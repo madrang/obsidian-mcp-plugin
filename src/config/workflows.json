@@ -1,7 +1,7 @@
 {
   "$schema": "./workflow-schema.json",
   "version": "1.0.0",
-  "description": "Semantic workflow configuration for Obsidian MCP",
+  "description": "Workflow hint configuration for Obsidian MCP",
 
   "operations": {
     "files": {

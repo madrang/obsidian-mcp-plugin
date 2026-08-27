@@ -149,7 +149,7 @@ export async function executeEditOperation(ctx: RouterContext, action: string, p
         throw new Error(`edit.replace: 'expected' must be a whole number of at least 1.`);
       }
       // Imported dynamically (only when needed) to avoid circular deps.
-      const { performWindowEdit } = await import('../../tools/window-edit.js');
+      const { performWindowEdit } = await import('../window-edit.js');
       const result = await performWindowEdit(
         ctx.api,
         lockPath,

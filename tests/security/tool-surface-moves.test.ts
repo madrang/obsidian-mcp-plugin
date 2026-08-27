@@ -17,7 +17,7 @@
  *   4. visibility  — the moved actions gate on their new keys
  */
 import { SecureObsidianAPI, VaultSecurityManager } from '../../src/security';
-import { createSemanticTools, getActionsForOperation } from '../../src/tools/semantic-tools';
+import { createTools, getActionsForOperation } from '../../src/tools/tool-factory';
 import { BASELINE_SECURITY_SETTINGS } from '../../src/mcp-server';
 import { App, TFile } from 'obsidian';
 
@@ -63,7 +63,7 @@ function setup(visibility?: Record<string, boolean>, allowCreateOverwrite = true
   const api = new SecureObsidianAPI(
     makeApp(writes, paths), undefined, plugin as never, BASELINE_SECURITY_SETTINGS,
   );
-  const tools = createSemanticTools(api, visibility, false, allowCreateOverwrite) ?? [];
+  const tools = createTools(api, visibility, false, allowCreateOverwrite) ?? [];
   return { writes, api, plugin, tools, byName: (n: string) => tools.find(t => t.name === n) };
 }
 
@@ -226,9 +226,11 @@ describe('moved tool-surface actions', () => {
 
       await byName('view')!.handler(api, { action: 'folder', path: 'notes', page: 2, pageSize: 5 });
 
-      // MCP clients send JSON numbers. A paramStr read here collapsed them to
-      // the defaults and made pagination a no-op.
-      expect(calls).toEqual([['notes', 2, 5, true]]);
+      // The handler fetches the universe once and windows it locally: the
+      // caller's page/pageSize drive the content-budget window, not the
+      // fetch. The fetch size is an internal detail. The window itself is
+      // pinned in view-folder-glob.
+      expect(calls).toEqual([['notes', 1, expect.any(Number), true, undefined]]);
     });
 
     it('view.folder translates path "/" to the vault root', async () => {
@@ -296,7 +298,7 @@ describe('moved tool-surface actions', () => {
       const api = new SecureObsidianAPI(
         makeApp(writes), undefined, plugin as never, VaultSecurityManager.presets.readOnly(),
       );
-      const files = (createSemanticTools(api) ?? []).find(t => t.name === 'files')!;
+      const files = (createTools(api) ?? []).find(t => t.name === 'files')!;
 
       const res = await files.handler(api, { action: 'create', path: 'note.md', content: 'x', overwrite: true });
 

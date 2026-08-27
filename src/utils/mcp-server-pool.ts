@@ -10,7 +10,7 @@ import { EventEmitter } from 'events';
 import { Debug } from './debug';
 import { ObsidianAPI } from './obsidian-api';
 import { SecureObsidianAPI } from '../security/secure-obsidian-api';
-import { createSemanticTools } from '../tools/semantic-tools';
+import { createTools } from '../tools/tool-factory';
 import { DataviewTool, isDataviewToolAvailable } from '../tools/dataview-tool';
 import { getVersion } from '../version';
 import type { SessionManager } from './session-manager';
@@ -99,11 +99,11 @@ export class MCPServerPool extends EventEmitter {
    *
    * Called per request rather than once per session so a settings toggle
    * applies to sessions that already exist. `enableWebFetch` is passed
-   * explicitly as a boolean — `createSemanticTools` fails closed on an omitted
+   * explicitly as a boolean — `createTools` fails closed on an omitted
    * flag, and this keeps the intent visible at the call site (ADR-109).
    */
   private buildTools() {
-    return createSemanticTools(
+    return createTools(
       this.obsidianAPI,
       this.plugin?.settings?.toolVisibility,
       this.plugin?.settings?.enableWebFetch === true,

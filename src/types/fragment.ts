@@ -91,7 +91,7 @@ export interface Chunk {
   };
 }
 
-export interface SemanticSegment {
+export interface TextSegment {
   text: string;
   type: string;
   start: number;
@@ -123,7 +123,7 @@ export interface FragmentRef {
 }
 
 export interface RetrievalOptions {
-  strategy?: 'auto' | 'adaptive' | 'proximity' | 'semantic';
+  strategy?: 'auto' | 'adaptive' | 'proximity' | 'structure';
   maxFragments?: number;
   /**
    * Restrict results to fragments from this document. Without it, retrieval spans every

@@ -1,25 +1,25 @@
 import {
   Chunk,
-  SemanticSegment,
+  TextSegment,
   ExpandedContext,
   SearchOptions,
   ContextualFragment
 } from '../types/fragment';
 
 /**
- * Semantic chunking with context preservation
+ * Structural chunking with context preservation
  * Splits documents into meaningful chunks and maintains relationships
  */
-export class SemanticChunkIndex {
+export class ChunkIndex {
   private chunks = new Map<string, Chunk>();
   private chunkGraph = new Map<string, Set<string>>(); // chunk relationships
   private termChunkIndex = new Map<string, Set<string>>();
   private filePathMap = new Map<string, string>();
   
   indexDocument(docId: string, filePath: string, content: string) {
-    const semanticChunks = this.createSemanticChunks(content);
+    const segments = this.createChunks(content);
     
-    semanticChunks.forEach((chunk, idx) => {
+    segments.forEach((chunk, idx) => {
       const chunkId = `${docId}:${idx}`;
       
       // Store chunk with context
@@ -43,7 +43,7 @@ export class SemanticChunkIndex {
       if (idx > 0) {
         this.addChunkRelation(chunkId, `${docId}:${idx-1}`);
       }
-      if (idx < semanticChunks.length - 1) {
+      if (idx < segments.length - 1) {
         this.addChunkRelation(chunkId, `${docId}:${idx+1}`);
       }
       
@@ -118,8 +118,8 @@ export class SemanticChunkIndex {
     });
   }
   
-  private createSemanticChunks(content: string): SemanticSegment[] {
-    const segments: SemanticSegment[] = [];
+  private createChunks(content: string): TextSegment[] {
+    const segments: TextSegment[] = [];
     
     // Split by multiple indicators
     const lines = content.split('\n');
@@ -131,7 +131,7 @@ export class SemanticChunkIndex {
       const line = lines[i];
       const trimmed = line.trim();
       
-      // Detect semantic boundaries
+      // Detect structural boundaries
       const isHeading = /^#+\s/.test(trimmed) || /^[A-Z][^.!?]*:$/.test(trimmed);
       const isListStart = /^[-*•]\s/.test(trimmed) || /^\d+\.\s/.test(trimmed);
       const isEmptyLine = trimmed.length === 0;
@@ -198,7 +198,7 @@ export class SemanticChunkIndex {
   }
   
   private calculateDepth(lines: string[]): number {
-    // Calculate semantic depth/importance
+    // Calculate depth/importance
     const avgLineLength = lines.reduce((sum, l) => sum + l.length, 0) / lines.length;
     const hasCapitals = lines.some(l => /[A-Z]/.test(l));
     const hasPunctuation = lines.some(l => /[.!?]/.test(l));

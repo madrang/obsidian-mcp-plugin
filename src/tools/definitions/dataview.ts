@@ -4,7 +4,7 @@
  * installed and enabled.
  */
 import { registerOperation, pathParam } from '../tool-registry';
-import { executeDataviewOperation } from '../../semantic/operations/dataview';
+import { executeDataviewOperation } from '../operations/dataview';
 
 registerOperation({
   name: 'dataview'

@@ -24,6 +24,7 @@ export interface SearchOptions {
   maxResults?: number;
   snippetLength?: number;
   includeMetadata?: boolean;
+  includeSnippets?: boolean;
 }
 
 export class AdvancedSearchService {
@@ -53,7 +54,8 @@ export class AdvancedSearchService {
       strategy = 'combined',
       maxResults = 50,
       snippetLength = 300,
-      includeMetadata = true
+      includeMetadata = true,
+      includeSnippets = true
     } = options;
 
     if (!query || query.trim().length === 0) {
@@ -75,10 +77,10 @@ export class AdvancedSearchService {
           result = this.searchFilename(file, queryTokens, includeMetadata);
           break;
         case 'content':
-          result = await this.searchContent(file, queryTokens, snippetLength, includeMetadata);
+          result = await this.searchContent(file, queryTokens, snippetLength, includeMetadata, includeSnippets);
           break;
         case 'combined':
-          result = await this.searchCombined(file, queryTokens, snippetLength, includeMetadata);
+          result = await this.searchCombined(file, queryTokens, snippetLength, includeMetadata, includeSnippets);
           break;
       }
       
@@ -131,10 +133,11 @@ export class AdvancedSearchService {
    * Search based on file content with snippet extraction
    */
   private async searchContent(
-    file: TFile, 
-    queryTokens: string[], 
+    file: TFile,
+    queryTokens: string[],
     snippetLength: number,
-    includeMetadata: boolean
+    includeMetadata: boolean,
+    includeSnippets: boolean
   ): Promise<SearchResult | null> {
     // Only attempt content search for text files
     if (!this.isTextFile(file)) {
@@ -151,14 +154,15 @@ export class AdvancedSearchService {
         return null;
       }
       
-      const snippet = this.extractBestSnippet(content, queryTokens, snippetLength);
-      
       const result: SearchResult = {
         path: file.path
         , title: file.basename
         , score
-        , snippet
       };
+
+      if (includeSnippets) {
+        result.snippet = this.extractBestSnippet(content, queryTokens, snippetLength);
+      }
       
       if (includeMetadata) {
         result.metadata = {
@@ -179,13 +183,14 @@ export class AdvancedSearchService {
    * Combined search strategy (filename + content)
    */
   private async searchCombined(
-    file: TFile, 
-    queryTokens: string[], 
+    file: TFile,
+    queryTokens: string[],
     snippetLength: number,
-    includeMetadata: boolean
+    includeMetadata: boolean,
+    includeSnippets: boolean
   ): Promise<SearchResult | null> {
     const filenameResult = this.searchFilename(file, queryTokens, false);
-    const contentResult = await this.searchContent(file, queryTokens, snippetLength, false);
+    const contentResult = await this.searchContent(file, queryTokens, snippetLength, false, includeSnippets);
     
     const filenameScore = filenameResult?.score || 0;
     const contentScore = contentResult?.score || 0;

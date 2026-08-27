@@ -4,7 +4,7 @@
  */
 import { RouterContext } from './router-context';
 import { Params, paramStr, paramNum, paramBool } from './shared';
-import { GraphSearchParams } from '../../tools/graph-search';
+import { GraphSearchParams } from '../graph-search';
 
 export async function executeGraphOperation(ctx: RouterContext, action: string, params: Params): Promise<unknown> {
   // Handle graph search traversal operations

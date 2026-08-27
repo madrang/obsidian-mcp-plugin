@@ -1,8 +1,8 @@
 /**
- * RouterContext — the dependency surface a SemanticRouter exposes to the
+ * RouterContext — the dependency surface a VaultRouter exposes to the
  * extracted per-operation modules (ADR-202).
  *
- * `SemanticRouter implements RouterContext`, and the router instance itself
+ * `VaultRouter implements RouterContext`, and the router instance itself
  * is passed as the context, so mutations of shared state propagate back to
  * the router without getter/setter indirection.
  *
@@ -15,10 +15,10 @@ import { App } from 'obsidian';
 import { ObsidianAPI } from '../../utils/obsidian-api';
 import { UniversalFragmentRetriever } from '../../indexing/fragment-retriever';
 import { InputValidator } from '../../validation/input-validator';
-import { GraphSearchTool } from '../../tools/graph-search';
-import { GraphSearchTool as GraphSearchTraversalTool } from '../../tools/graph-search-tool';
-import { GraphTagTool } from '../../tools/graph-tag-tool';
-import { SuggestedAction } from '../../types/semantic';
+import { GraphSearchTool } from '../graph-search';
+import { GraphSearchTool as GraphSearchTraversalTool } from '../graph-search-tool';
+import { GraphTagTool } from '../graph-tag-tool';
+import { SuggestedAction } from '../../types/operations';
 
 export interface RouterContext {
   readonly api: ObsidianAPI;

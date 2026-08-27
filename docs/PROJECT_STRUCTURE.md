@@ -14,11 +14,12 @@ obsidian-mcp-plugin/
 ├── src/
 │   ├── main.ts               # Plugin entry point
 │   ├── mcp-server.ts         # MCP HTTP server
-│   ├── semantic/             # Semantic operations
-│   │   └── router.ts         # Operation routing
 │   ├── tools/                # MCP tool implementations
 │   │   ├── tool-registry.ts  # Registration point for the tool surface
-│   │   └── definitions/      # One self-registering module per tool
+│   │   ├── router.ts         # Operation routing
+│   │   ├── state-tokens.ts   # Router state tokens
+│   │   ├── definitions/      # One self-registering module per tool
+│   │   └── operations/       # Operation handlers
 │   ├── utils/                # Utility functions
 │   │   ├── obsidian-api.ts   # Vault operations
 │   │   ├── session-manager.ts # Session handling
@@ -54,8 +55,8 @@ obsidian-mcp-plugin/
 ### `/src`
 Core plugin code. Main entry point is `main.ts`.
 
-### `/src/semantic`
-Handles semantic routing for MCP operations. The router maps operations to actual implementations.
+### `/src/tools`
+MCP tool implementations. The router maps operations to the handlers in `operations/`, and `tool-registry.ts` registers the tool surface.
 
 ### `/src/utils`
 Shared utilities including the ObsidianAPI abstraction layer and session management.

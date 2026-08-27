@@ -38,13 +38,17 @@ export interface SearchResponse {
   totalPages: number;
   results: SearchResult[];
   method?: string;
+  pageStart?: number;
+  pageEnd?: number;
+  hasMore?: boolean;
+  limit?: number;
 }
 
 /**
  * Format search results for AI consumption
  */
 export function formatSearchResults(response: SearchResponse): string {
-  const { query, page, pageSize, totalResults, totalPages, results } = response;
+  const { query, page, totalResults, totalPages, results } = response;
   const lines: string[] = [];
 
   // Header
@@ -60,9 +64,11 @@ export function formatSearchResults(response: SearchResponse): string {
     return joinLines(lines);
   }
 
-  // Summary line
-  const start = (page - 1) * pageSize + 1;
-  const end = Math.min(page * pageSize, totalResults);
+  // Summary line. pageStart/pageEnd come from the content-budget window:
+  // pageSize is a character budget now, not an item count, so the window's
+  // item indices cannot be derived from it.
+  const start = response.pageStart ?? 1;
+  const end = response.pageEnd ?? results.length;
   if (totalPages > 1) {
     lines.push(`Found ${totalResults} results (showing ${start}-${end}, page ${page} of ${totalPages})`);
   } else {

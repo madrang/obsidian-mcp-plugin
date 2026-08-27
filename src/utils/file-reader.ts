@@ -2,6 +2,7 @@ import { ObsidianAPI } from './obsidian-api';
 import { isImageFile } from '../types/obsidian';
 import { UniversalFragmentRetriever } from '../indexing/fragment-retriever';
 import { contentHash } from './content-hash';
+import { contentPage, jsonSize, CONTENT_PAGE_DEFAULT_SIZE } from './content-page';
 
 /**
  * Character budget that decides whole-file vs. paginated reads (ADR-203).
@@ -18,10 +19,15 @@ interface FileReadOptions {
   path: string;
   /** Explicit whole-large-file override (ADR-203): full verbatim regardless of size. */
   returnFullFile?: boolean;
-  /** Sequential page (1-based) for large files that exceed READ_PAGE_CHARS. */
+  /** Sequential page (1-based) for large files that exceed READ_PAGE_CHARS. With query, the fragment page. */
   page?: number;
+  /** Page content size in characters, for file pages and fragment pages (default READ_PAGE_CHARS). */
+  pageSize?: number;
+  /** Item cap for fragment pages when query is present. */
+  limit?: number;
   query?: string;
-  strategy?: 'auto' | 'adaptive' | 'proximity' | 'semantic';
+  strategy?: 'auto' | 'adaptive' | 'proximity' | 'structure';
+  /** Internal override: a hard fragment cap with no pagination. */
   maxFragments?: number;
 }
 
@@ -52,6 +58,10 @@ interface FileReadResult {
   };
   fragmentMetadata?: {
     totalFragments: number;
+    page: number;
+    pageSize: number;
+    hasMore: boolean;
+    limit?: number;
     strategy: string;
     query: string;
   };
@@ -65,10 +75,10 @@ interface FileReadResult {
 
 /**
  * Build one page: the longest run of whole lines (starting at `startIdx`,
- * 0-based) whose joined size stays within READ_PAGE_CHARS. A single line
+ * 0-based) whose joined size stays within `pageChars`. A single line
  * larger than the budget is returned whole as its own page (never split).
  */
-function buildPage(lines: string[], startIdx: number): {
+function buildPage(lines: string[], startIdx: number, pageChars: number): {
   text: string;
   lineStart: number;
   lineEnd: number;
@@ -82,8 +92,8 @@ function buildPage(lines: string[], startIdx: number): {
   while (i < lines.length) {
     const ln = lines[i];
     const candidate = parts.length === 0 ? ln.length : size + 1 + ln.length;
-    if (candidate > READ_PAGE_CHARS && parts.length > 0) break;
-    if (candidate > READ_PAGE_CHARS && parts.length === 0) oversizedLine = true;
+    if (candidate > pageChars && parts.length > 0) break;
+    if (candidate > pageChars && parts.length === 0) oversizedLine = true;
     parts.push(ln);
     size = candidate;
     i++;
@@ -102,7 +112,7 @@ function buildPage(lines: string[], startIdx: number): {
  * Shared file reading logic (ADR-203).
  *
  * Faithful by default, never context-breaking:
- *  - fragment params (query/strategy/maxFragments) → semantic fragments
+ *  - fragment params (query/strategy, paged with page/pageSize) → fragment retrieval
  *  - returnFullFile:true → entire file verbatim (explicit large override)
  *  - fits READ_PAGE_CHARS → entire file verbatim, one load (common case)
  *  - exceeds budget → bookended page 1 (or `page` N): one contiguous
@@ -116,7 +126,7 @@ export async function readFileWithFragments(
   fragmentRetriever: UniversalFragmentRetriever,
   options: FileReadOptions
 ): Promise<FileReadResult> {
-  const { path, returnFullFile, page, query, strategy, maxFragments } = options;
+  const { path, returnFullFile, page, pageSize, limit, query, strategy, maxFragments } = options;
 
   const fileResponse = await api.getFile(path);
 
@@ -155,6 +165,7 @@ export async function readFileWithFragments(
   }
 
   const totalChars = fileContent.length;
+  const pageChars = pageSize ?? READ_PAGE_CHARS;
   const lines = fileContent.split('\n');
   const totalLines = lines.length;
 
@@ -165,19 +176,31 @@ export async function readFileWithFragments(
     const docId = `file:${path}`;
     fragmentRetriever.indexDocument(docId, path, fileContent);
     const fragmentQuery = query || path.split('/').pop()?.replace('.md', '') || '';
+    // Same pagination as the fragments action: pageSize is the page content
+    // budget in characters, limit the item cap. `page` means the fragment
+    // page here, never the file page.
+    const fragmentPage = page ?? 1;
+    const fragmentLimit = limit ?? maxFragments;
+    const fragmentBudget = pageSize ?? CONTENT_PAGE_DEFAULT_SIZE;
+    const fetchCap = fragmentLimit ?? Math.max(fragmentPage * 50, 50);
     const fragmentResponse = fragmentRetriever.retrieveFragments(fragmentQuery, {
       strategy: strategy || 'auto'
-      , maxFragments: maxFragments || 5,
+      , maxFragments: fetchCap,
     });
+    const windowed = contentPage('view.read', fragmentResponse.result, { page: fragmentPage, pageSize: fragmentBudget, limit: fragmentLimit }, jsonSize);
     return {
       path
       , ...metaNoBody
       , frontmatter
       , tags
-      , content: fragmentResponse.result
+      , content: windowed.items
       , originalContentLength: totalChars
       , fragmentMetadata: {
-        totalFragments: fragmentResponse.result.length
+        totalFragments: windowed.totalItems
+        , page: windowed.page
+        , pageSize: windowed.pageSize
+        , ...(fragmentLimit !== undefined ? { limit: fragmentLimit } : {})
+        , hasMore: windowed.hasMore || (fragmentLimit === undefined && fragmentResponse.result.length === fetchCap)
         , strategy: strategy || 'auto'
         , query: fragmentQuery,
       }
@@ -187,8 +210,8 @@ export async function readFileWithFragments(
   }
 
   // 2. Whole file, one load — fits the budget OR explicit override
-  if (returnFullFile || totalChars <= READ_PAGE_CHARS) {
-    const overrideOnLarge = !!returnFullFile && totalChars > READ_PAGE_CHARS;
+  if (returnFullFile || totalChars <= pageChars) {
+    const overrideOnLarge = !!returnFullFile && totalChars > pageChars;
     return {
       path
       , content: fileContent // verbatim, single contiguous string
@@ -224,11 +247,11 @@ export async function readFileWithFragments(
   const requested = typeof page === 'number' && page >= 1 ? Math.floor(page) : 1;
   let idx = 0;
   let cur = 1;
-  let built = buildPage(lines, idx);
+  let built = buildPage(lines, idx, pageChars);
   while (cur < requested && built.nextIdx < lines.length) {
     idx = built.nextIdx;
     cur++;
-    built = buildPage(lines, idx);
+    built = buildPage(lines, idx, pageChars);
   }
 
   // Requested a page past EOF
@@ -277,7 +300,7 @@ export async function readFileWithFragments(
       `Large file (${totalLines} lines, ${totalChars} bytes). Returned page ${cur} ` +
       `(lines ${built.lineStart}-${built.lineEnd}, verbatim). ` +
       (hasMore ? `Use page=${nextPageNum} for more, ` : '') +
-      `returnFullFile=true for the whole file, or query/strategy/maxFragments for fragments. ` +
+      `returnFullFile=true for the whole file, or query/strategy with page/pageSize for fragments. ` +
       `Line numbers are absolute — edit.at_line works on this page.`,
   };
 }

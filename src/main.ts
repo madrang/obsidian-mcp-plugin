@@ -5,7 +5,7 @@ import { Debug } from './utils/debug';
 import { MCPIgnoreManager } from './security/mcp-ignore-manager';
 import { randomBytes } from 'crypto';
 import { PluginDetector } from './utils/plugin-detector';
-import { getActionsForOperation } from './tools/semantic-tools';
+import { getActionsForOperation } from './tools/tool-factory';
 import { BindMode, normalizeBindInput } from './utils/network-classifier';
 import { normalizeScopedTokens } from './security/http-auth';
 import { MCPPluginSettings, MCPServerInfo, DEFAULT_SETTINGS } from './settings/plugin-settings';

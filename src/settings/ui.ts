@@ -22,7 +22,7 @@
 import { ButtonComponent, FileSystemAdapter, Notice, Setting, setIcon, TFolder } from 'obsidian';
 import type { SettingDefinitionItem, SettingGroupItem, SettingDefinitionGroup, SettingDefinitionList } from 'obsidian';
 import { FolderScopeSuggest } from './folder-suggest';
-import { ALL_OPERATIONS, getActionsForOperation } from '../tools/semantic-tools';
+import { ALL_OPERATIONS, getActionsForOperation } from '../tools/tool-factory';
 import { getActionDescriptionLines, getStaticDescriptionLines, getOperationDefinition } from '../tools/tool-registry';
 import { classifyFromSettings } from '../utils/network-classifier';
 import { Debug } from '../utils/debug';

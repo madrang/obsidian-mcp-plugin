@@ -146,6 +146,7 @@ export class SearchFacade {
         , maxResults
         , snippetLength
         , includeMetadata
+        , includeSnippets
       });
 
       results = this.normalizeAdvancedResults(advancedResults);

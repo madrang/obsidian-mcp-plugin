@@ -1,5 +1,5 @@
 /**
- * State token system for semantic hints - inspired by Petri nets
+ * State token system for workflow hints - inspired by Petri nets
  * Tokens represent available states/resources that enable certain actions
  */
 

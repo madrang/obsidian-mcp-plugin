@@ -1,6 +1,6 @@
 import { App, TFile, TFolder } from 'obsidian';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
-import { SemanticRouter } from '../src/semantic/router';
+import { VaultRouter } from '../src/tools/router';
 
 // view.folder glob filtering. The "view.glob" TODO shipped as an optional
 // `pattern` parameter on the folder action, not a new action. These tests
@@ -132,6 +132,7 @@ describe('view.folder router wiring — pattern param', () => {
   class RecordingAPI extends ObsidianAPI {
     lastPaginatedCall: unknown[] | undefined;
     listFilesCalled = false;
+    universe: Array<Record<string, unknown>> = [];
 
     constructor() {
       super({} as App);
@@ -144,36 +145,49 @@ describe('view.folder router wiring — pattern param', () => {
 
     async listFilesPaginated(...args: unknown[]): Promise<any> {
       this.lastPaginatedCall = args;
-      return { files: [], page: 1, pageSize: 20, totalFiles: 0, totalPages: 0 };
+      return { files: this.universe, page: 1, pageSize: 20, totalFiles: this.universe.length, totalPages: 1 };
     }
   }
 
   it('a pattern routes onto the paginated path and reaches the API', async () => {
     const api = new RecordingAPI();
-    const router = new SemanticRouter(api);
+    const router = new VaultRouter(api);
     await router.route({
       operation: 'view',
       action: 'folder',
       params: { pattern: '*.md' },
     });
-    expect(api.lastPaginatedCall).toEqual([undefined, 1, 20, false, '*.md']);
+    // The handler fetches the filtered universe once; the caller's budget
+    // window then applies locally. The fetch size is an internal detail.
+    expect(api.lastPaginatedCall).toEqual([undefined, 1, expect.any(Number), false, '*.md']);
     expect(api.listFilesCalled).toBe(false);
   });
 
-  it('a pattern keeps caller-supplied page and pageSize', async () => {
+  it('caller-supplied page and pageSize window the listing by content budget', async () => {
     const api = new RecordingAPI();
-    const router = new SemanticRouter(api);
-    await router.route({
+    // Each item serializes to 48 chars: page 1 fits two (96), page 2 gets one.
+    api.universe = [
+      { path: 'docs/a.md', name: 'a.md', type: 'file' },
+      { path: 'docs/b.md', name: 'b.md', type: 'file' },
+      { path: 'docs/c.md', name: 'c.md', type: 'file' },
+    ];
+    const router = new VaultRouter(api);
+    const result: any = await router.route({
       operation: 'view',
       action: 'folder',
-      params: { path: 'docs', pattern: '*.md', page: 2, pageSize: 5 },
+      params: { path: 'docs', pattern: '*.md', page: 2, pageSize: 100 },
     });
-    expect(api.lastPaginatedCall).toEqual(['docs', 2, 5, true, '*.md']);
+    expect(api.lastPaginatedCall).toEqual(['docs', 1, expect.any(Number), true, '*.md']);
+    expect(result.result.files.map((f: { path: string }) => f.path)).toEqual(['docs/c.md']);
+    expect(result.result.page).toBe(2);
+    expect(result.result.pageSize).toBe(100);
+    expect(result.result.totalPages).toBe(2);
+    expect(result.result.hasMore).toBe(false);
   });
 
   it('a blank pattern behaves as absent and keeps the legacy path', async () => {
     const api = new RecordingAPI();
-    const router = new SemanticRouter(api);
+    const router = new VaultRouter(api);
     await router.route({
       operation: 'view',
       action: 'folder',
@@ -185,12 +199,12 @@ describe('view.folder router wiring — pattern param', () => {
 
   it('path "/" maps to the vault root with the pattern intact', async () => {
     const api = new RecordingAPI();
-    const router = new SemanticRouter(api);
+    const router = new VaultRouter(api);
     await router.route({
       operation: 'view',
       action: 'folder',
       params: { path: '/', pattern: '*.png' },
     });
-    expect(api.lastPaginatedCall).toEqual([undefined, 1, 20, false, '*.png']);
+    expect(api.lastPaginatedCall).toEqual([undefined, 1, expect.any(Number), false, '*.png']);
   });
 });

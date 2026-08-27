@@ -901,8 +901,7 @@ export class ObsidianAPI {
     page: number = 1,
     pageSize: number = 10,
     strategy: 'filename' | 'content' | 'combined' = 'combined',
-    includeContent: boolean = true,
-    options?: { ranked?: boolean; includeSnippets?: boolean; snippetLength?: number }
+    options?: { ranked?: boolean; includeSnippets?: boolean; snippetLength?: number; maxResults?: number }
   ): Promise<{
     query: string;
     page: number;
@@ -937,8 +936,9 @@ export class ObsidianAPI {
       page
       , pageSize
       , strategy: strategy as 'filename' | 'content' | 'combined' | 'auto'
-      , includeSnippets: options?.includeSnippets ?? includeContent
+      , includeSnippets: options?.includeSnippets ?? true
       , snippetLength: options?.snippetLength
+      , maxResults: options?.maxResults
       , ranked: options?.ranked
     });
 
@@ -990,17 +990,17 @@ export class ObsidianAPI {
       const suggestions = [
         {
           description: 'View a specific file'
-          , command: 'view:file'
+          , command: "view(action='read', path='...')"
           , reason: 'To see the full content of a file'
         }
         , {
           description: 'Read file fragments'
-          , command: 'view:fragments'
+          , command: "view(action='fragments', path='...', query='...')"
           , reason: 'To get relevant excerpts from large files'
         }
         , {
           description: 'Edit a file'
-          , command: 'edit:replace'
+          , command: "edit(action='replace', path='...', oldText='...', newText='...')"
           , reason: 'To modify content in text files'
         }
       ];
@@ -1009,8 +1009,8 @@ export class ObsidianAPI {
       if (response.page < response.totalPages && response.page <= 3) {
         suggestions.push({
           description: 'Get next page of results'
-          , command: 'view:search'
-          , reason: `View page ${response.page + 1} of ${response.totalPages} (use page: ${response.page + 1})`
+          , command: `view(action='search', query='${query}', page=${response.page + 1})`
+          , reason: `View page ${response.page + 1} of ${response.totalPages}`
         });
       }
 

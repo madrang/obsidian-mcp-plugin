@@ -4,9 +4,9 @@
  * addresses the other tools work with (1-based lines, from view.grep or a
  * paged read) must survive unchanged: what is asked is what is returned.
  */
-import { SemanticRouter } from '../src/semantic/router';
+import { VaultRouter } from '../src/tools/router';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
-import { createSemanticTools } from '../src/tools/semantic-tools';
+import { createTools } from '../src/tools/tool-factory';
 import { App } from 'obsidian';
 
 class LinesAPI extends ObsidianAPI {
@@ -33,7 +33,7 @@ describe('view.lines', () => {
   function setup(files: Record<string, string>) {
     const api = new LinesAPI();
     for (const [path, content] of Object.entries(files)) api.files.set(path, content);
-    const router = new SemanticRouter(api, {} as App);
+    const router = new VaultRouter(api, {} as App);
     return { api, router };
   }
 
@@ -134,7 +134,7 @@ describe('view.lines', () => {
   });
 
   test('the tool schema advertises lines with path, startLine, endLine required', () => {
-    const view = createSemanticTools().find(t => t.name === 'view');
+    const view = createTools().find(t => t.name === 'view');
     const enumActions = (view!.inputSchema.properties.action as { enum: string[] }).enum;
     expect(enumActions).toContain('lines');
     const conditional = (view!.inputSchema.allOf ?? []).find(

@@ -12,7 +12,7 @@
  * rebuilding anything, which is exactly what the settings toggle does.
  */
 import { SecureObsidianAPI } from '../../src/security';
-import { createSemanticTools } from '../../src/tools/semantic-tools';
+import { createTools } from '../../src/tools/tool-factory';
 import { BASELINE_SECURITY_SETTINGS } from '../../src/mcp-server';
 import { App, TFile } from 'obsidian';
 
@@ -54,7 +54,7 @@ function setup(readOnlyMode: boolean) {
   const writes: Write[] = [];
   const plugin = { settings: { readOnlyMode } };
   const api = new SecureObsidianAPI(makeApp(writes), undefined, plugin as never);
-  const tools = createSemanticTools(api)!;
+  const tools = createTools(api)!;
   return {
     writes,
     plugin,
@@ -137,7 +137,7 @@ describe('read-only mode liveness', () => {
     const api = new SecureObsidianAPI(
       makeApp(writes), undefined, plugin as never, BASELINE_SECURITY_SETTINGS,
     );
-    const edit = createSemanticTools(api)!.find(t => t.name === 'edit')!;
+    const edit = createTools(api)!.find(t => t.name === 'edit')!;
 
     await edit.handler(api, { action: 'append', path: 'note.md', newText: 'x' });
     expect(writes).toEqual([]);
@@ -176,7 +176,7 @@ describe('read-only mode liveness', () => {
       makeApp(writes), undefined, plugin as never,
       { permissions: { read: true, create: false, update: false, delete: false, move: false, execute: false } },
     );
-    const edit = createSemanticTools(api)!.find(t => t.name === 'edit')!;
+    const edit = createTools(api)!.find(t => t.name === 'edit')!;
 
     plugin.settings.readOnlyMode = false;
     await edit.handler(api, { action: 'append', path: 'note.md', newText: 'y' });
@@ -210,7 +210,7 @@ describe('read-only mode liveness', () => {
     const sessionApi = new SecureObsidianAPI(
       makeApp(writes), undefined, plugin as never, permissiveSnapshot,
     );
-    const edit = createSemanticTools(sessionApi)!.find(t => t.name === 'edit')!;
+    const edit = createTools(sessionApi)!.find(t => t.name === 'edit')!;
 
     plugin.settings.readOnlyMode = true;
 

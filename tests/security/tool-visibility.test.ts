@@ -15,7 +15,7 @@
  *                    that was never advertised
  */
 import { SecureObsidianAPI } from '../../src/security';
-import { createSemanticTools, getActionsForOperation } from '../../src/tools/semantic-tools';
+import { createTools, getActionsForOperation } from '../../src/tools/tool-factory';
 import { BASELINE_SECURITY_SETTINGS } from '../../src/mcp-server';
 import { App, TFile } from 'obsidian';
 
@@ -68,7 +68,7 @@ function setup(visibility?: Record<string, boolean>) {
   const api = new SecureObsidianAPI(
     makeApp(writes), undefined, plugin as never, BASELINE_SECURITY_SETTINGS,
   );
-  const tools = createSemanticTools(api, visibility) ?? [];
+  const tools = createTools(api, visibility) ?? [];
   return { writes, api, tools, byName: (n: string) => tools.find(t => t.name === n) };
 }
 

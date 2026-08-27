@@ -1,4 +1,4 @@
-import { SemanticRouter } from '../src/semantic/router';
+import { VaultRouter } from '../src/tools/router';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 import { App } from 'obsidian';
 
@@ -203,13 +203,13 @@ class MockObsidianAPI extends ObsidianAPI {
 }
 
 describe('Recursive Directory Copy', () => {
-  let router: SemanticRouter;
+  let router: VaultRouter;
   let mockAPI: MockObsidianAPI;
 
   beforeEach(() => {
     mockAPI = new MockObsidianAPI();
     mockAPI.setupMockFileSystem();
-    router = new SemanticRouter(mockAPI);
+    router = new VaultRouter(mockAPI);
   });
 
   describe('isDirectory detection', () => {

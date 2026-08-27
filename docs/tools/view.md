@@ -14,7 +14,7 @@ Read a file.
 ```
 
 - Returns the complete file content when it fits the size budget.
-- A large file returns a verbatim first page with absolute line numbers. Use `page: 2`, `page: 3`, and so on to continue.
+- A large file returns a verbatim first page with absolute line numbers. Use `page: 2`, `page: 3`, and so on to continue. Pages are 50000 characters by default; set `pageSize` to change the page size.
 - Set `returnFullFile: true` to force the whole file regardless of size.
 - Pass `query` to get matching fragments instead of the full file (see `fragments`).
 - Reading an image returns the image itself.
@@ -30,7 +30,7 @@ Search the vault.
 - Operators: `file:`, `path:`, `content:`, `tag:`, OR/AND, `"quoted phrases"`, `/regex/`.
 - Search matches words, not meaning. It will miss notes that cover a topic in different words. A low score does not mean a note is unimportant: the scores are term frequency. Do not prune results on score alone.
 - Run a few broad scans, then follow links from the hits with `graph.neighbors`.
-- Options: `ranked`, `strategy` (`filename`, `content`, `combined`), `includeSnippets`, `snippetLength`, `page`, `pageSize`, `includeContent`.
+- Options: `ranked`, `strategy` (`filename`, `content`, `combined`), `page`, `pageSize`, `limit`. `pageSize` is the page content budget in characters (default 50000), and `limit` caps the hit count. With a `limit`, each snippet gets an even share of the budget, capped at 300 characters. Below 100 characters per hit, the snippets drop out and only the match metadata returns.
 
 ### `fragments`
 Get the matching passages from one file, or from the files that match the query.
@@ -41,13 +41,13 @@ Get the matching passages from one file, or from the files that match the query.
 
 - `path` is optional: with it, the search is scoped to that one file.
 - Fragment strategies (`strategy`): `adaptive` (ranked by term frequency), `proximity` (query terms close together), `structure` (cut on headings and paragraphs). `auto` picks per query. All of them match words, not meaning.
-- `maxFragments` sets the number of passages (default: 5).
+- `pageSize` is the page content budget in characters (default 50000), and `limit` caps the passage count. `page` walks the pages. The response carries `page`, `pageSize`, `totalFragments`, `totalPages`, and `hasMore`.
 
 ### `folder`
 List the files in a folder.
 
 ```json
-{ "action": "folder", "path": "notes", "page": 1, "pageSize": 50 }
+{ "action": "folder", "path": "notes", "page": 1, "pageSize": 20000 }
 ```
 
 Omit `path` for the vault root.
@@ -57,7 +57,7 @@ Add `pattern` to filter the listing with a glob: `*.md`, `**/*.png`, `notes/*.ca
 - The pattern matches each vault-relative path. `*` stays in one folder. `**` crosses folders.
 - A pattern without `/` matches the file name at any depth. `*.md` finds markdown everywhere in the walk.
 - Matching is case-sensitive.
-- A listing with `pattern` is always paginated. The defaults are `page=1` and `pageSize=20`. The response carries the active `pattern`, and the next-page hint includes it.
+- A listing with `pattern` is always paginated. The defaults are `page=1` and a `pageSize` of 50000 characters of content per page. `limit` caps the file count. The response carries the active `pattern`, and the next-page hint includes it.
 
 ### `window`
 Show about 20 lines around a point in a file.

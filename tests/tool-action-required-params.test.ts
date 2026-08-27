@@ -13,7 +13,7 @@
  * dispatch.
  */
 import { App } from 'obsidian';
-import { createSemanticTools, SemanticTool } from '../src/tools/semantic-tools';
+import { createTools, ToolDefinition } from '../src/tools/tool-factory';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 
 jest.mock('obsidian');
@@ -34,18 +34,18 @@ type Conditional = {
   then: { required?: string[]; anyOf?: Array<{ required: string[] }> };
 };
 
-function conditionals(tool: SemanticTool | undefined): Conditional[] {
+function conditionals(tool: ToolDefinition | undefined): Conditional[] {
   return (tool?.inputSchema.allOf ?? []) as Conditional[];
 }
 
-function requiredFor(tool: SemanticTool | undefined, action: string): string[] | undefined {
+function requiredFor(tool: ToolDefinition | undefined, action: string): string[] | undefined {
   return conditionals(tool).find(c => c.if.properties.action.const === action)?.then.required;
 }
 
 describe('per-action required parameters', () => {
   describe('schema conditionals', () => {
     // No api argument: dataview drops out, the six other tools are built.
-    const tools = createSemanticTools();
+    const tools = createTools();
     const byName = (name: string) => tools.find(t => t.name === name);
 
     it('the base required list stays [action]', () => {
@@ -105,7 +105,7 @@ describe('per-action required parameters', () => {
     });
 
     it('a disabled action drops its conditional along with its enum value', () => {
-      const filtered = createSemanticTools(undefined, { 'files.move': false });
+      const filtered = createTools(undefined, { 'files.move': false });
       const files = filtered.find(t => t.name === 'files');
       const enumActions = (files!.inputSchema.properties.action as { enum: string[] }).enum;
       expect(enumActions).not.toContain('move');
@@ -113,7 +113,7 @@ describe('per-action required parameters', () => {
     });
 
     it('fetch_web drops its conditional when the web fetch setting is off', () => {
-      const filtered = createSemanticTools(undefined, undefined, false);
+      const filtered = createTools(undefined, undefined, false);
       const system = filtered.find(t => t.name === 'system');
       expect(requiredFor(system, 'fetch_web')).toBeUndefined();
       expect(requiredFor(system, 'open_in_obsidian')).toEqual(['path']);
@@ -123,7 +123,7 @@ describe('per-action required parameters', () => {
   describe('dispatch enforcement', () => {
     const app = makeApp();
     const api = new ObsidianAPI(app);
-    const tools = createSemanticTools(api);
+    const tools = createTools(api);
     const handlerFor = (name: string) => tools.find(t => t.name === name)!.handler;
 
     async function errorCode(name: string, args: Record<string, unknown>): Promise<string | undefined> {

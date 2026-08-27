@@ -6,7 +6,7 @@
  * here at the router level. These assert on RECORDED WRITES, not error
  * strings.
  */
-import { SemanticRouter } from '../src/semantic/router';
+import { VaultRouter } from '../src/tools/router';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 import { App } from 'obsidian';
 
@@ -47,11 +47,11 @@ class MockAPI extends ObsidianAPI {
 
 describe('files.concat — destination required (router level)', () => {
   let api: MockAPI;
-  let router: SemanticRouter;
+  let router: VaultRouter;
 
   beforeEach(() => {
     api = new MockAPI();
-    router = new SemanticRouter(api);
+    router = new VaultRouter(api);
   });
 
   test('no destination rejects and writes nothing', async () => {

@@ -27,7 +27,7 @@ We implemented support for Obsidian's new Bases feature in the MCP plugin, enabl
 - **BasesAPI class** - Complete rewrite with YAML support
 - **ExpressionEvaluator** - Parses JavaScript-like filter expressions
 - **FormulaEngine** - Evaluates calculated properties
-- **Semantic Router Integration** - Added bases operations to MCP
+- **Router Integration** - Added bases operations to MCP
 - **Tool Descriptions** - Updated to reflect actual functionality
 
 ### 4. Working Features
@@ -77,7 +77,7 @@ src/
 │   ├── bases-api.ts          # Main Bases API
 │   ├── expression-evaluator.ts # Filter expression parser
 │   └── formula-engine.ts     # Formula calculator
-└── semantic/
+└── tools/
     └── router.ts             # MCP operation routing
 ```
 

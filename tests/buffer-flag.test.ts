@@ -6,7 +6,7 @@
  * always carried buffer_available: false.
  */
 import { App } from 'obsidian';
-import { SemanticRouter } from '../src/semantic/router';
+import { VaultRouter } from '../src/tools/router';
 import { ContentBufferManager } from '../src/utils/content-buffer';
 import { contentHash } from '../src/utils/content-hash';
 
@@ -24,10 +24,10 @@ function stubApi(initial: string) {
   };
 }
 
-function routerWith(initial: string): SemanticRouter {
+function routerWith(initial: string): VaultRouter {
   const { api } = stubApi(initial);
   const app = { vault: {} } as unknown as App;
-  return new SemanticRouter(api, app);
+  return new VaultRouter(api, app);
 }
 
 describe('buffer_available in the response context', () => {

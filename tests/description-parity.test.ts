@@ -9,12 +9,12 @@
  * description. These pins hold both directions: no missing bullet, no orphan
  * bullet, for every tool on every visibility shape tested here.
  */
-import { createSemanticTools, getOperationDescription, getActionsForOperation, ALL_OPERATIONS, SemanticTool } from '../src/tools/semantic-tools';
+import { createTools, getOperationDescription, getActionsForOperation, ALL_OPERATIONS, ToolDefinition } from '../src/tools/tool-factory';
 import { getActionDescriptionLines, getStaticDescriptionLines } from '../src/tools/tool-registry';
 
 type EnumHolder = { enum: string[] };
 
-function enumActions(tool: SemanticTool): string[] {
+function enumActions(tool: ToolDefinition): string[] {
   return (tool.inputSchema.properties.action as EnumHolder).enum;
 }
 
@@ -23,7 +23,7 @@ function bulletActions(description: string): string[] {
   return [...description.matchAll(/^- `([\w-]+)`/gm)].map(m => m[1]);
 }
 
-function byName(tools: SemanticTool[], name: string): SemanticTool {
+function byName(tools: ToolDefinition[], name: string): ToolDefinition {
   const tool = tools.find(t => t.name === name);
   if (!tool) throw new Error(`tool not built: ${name}`);
   return tool;
@@ -66,15 +66,15 @@ describe('description partition: static vs action-owned lines', () => {
     // The property that matters: hiding the action removes its guidance
     // too. A guidance line that stayed static would outlive its action —
     // the stale-mention defect this structure exists to prevent.
-    const hiddenRead = createSemanticTools(undefined, { 'view.read': false })
+    const hiddenRead = createTools(undefined, { 'view.read': false })
       .find(t => t.name === 'view')!;
     expect(hiddenRead.description).not.toContain('A complete `read` returns the stats');
     expect(hiddenRead.description).toContain('`window`');
 
-    const full = createSemanticTools().find(t => t.name === 'view')!;
+    const full = createTools().find(t => t.name === 'view')!;
     expect(full.description).toContain('A complete `read` returns the stats');
 
-    const noPatch = createSemanticTools(undefined, { 'edit.patch': false })
+    const noPatch = createTools(undefined, { 'edit.patch': false })
       .find(t => t.name === 'edit')!;
     expect(noPatch.description).not.toContain('Warning: `patch`');
     // The cross-action rules are static on purpose and must survive any
@@ -101,7 +101,7 @@ describe('description parity', () => {
   });
 
   it('descriptions are markdown: headings and multi-line structure', () => {
-    for (const tool of createSemanticTools()) {
+    for (const tool of createTools()) {
       expect(tool.description).toContain('## Actions');
       expect(tool.description).toContain('\n');
       expect(tool.description.length).toBeGreaterThan(0);
@@ -109,7 +109,7 @@ describe('description parity', () => {
   });
 
   it('a hidden action leaves the description with its enum value', () => {
-    const tools = createSemanticTools(undefined, { 'view.read': false });
+    const tools = createTools(undefined, { 'view.read': false });
     const view = byName(tools, 'view');
     expect(enumActions(view)).not.toContain('read');
     expect(bulletActions(view.description)).not.toContain('read');
@@ -119,7 +119,7 @@ describe('description parity', () => {
   });
 
   it('a hidden action keeps the other bullets intact', () => {
-    const tools = createSemanticTools(undefined, { 'edit.replace': false });
+    const tools = createTools(undefined, { 'edit.replace': false });
     const edit = byName(tools, 'edit');
     expect(enumActions(edit)).not.toContain('replace');
     expect(bulletActions(edit.description)).toEqual(
@@ -131,30 +131,30 @@ describe('description parity', () => {
     // 2026-08-23: the overwrite bullet was removed. The schema-side parameter is the only carrier,
     // and it keeps following the gate (covered by the tool-surface-moves suite).
     // Verdict ledger: vault, Descriptor Review/files.
-    const off = byName(createSemanticTools(undefined, undefined, false, false), 'files');
+    const off = byName(createTools(undefined, undefined, false, false), 'files');
     expect(off.description).not.toContain('overwrite');
 
-    const on = byName(createSemanticTools(undefined, undefined, false, true), 'files');
+    const on = byName(createTools(undefined, undefined, false, true), 'files');
     expect(on.description).not.toContain('overwrite');
   });
 
   it('create hidden keeps the word overwrite out of the files description', () => {
-    const tools = createSemanticTools(undefined, { 'files.create': false }, false, true);
+    const tools = createTools(undefined, { 'files.create': false }, false, true);
     const files = byName(tools, 'files');
     expect(enumActions(files)).not.toContain('create');
     expect(files.description).not.toContain('overwrite');
   });
 
   it('fetch_web stays out of the system description while the gate is off', () => {
-    const off = byName(createSemanticTools(undefined, undefined, false, false), 'system');
+    const off = byName(createTools(undefined, undefined, false, false), 'system');
     expect(off.description).not.toContain('fetch_web');
 
-    const on = byName(createSemanticTools(undefined, undefined, true, false), 'system');
+    const on = byName(createTools(undefined, undefined, true, false), 'system');
     expect(on.description).toContain('fetch_web');
   });
 
   it('a disabled operation is not built at all', () => {
-    const tools = createSemanticTools(undefined, { view: false });
+    const tools = createTools(undefined, { view: false });
     expect(tools.find(t => t.name === 'view')).toBeUndefined();
   });
 });

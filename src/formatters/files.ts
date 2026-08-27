@@ -101,7 +101,7 @@ export function formatFileList(response: FileListResponse | string[]): string {
     lines.push('');
   }
   if (page !== undefined && totalPages !== undefined && totalPages > 0) {
-    lines.push(`Page ${page} of ${totalPages}${pageSize ? ` (${pageSize} per page)` : ''}`);
+    lines.push(`Page ${page} of ${totalPages} (${files.length} items${pageSize ? `, ${pageSize} char budget` : ''})`);
     lines.push('');
   }
 
@@ -322,7 +322,7 @@ export function formatFileRead(response: FileReadResponse): string {
     if (pagination.beyondEnd) {
       lines.push('   (requested page is past end of file)');
     }
-    lines.push('   returnFullFile=true for the whole file · query/strategy/maxFragments for fragments · line numbers are absolute (edit.at_line works)');
+    lines.push('   returnFullFile=true for the whole file · query/strategy with page/pageSize for fragments · line numbers are absolute (edit.at_line works)');
   }
 
   if (response.warning) {

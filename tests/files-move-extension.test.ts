@@ -1,7 +1,7 @@
 /**
  * files move with a bare destination (in-place rename) — extension preservation (#253).
  *
- * Drives the real SemanticRouter -> executeFilesOperation path. Only the vault I/O
+ * Drives the real VaultRouter -> executeFilesOperation path. Only the vault I/O
  * boundary is stubbed (ObsidianAPI.getFile, app.fileManager.renameFile), so the path
  * construction under test is the shipped one. The rename action had no behavioural
  * test at all before this, which is why the dropped extension shipped.
@@ -12,7 +12,7 @@
  *
  * The API and the app must share one App instance, as they do in production.
  */
-import { SemanticRouter } from '../src/semantic/router';
+import { VaultRouter } from '../src/tools/router';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 import { App, TFile } from 'obsidian';
 
@@ -57,7 +57,7 @@ async function rename(source: string, dest: string): Promise<{ result: RenameRes
   const existing = new Set([source]);
   const renamed: string[] = [];
   const app = fakeApp(existing, renamed);
-  const router = new SemanticRouter(new MockObsidianAPI(existing, app), app);
+  const router = new VaultRouter(new MockObsidianAPI(existing, app), app);
 
   const response = await router.route({
     operation: 'files',
