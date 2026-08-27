@@ -136,7 +136,9 @@ export function formatFileList(response: FileListResponse | string[]): string {
 
   // Empty result under a filter gets an explicit statement, so the agent
   // reads "the glob matched nothing" instead of scanning a bare listing.
-  if (pattern !== undefined && files.length === 0) {
+  // Only when the whole universe is empty: a past-end page also carries no
+  // items, but the filter did match — the header already says "Page N of M".
+  if (pattern !== undefined && files.length === 0 && (totalFiles ?? 0) === 0) {
     lines.push(`No files match \`${pattern}\`.`);
     lines.push('');
   }

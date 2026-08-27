@@ -95,6 +95,28 @@ describe('view.read fidelity & pagination (ADR-203)', () => {
     expect(r.warning).toMatch(/past end of file/i);
   });
 
+  test('small file with page=2 is past EOF too, never a second complete read', async () => {
+    const api = new MockAPI();
+    api.files.set('s.md', TRICKY);
+    const r: any = await readFileWithFragments(api, fr(), { path: 's.md', page: 2 });
+    expect(r.pagination.paginated).toBe(true);
+    expect(r.pagination.beyondEnd).toBe(true);
+    expect(r.content).toBe('');
+    // A page is a partial read: no precondition values ride along.
+    expect(r.hash).toBeUndefined();
+    expect(r.mtime).toBeUndefined();
+    expect(r.warning).toMatch(/past end of file/);
+  });
+
+  test('small file with page=1 stays a complete read with mtime and hash', async () => {
+    const api = new MockAPI();
+    api.files.set('s.md', TRICKY);
+    const r: any = await readFileWithFragments(api, fr(), { path: 's.md', page: 1 });
+    expect(r.content).toBe(TRICKY);
+    expect(r.pagination.paginated).toBe(false);
+    expect(r.hash).toBeDefined();
+  });
+
   test('fragment params still route to fragments (unchanged)', async () => {
     const api = new MockAPI();
     api.files.set('big.md', big);

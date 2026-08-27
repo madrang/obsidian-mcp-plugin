@@ -339,3 +339,53 @@ describe('bases.query router wiring — flat params and format routing', () => {
     expect(api.queryCall).toEqual(['dash.base', 'main', undefined]);
   });
 });
+
+describe('bases.query pagination guards — invalid values fail closed', () => {
+  class GuardAPI extends ObsidianAPI {
+    queryCalls = 0;
+
+    constructor() {
+      super({} as App);
+    }
+
+    async queryBase(): Promise<any> {
+      this.queryCalls++;
+      return { notes: [], total: 0 };
+    }
+  }
+
+  it('page=0 rejects before queryBase runs', async () => {
+    const api = new GuardAPI();
+    const response: any = await new VaultRouter(api).route({
+      operation: 'bases',
+      action: 'query',
+      params: { path: 'dash.base', page: 0 },
+    });
+    expect(response.error).toBeDefined();
+    expect(response.error.message).toContain("bases.query: 'page' must be a whole number of at least 1");
+    expect(api.queryCalls).toBe(0);
+  });
+
+  it('pageSize=0 rejects before queryBase runs', async () => {
+    const api = new GuardAPI();
+    const response: any = await new VaultRouter(api).route({
+      operation: 'bases',
+      action: 'query',
+      params: { path: 'dash.base', pageSize: 0 },
+    });
+    expect(response.error).toBeDefined();
+    expect(response.error.message).toContain("bases.query: 'pageSize' must be a whole number of at least 1");
+    expect(api.queryCalls).toBe(0);
+  });
+
+  it('a non-integer page rejects', async () => {
+    const api = new GuardAPI();
+    const response: any = await new VaultRouter(api).route({
+      operation: 'bases',
+      action: 'query',
+      params: { path: 'dash.base', page: 1.5 },
+    });
+    expect(response.error).toBeDefined();
+    expect(api.queryCalls).toBe(0);
+  });
+});

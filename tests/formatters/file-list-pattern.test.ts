@@ -47,6 +47,20 @@ describe('formatFileList — pattern filter display', () => {
     expect(out).toContain('No files match `*.xyz`');
   });
 
+  it('a past-end page does not claim the pattern matched nothing', () => {
+    const out = formatFileList({
+      directory: 'docs',
+      pattern: '*.md',
+      files: [],
+      totalFiles: 16,
+      page: 9,
+      pageSize: 300,
+      totalPages: 8,
+    });
+    expect(out).not.toContain('No files match');
+    expect(out).toContain('Page 9 of 8');
+  });
+
   it('renders without a pattern exactly as before', () => {
     const out = formatFileList({
       directory: 'docs',

@@ -12,6 +12,14 @@
 /** One default page content size for every list action, in characters. */
 export const CONTENT_PAGE_DEFAULT_SIZE = 50000;
 
+/**
+ * Fixed fetch cap for a fragment universe. The cap must not depend on the
+ * requested page: a universe that grows while the caller walks makes the
+ * reported totals shift under them. Retrieval is in-memory, so a fixed cap
+ * costs nothing per page.
+ */
+export const FRAGMENT_FETCH_CAP = 500;
+
 export interface ContentPageArgs {
   page?: number;
   pageSize?: number;

@@ -140,3 +140,4 @@ CLAUDE.md
 surface-dump.json
 surface-dump-lean.json
 .surface-dump.tmp.cjs
+testdoc-out/

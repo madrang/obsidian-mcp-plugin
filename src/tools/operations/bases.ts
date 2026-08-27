@@ -4,7 +4,7 @@
  * bases tool itself.
  */
 import { RouterContext } from './router-context';
-import { Params, paramStr, paramNum } from './shared';
+import { Params, paramStr, readPageArgs } from './shared';
 import { BaseYAML } from '../../types/bases-yaml';
 import { BaseQueryOptions, BaseFilter } from '../../types/bases';
 
@@ -55,11 +55,11 @@ export async function executeBasesOperation(ctx: RouterContext, action: string, 
 
       // Flat surface params build the internal options object. The shape
       // follows the surface standards: page/pageSize as on view.folder,
-      // sortBy/sortOrder as on files.concat.
+      // sortBy/sortOrder as on files.concat. Invalid pagination fails
+      // closed, same as the view list actions.
       const sortBy = paramStr(params, 'sortBy');
       const sortOrder = paramStr(params, 'sortOrder');
-      const page = paramNum(params, 'page');
-      const pageSize = paramNum(params, 'pageSize');
+      const { page, pageSize } = readPageArgs(params, 'bases.query');
       const options: BaseQueryOptions | undefined = (
         params.filters !== undefined
         || sortBy !== undefined

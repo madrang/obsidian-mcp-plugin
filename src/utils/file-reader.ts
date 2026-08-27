@@ -2,7 +2,7 @@ import { ObsidianAPI } from './obsidian-api';
 import { isImageFile } from '../types/obsidian';
 import { UniversalFragmentRetriever } from '../indexing/fragment-retriever';
 import { contentHash } from './content-hash';
-import { contentPage, jsonSize, CONTENT_PAGE_DEFAULT_SIZE } from './content-page';
+import { contentPage, jsonSize, CONTENT_PAGE_DEFAULT_SIZE, FRAGMENT_FETCH_CAP } from './content-page';
 
 /**
  * Character budget that decides whole-file vs. paginated reads (ADR-203).
@@ -115,6 +115,8 @@ function buildPage(lines: string[], startIdx: number, pageChars: number): {
  *  - fragment params (query/strategy, paged with page/pageSize) → fragment retrieval
  *  - returnFullFile:true → entire file verbatim (explicit large override)
  *  - fits READ_PAGE_CHARS → entire file verbatim, one load (common case)
+ *  - a page past the last one → empty content, `beyondEnd` marker, a warning
+ *    naming the last page — never an error, never a second complete read
  *  - exceeds budget → bookended page 1 (or `page` N): one contiguous
  *    verbatim block + line bookends so edit.at_line still works
  *
@@ -182,7 +184,7 @@ export async function readFileWithFragments(
     const fragmentPage = page ?? 1;
     const fragmentLimit = limit ?? maxFragments;
     const fragmentBudget = pageSize ?? CONTENT_PAGE_DEFAULT_SIZE;
-    const fetchCap = fragmentLimit ?? Math.max(fragmentPage * 50, 50);
+    const fetchCap = fragmentLimit ?? FRAGMENT_FETCH_CAP;
     const fragmentResponse = fragmentRetriever.retrieveFragments(fragmentQuery, {
       strategy: strategy || 'auto'
       , maxFragments: fetchCap,
@@ -209,7 +211,33 @@ export async function readFileWithFragments(
     };
   }
 
-  // 2. Whole file, one load — fits the budget OR explicit override
+  // 2. A page request beyond 1 on a file that fits in one page is past the
+  // end — same shape as a deep page on a large file, never a second
+  // complete read (a page is partial: no mtime, no hash).
+  if (!returnFullFile && totalChars <= pageChars && typeof page === 'number' && page > 1) {
+    const requested = Math.floor(page);
+    return {
+      path
+      , content: ''
+      , frontmatter
+      , tags
+      , metadata: { ...metaNoBody, totalLines, bytes: totalChars }
+      , pagination: {
+        paginated: true
+        , page: requested
+        , pageLineStart: totalLines + 1
+        , pageLineEnd: totalLines
+        , totalLines
+        , bytes: totalChars
+        , hasMore: false
+        , nextPage: null
+        , beyondEnd: true,
+      }
+      , warning: `Requested page ${requested} is past end of file (file has ${totalLines} lines, last page is 1).`,
+    };
+  }
+
+  // 3. Whole file, one load — fits the budget OR explicit override
   if (returnFullFile || totalChars <= pageChars) {
     const overrideOnLarge = !!returnFullFile && totalChars > pageChars;
     return {
@@ -243,7 +271,7 @@ export async function readFileWithFragments(
     };
   }
 
-  // 3. Large file, no override, no fragments → bookended page
+  // 4. Large file, no override, no fragments → bookended page
   const requested = typeof page === 'number' && page >= 1 ? Math.floor(page) : 1;
   let idx = 0;
   let cur = 1;

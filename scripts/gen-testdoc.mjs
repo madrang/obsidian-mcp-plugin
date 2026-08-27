@@ -38,6 +38,7 @@ const SUITE_CATEGORY = {
   , 'tests/view-read-fidelity.test.ts': 'View and read'
   , 'tests/view-read-stats.test.ts': 'View and read'
   , 'tests/view-folder-glob.test.ts': 'View and read'
+  , 'tests/view-pagination-guards.test.ts': 'View and read'
   , 'tests/fragments-path-scope.test.ts': 'View and read'
   , 'tests/fuzzy-match.test.ts': 'Search'
   , 'tests/files-concat-router.test.ts': 'Files operations'

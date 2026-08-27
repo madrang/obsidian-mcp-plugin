@@ -15,7 +15,7 @@ import { SecurityError } from '../../security';
 import { RouterContext } from './router-context';
 import { Params, paramStr, paramNum, paramBool, requireParamStr, readPageArgs } from './shared';
 import { FileLockManager } from '../../utils/file-lock';
-import { contentPage, jsonSize, CONTENT_PAGE_DEFAULT_SIZE } from '../../utils/content-page';
+import { contentPage, jsonSize, CONTENT_PAGE_DEFAULT_SIZE, FRAGMENT_FETCH_CAP } from '../../utils/content-page';
 
 /** Fetch cap for the folder universe before the content-budget window cuts it. */
 const FOLDER_FETCH_ALL = 1000000;
@@ -73,7 +73,9 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
         // already recursive (getAllLoadedFiles), so we leave
         // recursive=false there. The listFilesPaginated call routes
         // through the same path regardless.
-        if (pattern !== undefined || params.page || params.pageSize || params.limit) {
+        // Presence matters, not truthiness: a zero page, pageSize, or limit
+        // is invalid input for readPageArgs, not an absent parameter.
+        if (pattern !== undefined || params.page !== undefined || params.pageSize !== undefined || params.limit !== undefined) {
           const { page, pageSize, limit } = readPageArgs(params, 'view.folder');
           const recursive = directory !== undefined;
           // Fetch the full filtered universe, then window it by content
@@ -131,6 +133,11 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
           };
         }
 
+        // Validate pagination outside the try: a caller error must surface,
+        // not collapse into the empty result the catch returns on retrieval
+        // failures.
+        const { page: fragmentPage, pageSize: fragmentBudget, limit: fragmentLimit } = readPageArgs(params, 'view.fragments');
+
         try {
           const indexFile = async (filePath: string): Promise<void> => {
             if (!filePath || !filePath.endsWith('.md')) return;
@@ -169,13 +176,11 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
             }
           }
 
-          const { page: fragmentPage, pageSize: fragmentBudget, limit: fragmentLimit } = readPageArgs(params, 'view.fragments');
-
           // The retriever caps what it fetches. With a limit the universe is
-          // the limit itself. Without one, over-fetch for the requested page
-          // and let the budget window cut. A full fetch means more pages may
-          // exist.
-          const fetchCap = fragmentLimit ?? Math.max((fragmentPage ?? 1) * 50, 50);
+          // the limit itself. Without one the cap is fixed, so the reported
+          // totals stay stable while the caller walks pages. A full fetch
+          // means more pages may exist.
+          const fetchCap = fragmentLimit ?? FRAGMENT_FETCH_CAP;
 
           // Search for fragments in indexed documents
           const fragmentResponse = ctx.fragmentRetriever.retrieveFragments(fragmentQuery, {
@@ -259,9 +264,12 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
           };
         }
 
+        // Validate pagination outside the try: a caller error must surface,
+        // not trigger the filename fallback reserved for search failures.
+        const { page, pageSize, limit } = readPageArgs(params, 'view.search');
+
         // Use advanced search with ranking and snippets
         try {
-          const { page, pageSize, limit } = readPageArgs(params, 'view.search');
           const pageBudget = pageSize ?? CONTENT_PAGE_DEFAULT_SIZE;
           // One strategy parameter for the whole view tool. Only the search
           // strategies apply here. Anything else (a fragment strategy, auto,
@@ -295,10 +303,11 @@ export async function executeFilesOperation(ctx: RouterContext, action: string, 
             searchOptions.includeSnippets = false;
           }
 
-          // Fetch enough items for the requested page: a hit is never smaller
-          // than ~40 serialized chars, so the page always ends inside the
-          // fetch. With a limit the universe is the limit itself.
-          const fetchCount = Math.min(limit ?? Math.ceil((page ?? 1) * pageBudget / 40), SEARCH_FETCH_CAP);
+          // The universe must not depend on the requested page: totals would
+          // shift under the caller while walking. maxResults only caps the
+          // serialized list — the search itself already scans the whole
+          // vault on every call, so fetching to the cap costs nothing extra.
+          const fetchCount = Math.min(limit ?? SEARCH_FETCH_CAP, SEARCH_FETCH_CAP);
           searchOptions.maxResults = fetchCount;
 
           const found = await ctx.api.searchPaginated(
