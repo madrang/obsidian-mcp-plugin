@@ -18,8 +18,9 @@ obsidian-mcp-plugin/
 │   │   ├── tool-registry.ts  # Registration point for the tool surface
 │   │   ├── router.ts         # Operation routing
 │   │   ├── state-tokens.ts   # Router state tokens
-│   │   ├── definitions/      # One self-registering module per tool
-│   │   └── operations/       # Operation handlers
+│   │   ├── definitions.ts    # Side-effect barrel, pins tools/list order
+│   │   └── <tool>/           # One folder per tool (files, edit, view, …):
+│   │                           definitions.ts, operations.ts, helper modules
 │   ├── utils/                # Utility functions
 │   │   ├── obsidian-api.ts   # Vault operations
 │   │   ├── session-manager.ts # Session handling
@@ -56,7 +57,7 @@ obsidian-mcp-plugin/
 Core plugin code. Main entry point is `main.ts`.
 
 ### `/src/tools`
-MCP tool implementations. The router maps operations to the handlers in `operations/`, and `tool-registry.ts` registers the tool surface.
+MCP tool implementations. The router maps operations to the handlers in the per-tool folders (`<tool>/operations.ts`), and `tool-registry.ts` registers the tool surface.
 
 ### `/src/utils`
 Shared utilities including the ObsidianAPI abstraction layer and session management.
