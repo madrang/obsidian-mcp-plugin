@@ -74,21 +74,24 @@ import {
   formatDataviewStatus,
   formatDataviewPages,
   formatDataviewMetadata,
+  DataviewQueryResponse,
+  DataviewStatusResponse,
+  DataviewPagesResponse,
+  DataviewMetadataResponse
+} from '../tools/dataview/format';
+
+import {
   formatBasesQuery,
   formatBasesList,
   formatBasesRead,
   formatBasesCreate,
   formatBasesExport,
-  DataviewQueryResponse,
-  DataviewStatusResponse,
-  DataviewPagesResponse,
-  DataviewMetadataResponse,
   BasesQueryResponse,
   BasesListResponse,
   BasesReadResponse,
   BasesCreateResponse,
   BasesExportResponse
-} from './dataview';
+} from '../tools/bases/format';
 
 import {
   formatSystemInfo,

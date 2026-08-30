@@ -1,4 +1,4 @@
-import { formatBasesRead, formatBasesQuery } from '../../src/formatters/dataview';
+import { formatBasesRead, formatBasesQuery } from '../../src/tools/bases/format';
 
 // bases.read and bases.query hit the same defect class as the old
 // bases.list crash: the formatters were written against shapes the handlers

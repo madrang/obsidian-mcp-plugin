@@ -1,4 +1,4 @@
-import { formatBasesList } from '../../src/formatters/dataview';
+import { formatBasesList } from '../../src/tools/bases/format';
 
 // bases.list once returned paths as strings, then listBases() moved to
 // entry objects ({ path, name, views }) while the formatter still called
