@@ -1,7 +1,7 @@
 import { App } from 'obsidian';
-import { ObsidianAPI } from '../utils/obsidian-api';
-import { SearchCore } from '../utils/search-core';
-import { GraphSearchTraversal, GraphSearchResult, TraversalNode } from './graph-search-traversal';
+import { ObsidianAPI } from '../../utils/obsidian-api';
+import { SearchCore } from '../../utils/search-core';
+import { GraphSearchTraversal, GraphSearchResult, TraversalNode } from './search-traversal';
 
 interface GraphSearchToolParams {
     action: 'search-traverse' | 'advanced-traverse';

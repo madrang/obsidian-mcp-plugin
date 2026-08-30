@@ -3,7 +3,7 @@
  * into the tool registry at import time.
  */
 import { registerOperation } from '../tool-registry';
-import { executeGraphOperation } from '../operations/graph';
+import { executeGraphOperation } from './operations';
 
 registerOperation({
   name: 'graph'

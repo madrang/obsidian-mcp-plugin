@@ -1,8 +1,8 @@
 import { App, TFile, getAllTags } from 'obsidian';
-import { ObsidianAPI } from '../utils/obsidian-api';
-import { SearchCore } from '../utils/search-core';
-import { GraphSearchTagTraversal } from './graph-search-tag-traversal';
-import { TraversalNode, GraphSearchResult } from './graph-search-traversal';
+import { ObsidianAPI } from '../../utils/obsidian-api';
+import { SearchCore } from '../../utils/search-core';
+import { GraphSearchTagTraversal } from './search-tag-traversal';
+import { TraversalNode, GraphSearchResult } from './search-traversal';
 
 interface GraphTagToolParams {
     action: 'tag-traverse' | 'tag-analysis' | 'shared-tags';

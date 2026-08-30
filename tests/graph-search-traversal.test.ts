@@ -1,4 +1,4 @@
-import { GraphSearchTraversal } from '../src/tools/graph-search-traversal';
+import { GraphSearchTraversal } from '../src/tools/graph/search-traversal';
 import { App, TFile } from 'obsidian';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 import { SearchCore } from '../src/utils/search-core';

@@ -15,9 +15,9 @@ import { App } from 'obsidian';
 import { ObsidianAPI } from '../utils/obsidian-api';
 import { UniversalFragmentRetriever } from '../indexing/fragment-retriever';
 import { InputValidator } from '../validation/input-validator';
-import { GraphSearchTool } from './graph-search';
-import { GraphSearchTool as GraphSearchTraversalTool } from './graph-search-tool';
-import { GraphTagTool } from './graph-tag-tool';
+import { GraphSearchTool } from './graph/search';
+import { GraphSearchTool as GraphSearchTraversalTool } from './graph/search-tool';
+import { GraphTagTool } from './graph/tag-tool';
 import { SuggestedAction } from '../types/operations';
 
 export interface RouterContext {

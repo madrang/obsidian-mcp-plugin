@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import { GraphSearchTool } from '../src/tools/graph-search';
+import { GraphSearchTool } from '../src/tools/graph/search';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 
 function makeFile(path: string): TFile {

@@ -6,6 +6,6 @@ import '../files/definitions';
 import '../edit/definitions';
 import '../view/definitions';
 import '../system/definitions';
-import './graph';
+import '../graph/definitions';
 import '../bases/definitions';
 import './dataview';

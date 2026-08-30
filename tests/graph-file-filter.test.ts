@@ -1,6 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
-import { GraphSearchTool, buildPathFilters, buildTagPredicate } from '../src/tools/graph-search';
+import { GraphSearchTool } from '../src/tools/graph/search';
+import { buildPathFilters, buildTagPredicate } from '../src/tools/graph/filters';
 
 // fileFilter and tagFilter wiring. traverse restricts the walk itself. The
 // listing actions (neighbors, backlinks, forwardlinks) filter the returned

@@ -3,7 +3,7 @@
  * same way it does on search-traverse — a path that fails is never visited,
  * matched, or expanded.
  */
-import { GraphSearchTagTraversal } from '../src/tools/graph-search-tag-traversal';
+import { GraphSearchTagTraversal } from '../src/tools/graph/search-tag-traversal';
 import { App, TFile } from 'obsidian';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 import { SearchCore } from '../src/utils/search-core';

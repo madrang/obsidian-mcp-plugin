@@ -1,7 +1,7 @@
 import { App, TFile } from 'obsidian';
-import { ObsidianAPI } from '../utils/obsidian-api';
-import { SearchCore } from '../utils/search-core';
-import { MCPIgnoreManager } from '../security/mcp-ignore-manager';
+import { ObsidianAPI } from '../../utils/obsidian-api';
+import { SearchCore } from '../../utils/search-core';
+import { MCPIgnoreManager } from '../../security/mcp-ignore-manager';
 
 export interface SearchSnippet {
     text: string;

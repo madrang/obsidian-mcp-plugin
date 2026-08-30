@@ -1,6 +1,6 @@
 import { App, TFile } from 'obsidian';
 import { GraphTraversal } from '../src/utils/graph-traversal';
-import { GraphSearchTool } from '../src/tools/graph-search';
+import { GraphSearchTool } from '../src/tools/graph/search';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 import { MCPIgnoreManager } from '../src/security/mcp-ignore-manager';
 

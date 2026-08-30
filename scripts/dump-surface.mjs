@@ -29,7 +29,7 @@ import '../src/tools/files/definitions';
 import '../src/tools/edit/definitions';
 import '../src/tools/view/definitions';
 import '../src/tools/system/definitions';
-import '../src/tools/definitions/graph';
+import '../src/tools/graph/definitions';
 import '../src/tools/bases/definitions';
 import '../src/tools/definitions/dataview';
 

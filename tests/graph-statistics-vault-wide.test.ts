@@ -6,7 +6,7 @@
  * adjacency. Per-node stats coverage stays intact.
  */
 import { App, TFile } from 'obsidian';
-import { GraphSearchTool } from '../src/tools/graph-search';
+import { GraphSearchTool } from '../src/tools/graph/search';
 import { GraphTraversal } from '../src/utils/graph-traversal';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 

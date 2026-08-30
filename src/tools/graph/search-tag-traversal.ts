@@ -1,8 +1,8 @@
 import { App, TFile, getAllTags } from 'obsidian';
-import { ObsidianAPI } from '../utils/obsidian-api';
-import { SearchCore } from '../utils/search-core';
-import { GraphSearchTraversal, TraversalNode, GraphSearchResult } from './graph-search-traversal';
-import { MCPIgnoreManager } from '../security/mcp-ignore-manager';
+import { ObsidianAPI } from '../../utils/obsidian-api';
+import { SearchCore } from '../../utils/search-core';
+import { GraphSearchTraversal, TraversalNode, GraphSearchResult } from './search-traversal';
+import { MCPIgnoreManager } from '../../security/mcp-ignore-manager';
 
 export class GraphSearchTagTraversal extends GraphSearchTraversal {
     constructor(app: App, api: ObsidianAPI, searchCore: SearchCore, ignoreManager?: MCPIgnoreManager) {
