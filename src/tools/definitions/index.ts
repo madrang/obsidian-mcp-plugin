@@ -4,7 +4,7 @@
  */
 import '../files/definitions';
 import '../edit/definitions';
-import './view';
+import '../view/definitions';
 import './system';
 import './graph';
 import '../bases/definitions';

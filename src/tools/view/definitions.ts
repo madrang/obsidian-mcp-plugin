@@ -4,7 +4,7 @@
  */
 import { registerOperation } from '../tool-registry';
 import { executeFilesOperation } from '../files/operations';
-import { executeViewOperation } from '../operations/view';
+import { executeViewOperation } from './operations';
 
 registerOperation({
   name: 'view'
