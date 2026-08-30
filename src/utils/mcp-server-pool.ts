@@ -11,7 +11,7 @@ import { Debug } from './debug';
 import { ObsidianAPI } from './obsidian-api';
 import { SecureObsidianAPI } from '../security/secure-obsidian-api';
 import { createTools } from '../tools/tool-factory';
-import { DataviewTool, isDataviewToolAvailable } from '../tools/dataview-tool';
+import { DataviewTool, isDataviewToolAvailable } from '../tools/dataview/tool';
 import { getVersion } from '../version';
 import type { SessionManager } from './session-manager';
 import type { ConnectionPool } from './connection-pool';

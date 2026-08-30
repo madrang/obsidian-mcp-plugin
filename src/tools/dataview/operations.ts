@@ -5,7 +5,7 @@
  */
 import { RouterContext } from '../router-context';
 import { Params } from '../shared';
-import { DataviewTool } from '../dataview-tool';
+import { DataviewTool } from './tool';
 
 /** Result envelope for Dataview actions (structured errors, not throws). */
 export interface DataviewResult {

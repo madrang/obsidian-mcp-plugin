@@ -8,4 +8,4 @@ import '../view/definitions';
 import '../system/definitions';
 import '../graph/definitions';
 import '../bases/definitions';
-import './dataview';
+import '../dataview/definitions';

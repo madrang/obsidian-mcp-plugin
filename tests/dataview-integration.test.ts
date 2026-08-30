@@ -1,4 +1,5 @@
-import { DataviewTool, isDataviewToolAvailable, normalizeListGroupByQuery } from '../src/tools/dataview-tool';
+import { DataviewTool, isDataviewToolAvailable } from '../src/tools/dataview/tool';
+import { normalizeListGroupByQuery } from '../src/tools/dataview/query';
 import { PluginDetector } from '../src/utils/plugin-detector';
 import { formatResponse } from '../src/formatters';
 

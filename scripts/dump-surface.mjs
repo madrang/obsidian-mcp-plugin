@@ -31,7 +31,7 @@ import '../src/tools/view/definitions';
 import '../src/tools/system/definitions';
 import '../src/tools/graph/definitions';
 import '../src/tools/bases/definitions';
-import '../src/tools/definitions/dataview';
+import '../src/tools/dataview/definitions';
 
 const api = { getApp: () => new App() };
 // Gates on: the dump documents the full surface a session can see, so both
