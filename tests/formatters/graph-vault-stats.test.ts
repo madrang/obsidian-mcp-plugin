@@ -6,7 +6,7 @@
  * the caller into a raw-JSON fallback prefixed "Formatter error". The agent still got
  * data, so nothing failed loudly — it just got the ugly path every time.
  */
-import { formatGraphStats } from '../../src/formatters/graph';
+import { formatGraphStats } from '../../src/tools/graph/format';
 
 const DENSE = {
   totalNotes: 58,

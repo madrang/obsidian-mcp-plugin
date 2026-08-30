@@ -9,7 +9,7 @@ import {
   tip,
   summaryFooter,
   joinLines
-} from '../tools/format-utils';
+} from '../format-utils';
 
 /**
  * Format graph.traverse response

@@ -64,7 +64,7 @@ import {
   TagAnalysisResponse,
   SharedTagsResponse,
   SearchTraverseResponse
-} from './graph';
+} from '../tools/graph/format';
 
 import {
   formatDataviewQuery,
