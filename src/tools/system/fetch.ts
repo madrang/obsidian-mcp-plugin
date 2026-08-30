@@ -1,5 +1,5 @@
 import TurndownService from 'turndown';
-import { safeFetch, OutboundFetchError } from '../security';
+import { safeFetch, OutboundFetchError } from '../../security';
 
 /** Arguments for the fetch tool */
 interface FetchToolArgs {

@@ -28,7 +28,7 @@ import { createTools } from '../src/tools/tool-factory';
 import '../src/tools/files/definitions';
 import '../src/tools/edit/definitions';
 import '../src/tools/view/definitions';
-import '../src/tools/definitions/system';
+import '../src/tools/system/definitions';
 import '../src/tools/definitions/graph';
 import '../src/tools/bases/definitions';
 import '../src/tools/definitions/dataview';

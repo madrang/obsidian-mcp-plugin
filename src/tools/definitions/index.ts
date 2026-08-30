@@ -5,7 +5,7 @@
 import '../files/definitions';
 import '../edit/definitions';
 import '../view/definitions';
-import './system';
+import '../system/definitions';
 import './graph';
 import '../bases/definitions';
 import './dataview';

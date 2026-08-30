@@ -5,7 +5,7 @@
  * breaks because someone made the default true, that is the decision being
  * reversed, not a test to update.
  */
-import { fetchTool } from '../../src/tools/fetch';
+import { fetchTool } from '../../src/tools/system/fetch';
 
 const handlerResult = async (api: unknown) =>
   await fetchTool.handler(api, { url: 'https://example.com/' });

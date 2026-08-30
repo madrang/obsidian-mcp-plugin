@@ -4,7 +4,7 @@
  * registry at import time.
  */
 import { registerOperation } from '../tool-registry';
-import { executeSystemOperation } from '../operations/system';
+import { executeSystemOperation } from './operations';
 
 registerOperation({
   name: 'system'
