@@ -4,7 +4,7 @@
  * files.create with format "base". Query with `format` covers export.
  */
 import { registerOperation } from '../tool-registry';
-import { executeBasesOperation } from '../operations/bases';
+import { executeBasesOperation } from './operations';
 
 registerOperation({
   name: 'bases'

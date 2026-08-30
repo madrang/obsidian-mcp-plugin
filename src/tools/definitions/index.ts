@@ -7,5 +7,5 @@ import './edit';
 import './view';
 import './system';
 import './graph';
-import './bases';
+import '../bases/definitions';
 import './dataview';

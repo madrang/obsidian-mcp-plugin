@@ -1,4 +1,4 @@
-import { executeBasesOperation } from '../src/tools/operations/bases';
+import { executeBasesOperation } from '../src/tools/bases/operations';
 
 // files.create with format "base" routes here. Bridges that stringify
 // untyped parameters can deliver the config object as its JSON text. The

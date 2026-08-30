@@ -30,7 +30,7 @@ import '../src/tools/definitions/edit';
 import '../src/tools/definitions/view';
 import '../src/tools/definitions/system';
 import '../src/tools/definitions/graph';
-import '../src/tools/definitions/bases';
+import '../src/tools/bases/definitions';
 import '../src/tools/definitions/dataview';
 
 const api = { getApp: () => new App() };
