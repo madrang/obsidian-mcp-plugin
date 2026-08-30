@@ -9,7 +9,7 @@ import { ContentBufferManager } from '../../utils/content-buffer';
 import { FileLockManager } from '../../utils/file-lock';
 import { replaceCanonical } from '../../utils/quote-normalize';
 import { isImageFile } from '../../types/obsidian';
-import { executeConcat } from './files';
+import { executeConcat } from '../files/concat';
 
 /** Refusal of a write whose precondition failed. The router surfaces `code`
  * verbatim, so callers get PRECONDITION_FAILED instead of UNKNOWN_ERROR. */

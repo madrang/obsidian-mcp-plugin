@@ -25,7 +25,7 @@ const entry = `
 import { App } from 'obsidian';
 import { getRegisteredOperations, buildDescription } from '../src/tools/tool-registry';
 import { createTools } from '../src/tools/tool-factory';
-import '../src/tools/definitions/files';
+import '../src/tools/files/definitions';
 import '../src/tools/definitions/edit';
 import '../src/tools/definitions/view';
 import '../src/tools/definitions/system';

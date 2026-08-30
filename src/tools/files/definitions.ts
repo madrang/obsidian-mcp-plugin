@@ -3,7 +3,8 @@
  * concat). Registers itself into the tool registry at import time.
  */
 import { registerOperation, pathParam } from '../tool-registry';
-import { executeFilesOperation, FILES_ACTIONS, executeConcat } from '../operations/files';
+import { executeFilesOperation, FILES_ACTIONS } from './operations';
+import { executeConcat } from './concat';
 import { executeBasesOperation } from '../bases/operations';
 import { paramStr } from '../shared';
 

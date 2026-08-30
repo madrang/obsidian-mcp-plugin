@@ -3,7 +3,7 @@
  * Registers itself into the tool registry at import time.
  */
 import { registerOperation } from '../tool-registry';
-import { executeFilesOperation } from '../operations/files';
+import { executeFilesOperation } from '../files/operations';
 import { executeViewOperation } from '../operations/view';
 
 registerOperation({
