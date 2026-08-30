@@ -2,8 +2,8 @@
  * Graph operation handler (ADR-202). Link and tag traversal through the
  * graph tools, which need the Obsidian app context to exist.
  */
-import { RouterContext } from './router-context';
-import { Params, paramStr, paramNum, paramBool } from './shared';
+import { RouterContext } from '../router-context';
+import { Params, paramStr, paramNum, paramBool } from '../shared';
 import { GraphSearchParams } from '../graph-search';
 
 export async function executeGraphOperation(ctx: RouterContext, action: string, params: Params): Promise<unknown> {

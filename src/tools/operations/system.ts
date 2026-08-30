@@ -2,8 +2,8 @@
  * System operation handler (ADR-202). Server info, command listing,
  * workflow hints, opening files in the Obsidian app, and web fetch.
  */
-import { RouterContext } from './router-context';
-import { Params, requireParamStr } from './shared';
+import { RouterContext } from '../router-context';
+import { Params, requireParamStr } from '../shared';
 
 export async function executeSystemOperation(ctx: RouterContext, action: string, params: Params): Promise<unknown> {
   switch (action) {

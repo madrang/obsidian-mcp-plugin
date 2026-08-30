@@ -12,8 +12,8 @@ import { isImageFile, ObsidianFileResponse } from '../../types/obsidian';
 import { readFileWithFragments } from '../../utils/file-reader';
 import { ValidationException } from '../../validation/input-validator';
 import { SecurityError } from '../../security';
-import { RouterContext } from './router-context';
-import { Params, paramStr, paramNum, paramBool, requireParamStr, readPageArgs } from './shared';
+import { RouterContext } from '../router-context';
+import { Params, paramStr, paramNum, paramBool, requireParamStr, readPageArgs } from '../shared';
 import { FileLockManager } from '../../utils/file-lock';
 import { contentPage, jsonSize, CONTENT_PAGE_DEFAULT_SIZE, FRAGMENT_FETCH_CAP } from '../../utils/content-page';
 

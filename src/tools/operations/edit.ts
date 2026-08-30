@@ -3,8 +3,8 @@
  * All edit actions targeting the same file are serialized through the file
  * lock, so a batched MCP client cannot clobber its own edits (#139).
  */
-import { RouterContext } from './router-context';
-import { Params, paramStr, paramNum, requireParamStr } from './shared';
+import { RouterContext } from '../router-context';
+import { Params, paramStr, paramNum, requireParamStr } from '../shared';
 import { ContentBufferManager } from '../../utils/content-buffer';
 import { FileLockManager } from '../../utils/file-lock';
 import { replaceCanonical } from '../../utils/quote-normalize';

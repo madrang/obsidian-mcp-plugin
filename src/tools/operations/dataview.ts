@@ -3,8 +3,8 @@
  * The handler returns a DataviewResult envelope instead of throwing on
  * missing parameters, so the tool layer can format structured errors.
  */
-import { RouterContext } from './router-context';
-import { Params } from './shared';
+import { RouterContext } from '../router-context';
+import { Params } from '../shared';
 import { DataviewTool } from '../dataview-tool';
 
 /** Result envelope for Dataview actions (structured errors, not throws). */

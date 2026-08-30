@@ -3,8 +3,8 @@
  * here. folder/read/search/fragments run the shared file handlers in
  * operations/files.ts, and the view definition delegates to them.
  */
-import { RouterContext } from './router-context';
-import { Params, paramStr, paramNum, requireParamStr } from './shared';
+import { RouterContext } from '../router-context';
+import { Params, paramStr, paramNum, requireParamStr } from '../shared';
 import { isImageFile } from '../../types/obsidian';
 import { grepContent, GrepMatch } from '../../utils/grep-search';
 

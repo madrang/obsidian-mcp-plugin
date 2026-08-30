@@ -3,8 +3,8 @@
  * is reached from the files operation with format "base", not from the
  * bases tool itself.
  */
-import { RouterContext } from './router-context';
-import { Params, paramStr, readPageArgs } from './shared';
+import { RouterContext } from '../router-context';
+import { Params, paramStr, readPageArgs } from '../shared';
 import { BaseYAML } from '../../types/bases-yaml';
 import { BaseQueryOptions, BaseFilter } from '../../types/bases';
 

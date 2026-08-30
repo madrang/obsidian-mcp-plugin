@@ -12,13 +12,13 @@
  * generator, which keeps its state on the router.
  */
 import { App } from 'obsidian';
-import { ObsidianAPI } from '../../utils/obsidian-api';
-import { UniversalFragmentRetriever } from '../../indexing/fragment-retriever';
-import { InputValidator } from '../../validation/input-validator';
-import { GraphSearchTool } from '../graph-search';
-import { GraphSearchTool as GraphSearchTraversalTool } from '../graph-search-tool';
-import { GraphTagTool } from '../graph-tag-tool';
-import { SuggestedAction } from '../../types/operations';
+import { ObsidianAPI } from '../utils/obsidian-api';
+import { UniversalFragmentRetriever } from '../indexing/fragment-retriever';
+import { InputValidator } from '../validation/input-validator';
+import { GraphSearchTool } from './graph-search';
+import { GraphSearchTool as GraphSearchTraversalTool } from './graph-search-tool';
+import { GraphTagTool } from './graph-tag-tool';
+import { SuggestedAction } from '../types/operations';
 
 export interface RouterContext {
   readonly api: ObsidianAPI;

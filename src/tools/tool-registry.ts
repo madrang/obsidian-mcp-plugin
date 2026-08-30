@@ -8,8 +8,8 @@
  * would run registerOperation before the registry exists.
  */
 
-import type { RouterContext } from './operations/router-context';
-import type { Params } from './operations/shared';
+import type { RouterContext } from './router-context';
+import type { Params } from './shared';
 
 /** MCP ToolAnnotations (spec 2026-07-28): behavior hints, not guarantees */
 export interface ToolAnnotations {

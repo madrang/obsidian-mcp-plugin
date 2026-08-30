@@ -17,13 +17,13 @@ import { GraphSearchTool as GraphSearchTraversalTool } from './graph-search-tool
 import { GraphTagTool } from './graph-tag-tool';
 import { App } from 'obsidian';
 import { InputValidator } from '../validation/input-validator';
-import { RouterContext } from './operations/router-context';
+import { RouterContext } from './router-context';
 import { getOperationDefinition } from './tool-registry';
 // Side-effect import: populates the registry executeOperation dispatches
 // through. It must live here, not only in tool-factory.ts, so a direct
 // VaultRouter construction also sees every registered handler.
 import './definitions';
-import { Params, SearchResultItem, paramStr } from './operations/shared';
+import { Params, SearchResultItem, paramStr } from './shared';
 
 export class VaultRouter implements RouterContext {
   private config!: WorkflowConfig;

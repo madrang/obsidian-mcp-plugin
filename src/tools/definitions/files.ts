@@ -5,7 +5,7 @@
 import { registerOperation, pathParam } from '../tool-registry';
 import { executeFilesOperation, FILES_ACTIONS, executeConcat } from '../operations/files';
 import { executeBasesOperation } from '../operations/bases';
-import { paramStr } from '../operations/shared';
+import { paramStr } from '../shared';
 
 registerOperation({
   name: 'files'
