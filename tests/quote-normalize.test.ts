@@ -1,4 +1,4 @@
-import { performWindowEdit } from '../src/tools/window-edit';
+import { performWindowEdit } from '../src/tools/edit/window-edit';
 import { canonicalForMatch, countCanonicalOccurrences, replaceCanonical } from '../src/utils/quote-normalize';
 import { contentHash } from '../src/utils/content-hash';
 

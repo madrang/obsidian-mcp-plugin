@@ -26,7 +26,7 @@ import { App } from 'obsidian';
 import { getRegisteredOperations, buildDescription } from '../src/tools/tool-registry';
 import { createTools } from '../src/tools/tool-factory';
 import '../src/tools/files/definitions';
-import '../src/tools/definitions/edit';
+import '../src/tools/edit/definitions';
 import '../src/tools/definitions/view';
 import '../src/tools/definitions/system';
 import '../src/tools/definitions/graph';

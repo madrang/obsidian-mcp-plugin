@@ -1,4 +1,4 @@
-import { performWindowEdit } from '../src/tools/window-edit';
+import { performWindowEdit } from '../src/tools/edit/window-edit';
 import { contentHash } from '../src/utils/content-hash';
 
 // The behavioral contract of edit.replace: exact matching replaces the

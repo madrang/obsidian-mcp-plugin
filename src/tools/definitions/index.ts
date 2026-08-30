@@ -3,7 +3,7 @@
  * The import order fixes the enumeration order of the tools/list response.
  */
 import '../files/definitions';
-import './edit';
+import '../edit/definitions';
 import './view';
 import './system';
 import './graph';

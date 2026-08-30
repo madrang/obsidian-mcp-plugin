@@ -1,8 +1,8 @@
-import { ObsidianAPI } from '../utils/obsidian-api';
-import { findFuzzyMatches } from '../utils/fuzzy-match';
-import { countCanonicalOccurrences, replaceCanonical } from '../utils/quote-normalize';
-import { ContentBufferManager } from '../utils/content-buffer';
-import { isImageFile } from '../types/obsidian';
+import { ObsidianAPI } from '../../utils/obsidian-api';
+import { findFuzzyMatches } from '../../utils/fuzzy-match';
+import { countCanonicalOccurrences, replaceCanonical } from '../../utils/quote-normalize';
+import { ContentBufferManager } from '../../utils/content-buffer';
+import { isImageFile } from '../../types/obsidian';
 
 // Shared edit logic behind edit.replace, imported
 // dynamically by the router to avoid circular references.

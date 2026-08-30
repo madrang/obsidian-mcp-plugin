@@ -1,5 +1,5 @@
 import { ObsidianAPI } from '../src/utils/obsidian-api';
-import { executeEditOperation } from '../src/tools/operations/edit';
+import { executeEditOperation } from '../src/tools/edit/operations';
 import { App, TFile } from 'obsidian';
 import { parse } from 'yaml';
 

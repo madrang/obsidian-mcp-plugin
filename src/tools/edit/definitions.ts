@@ -4,7 +4,7 @@
  * import time.
  */
 import { registerOperation, pathParam } from '../tool-registry';
-import { executeEditOperation } from '../operations/edit';
+import { executeEditOperation } from './operations';
 
 registerOperation({
   name: 'edit'
