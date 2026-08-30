@@ -1,4 +1,4 @@
-import { formatFileCombine, FileCombineResponse } from '../src/formatters/files';
+import { formatFileCombine, FileCombineResponse } from '../src/tools/files/format';
 
 describe('formatFileCombine — destination mode', () => {
   test('renders the destination, the counts, and the source files', () => {

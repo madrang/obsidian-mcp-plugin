@@ -9,7 +9,7 @@
  * use the handler-shaped response, so a future shape drift fails here
  * instead of degrading to the fallback.
  */
-import { formatFileSplit } from '../../src/formatters/files';
+import { formatFileSplit } from '../../src/tools/files/format';
 
 const SPLIT_RESPONSE = {
   success: true,

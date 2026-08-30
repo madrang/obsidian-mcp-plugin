@@ -3,7 +3,7 @@
  * and line bookends. Covers #133's intent + the large-raw guard.
  */
 import { readFileWithFragments, READ_PAGE_CHARS } from '../src/utils/file-reader';
-import { formatFileRead } from '../src/formatters/files';
+import { formatFileRead } from '../src/tools/files/format';
 import { UniversalFragmentRetriever } from '../src/indexing/fragment-retriever';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 import { App } from 'obsidian';

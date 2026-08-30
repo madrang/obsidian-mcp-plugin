@@ -10,7 +10,7 @@
  * a fixed band like "Good ≥ 1.0" asserts a relevance judgement the score cannot support.
  */
 import { interpretScore } from '../../src/tools/format-utils';
-import { formatSearchResults } from '../../src/formatters/search';
+import { formatSearchResults } from '../../src/tools/files/format-search';
 
 const ANCHOR = 'Part IV — How We Move It/7. Integration disposition/7.3 The MRP-API hidden hub.md';
 const BURIED = 'Part II — The Instance As It Stands/2. Current-state characterization/2.11 The integration coupling topology.md';

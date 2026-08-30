@@ -1,4 +1,4 @@
-import { formatFileList } from '../../src/formatters/files';
+import { formatFileList } from '../../src/tools/files/format';
 
 // The pattern-aware parts of the folder listing: the glob is echoed so the
 // agent sees the filter it asked for, the next-page hint carries the

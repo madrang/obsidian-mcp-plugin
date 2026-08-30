@@ -13,7 +13,7 @@ import {
   tip,
   summaryFooter,
   joinLines
-} from '../tools/format-utils';
+} from '../format-utils';
 
 /**
  * Format file list results

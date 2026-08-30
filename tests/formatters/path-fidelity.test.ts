@@ -14,8 +14,8 @@
  *    directory that was listed. Joining the two produced a path that does not exist,
  *    and the read failed.
  */
-import { formatFileList } from '../../src/formatters/files';
-import { formatSearchResults } from '../../src/formatters/search';
+import { formatFileList } from '../../src/tools/files/format';
+import { formatSearchResults } from '../../src/tools/files/format-search';
 
 // A real path from the test corpus: nested, long, and non-ASCII (em-dash).
 const DEEP_PATH = 'Part IV — How We Move It/7. Integration disposition/7.3 The MRP-API hidden hub and its dependency cluster.md';

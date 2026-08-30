@@ -12,7 +12,7 @@ import {
   SearchResponse,
   SearchResult,
   FragmentResult
-} from './search';
+} from '../tools/files/format-search';
 
 import {
   formatFileList,
@@ -30,7 +30,7 @@ import {
   FileMoveResponse,
   FileSplitResponse,
   FileCombineResponse
-} from './files';
+} from '../tools/files/format';
 
 import {
   formatViewWindow,
