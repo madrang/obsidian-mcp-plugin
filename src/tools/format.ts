@@ -1,8 +1,8 @@
 /**
- * Presentation Facade - Formatters Index
- *
- * Exports all formatters for converting raw API responses
- * to AI-readable markdown output.
+ * Presentation facade dispatch. formatResponse routes a router response to
+ * the family formatter (src/tools/<tool>/format.ts) by tool/action key,
+ * after normalizeResponse reshapes the payload onto the shape the formatter
+ * expects.
  */
 
 // Import all formatters for internal use
@@ -10,9 +10,8 @@ import {
   formatSearchResults,
   formatFragmentResults,
   SearchResponse,
-  SearchResult,
   FragmentResult
-} from '../tools/files/format-search';
+} from './files/format-search';
 
 import {
   formatFileList,
@@ -22,7 +21,6 @@ import {
   formatFileMove,
   formatFileSplit,
   formatFileCombine,
-  FileListItem,
   FileListResponse,
   FileReadResponse,
   FileWriteResponse,
@@ -30,8 +28,7 @@ import {
   FileMoveResponse,
   FileSplitResponse,
   FileCombineResponse
-} from '../tools/files/format';
-
+} from './files/format';
 import {
   formatViewWindow,
   formatViewLines,
@@ -41,12 +38,12 @@ import {
   ViewLinesResponse,
   ViewActiveResponse,
   ViewGrepResponse
-} from '../tools/view/format';
+} from './view/format';
 
 import {
   formatOpenInObsidian,
   OpenInObsidianResponse
-} from '../tools/system/format';
+} from './system/format';
 
 import {
   formatGraphTraverse,
@@ -56,18 +53,14 @@ import {
   formatTagAnalysis,
   formatSharedTags,
   formatSearchTraverse,
-  GraphNode,
   GraphTraverseResponse,
-  GraphNeighborsNode,
-  GraphNeighborsEdge,
   GraphNeighborsResponse,
-  GraphPathNode,
   GraphPathResponse,
   GraphStatsResponse,
   TagAnalysisResponse,
   SharedTagsResponse,
   SearchTraverseResponse
-} from '../tools/graph/format';
+} from './graph/format';
 
 import {
   formatDataviewQuery,
@@ -78,20 +71,18 @@ import {
   DataviewStatusResponse,
   DataviewPagesResponse,
   DataviewMetadataResponse
-} from '../tools/dataview/format';
+} from './dataview/format';
 
 import {
   formatBasesQuery,
   formatBasesList,
   formatBasesRead,
-  formatBasesCreate,
   formatBasesExport,
   BasesQueryResponse,
   BasesListResponse,
   BasesReadResponse,
-  BasesCreateResponse,
   BasesExportResponse
-} from '../tools/bases/format';
+} from './bases/format';
 
 import {
   formatSystemInfo,
@@ -99,120 +90,15 @@ import {
   formatWorkflowSuggest,
   formatWebFetch,
   SystemInfoResponse,
-  CommandInfo,
   SystemCommandsResponse,
-  WorkflowSuggestion,
   WorkflowSuggestResponse,
   WebFetchResponse
-} from '../tools/system/format';
+} from './system/format';
 
 import {
   formatEditResult,
   EditResponse
-} from '../tools/edit/format';
-
-// Re-export utility functions
-export {
-  truncate,
-  interpretScore,
-  formatFileSize,
-  formatDate,
-  header,
-  property,
-  divider,
-  tip,
-  summaryFooter,
-  joinLines,
-  formatTree
-} from '../tools/format-utils';
-
-// Re-export all formatters and types
-export {
-  // Search
-  formatSearchResults,
-  formatFragmentResults,
-  SearchResponse,
-  SearchResult,
-  FragmentResult,
-  // Vault
-  formatFileList,
-  formatFileRead,
-  formatFileWrite,
-  formatFileDelete,
-  formatFileMove,
-  formatFileSplit,
-  formatFileCombine,
-  FileListItem,
-  FileListResponse,
-  FileReadResponse,
-  FileWriteResponse,
-  FileDeleteResponse,
-  FileMoveResponse,
-  FileSplitResponse,
-  FileCombineResponse,
-  // View
-  formatViewWindow,
-  formatViewLines,
-  formatViewActive,
-  formatViewGrep,
-  formatOpenInObsidian,
-  ViewWindowResponse,
-  ViewLinesResponse,
-  ViewActiveResponse,
-  ViewGrepResponse,
-  OpenInObsidianResponse,
-  // Graph
-  formatGraphTraverse,
-  formatGraphNeighbors,
-  formatGraphPath,
-  formatGraphStats,
-  formatTagAnalysis,
-  formatSharedTags,
-  formatSearchTraverse,
-  GraphNode,
-  GraphTraverseResponse,
-  GraphNeighborsNode,
-  GraphNeighborsEdge,
-  GraphNeighborsResponse,
-  GraphPathNode,
-  GraphPathResponse,
-  GraphStatsResponse,
-  TagAnalysisResponse,
-  SharedTagsResponse,
-  SearchTraverseResponse,
-  // Dataview
-  formatDataviewQuery,
-  formatDataviewStatus,
-  formatDataviewPages,
-  formatDataviewMetadata,
-  formatBasesQuery,
-  formatBasesList,
-  formatBasesRead,
-  formatBasesCreate,
-  formatBasesExport,
-  DataviewQueryResponse,
-  DataviewStatusResponse,
-  DataviewPagesResponse,
-  DataviewMetadataResponse,
-  BasesQueryResponse,
-  BasesListResponse,
-  BasesReadResponse,
-  BasesCreateResponse,
-  BasesExportResponse,
-  // System
-  formatSystemInfo,
-  formatSystemCommands,
-  formatWorkflowSuggest,
-  formatEditResult,
-  formatWebFetch,
-  SystemInfoResponse,
-  CommandInfo,
-  SystemCommandsResponse,
-  WorkflowSuggestion,
-  WorkflowSuggestResponse,
-  EditResponse,
-  WebFetchResponse
-};
+} from './edit/format';
 
 /** Shape for a raw fragment from the router */
 interface RawFragment {

@@ -1,7 +1,7 @@
 import { DataviewTool, isDataviewToolAvailable } from '../src/tools/dataview/tool';
 import { normalizeListGroupByQuery } from '../src/tools/dataview/query';
 import { PluginDetector } from '../src/utils/plugin-detector';
-import { formatResponse } from '../src/formatters';
+import { formatResponse } from '../src/tools/format';
 
 /**
  * Mock Obsidian App for testing
