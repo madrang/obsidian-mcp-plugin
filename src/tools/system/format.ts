@@ -9,7 +9,7 @@ import {
   tip,
   summaryFooter,
   joinLines
-} from '../tools/format-utils';
+} from '../format-utils';
 
 /**
  * Format system.info response
@@ -244,73 +244,6 @@ export function formatWorkflowSuggest(response: WorkflowSuggestResponse): string
 }
 
 /**
- * Format edit operation responses
- * Note: Response may only contain success status
- */
-export interface EditResponse {
-  success?: boolean;
-  path?: string;
-  operation?: 'replace' | 'append' | 'patch' | 'at_line' | 'multi';
-  linesChanged?: number;
-  /** edit.multi: number of pairs applied in the single write. */
-  applied?: number;
-  message?: string;
-  /** Post-write stat: echo back as the edit ifUnmodifiedSince / ifHash
-   * precondition to chain writes without re-reading. */
-  mtime?: number;
-  hash?: string;
-}
-
-export function formatEditResult(response: EditResponse): string {
-  const lines: string[] = [];
-
-  // Handle minimal response (just success)
-  const success = response.success ?? true;
-  const icon = success ? '✓' : '✗';
-
-  // Determine verb from operation if available
-  let verb = 'Edited';
-  if (response.operation) {
-    verb = response.operation === 'replace' ? 'Replaced'
-      : response.operation === 'append' ? 'Appended'
-      : response.operation === 'patch' ? 'Patched'
-      : 'Edited';
-  }
-
-  const pathDisplay = response.path || 'file';
-  lines.push(header(1, `${icon} ${verb}: ${pathDisplay}`));
-  lines.push('');
-
-  if (success) {
-    lines.push('Edit successful.');
-    if (response.linesChanged !== undefined) {
-      lines.push(property('Lines Changed', response.linesChanged.toString(), 0));
-    }
-    if (response.applied !== undefined) {
-      lines.push(property('Pairs Applied', response.applied.toString(), 0));
-    }
-    if (response.mtime !== undefined) {
-      lines.push(property('Modified', response.mtime.toString(), 0));
-    }
-    if (response.hash !== undefined) {
-      lines.push(property('Hash', response.hash, 0));
-    }
-  } else {
-    lines.push(`Edit failed${response.message ? `: ${response.message}` : ''}`);
-  }
-
-  lines.push(divider());
-  if (success && response.hash !== undefined) {
-    lines.push(tip('Pass the new hash as `ifHash` on the next edit to chain writes without re-reading'));
-  } else {
-    lines.push(tip('Use `view.read(path)` to verify the changes'));
-  }
-  lines.push(summaryFooter());
-
-  return joinLines(lines);
-}
-
-/**
  * Format system.fetch_web response
  */
 export interface WebFetchResponse {
@@ -376,6 +309,46 @@ export function formatWebFetch(response: WebFetchResponse): string {
   if (response._truncated) {
     lines.push('');
     lines.push('_(response shortened to fit the size limit — request a narrower range with `maxLength`/`startIndex` for the rest)_');
+  }
+
+  lines.push(summaryFooter());
+
+  return joinLines(lines);
+}
+
+/**
+ * Format system.open_in_obsidian response
+ */
+export interface OpenInObsidianResponse {
+  success: boolean;
+  path?: string;
+  error?: string;
+}
+
+export function formatOpenInObsidian(response: OpenInObsidianResponse): string {
+  const lines: string[] = [];
+
+  const icon = response.success ? '✓' : '✗';
+
+  if (response.success && response.path) {
+    const fileName = response.path.split('/').pop() || response.path;
+    lines.push(header(1, `${icon} Opened: ${fileName}`));
+    lines.push('');
+    lines.push(`File opened in Obsidian.`);
+    lines.push('');
+    lines.push(property('Path', response.path, 0));
+  } else if (response.success) {
+    lines.push(header(1, `${icon} Opened in Obsidian`));
+    lines.push('');
+    lines.push('File opened successfully.');
+  } else {
+    lines.push(header(1, `${icon} Failed to Open`));
+    lines.push('');
+    lines.push('Could not open file in Obsidian.');
+    if (response.error) {
+      lines.push('');
+      lines.push(property('Error', response.error, 0));
+    }
   }
 
   lines.push(summaryFooter());

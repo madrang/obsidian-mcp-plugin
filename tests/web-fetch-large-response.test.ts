@@ -10,7 +10,7 @@
  * the formatter must never present a missing body as content.
  */
 import { limitResponse, DEFAULT_LIMITER_CONFIG } from '../src/utils/response-limiter';
-import { formatWebFetch } from '../src/formatters/system';
+import { formatWebFetch } from '../src/tools/system/format';
 
 /** The exact shape the fetch tool returns, sized past any sane budget. */
 const webFetchResult = (bodyLength: number) => ({

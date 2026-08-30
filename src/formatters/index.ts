@@ -37,13 +37,16 @@ import {
   formatViewLines,
   formatViewActive,
   formatViewGrep,
-  formatOpenInObsidian,
   ViewWindowResponse,
   ViewLinesResponse,
   ViewActiveResponse,
-  ViewGrepResponse,
+  ViewGrepResponse
+} from '../tools/view/format';
+
+import {
+  formatOpenInObsidian,
   OpenInObsidianResponse
-} from './view';
+} from '../tools/system/format';
 
 import {
   formatGraphTraverse,
@@ -91,16 +94,19 @@ import {
   formatSystemInfo,
   formatSystemCommands,
   formatWorkflowSuggest,
-  formatEditResult,
   formatWebFetch,
   SystemInfoResponse,
   CommandInfo,
   SystemCommandsResponse,
   WorkflowSuggestion,
   WorkflowSuggestResponse,
-  EditResponse,
   WebFetchResponse
-} from './system';
+} from '../tools/system/format';
+
+import {
+  formatEditResult,
+  EditResponse
+} from '../tools/edit/format';
 
 // Re-export utility functions
 export {
