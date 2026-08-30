@@ -9,7 +9,7 @@ import {
   tip,
   summaryFooter,
   joinLines
-} from './utils';
+} from '../tools/format-utils';
 
 /**
  * Format view.window response (windowed view around a line)

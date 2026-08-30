@@ -10,7 +10,7 @@
  * (a Pagination section, or an explicit "... and N more" line), so the footer should name
  * what it actually elides rather than leaving the reader to guess it might be the text.
  */
-import { summaryFooter } from '../../src/formatters/utils';
+import { summaryFooter } from '../../src/tools/format-utils';
 import { formatFileRead } from '../../src/formatters/files';
 
 describe('summaryFooter', () => {

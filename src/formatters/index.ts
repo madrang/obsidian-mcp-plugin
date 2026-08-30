@@ -115,7 +115,7 @@ export {
   summaryFooter,
   joinLines,
   formatTree
-} from './utils';
+} from '../tools/format-utils';
 
 // Re-export all formatters and types
 export {

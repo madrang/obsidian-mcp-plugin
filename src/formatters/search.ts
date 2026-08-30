@@ -11,7 +11,7 @@ import {
   tip,
   summaryFooter,
   joinLines
-} from './utils';
+} from '../tools/format-utils';
 
 export interface SearchResult {
   path: string;

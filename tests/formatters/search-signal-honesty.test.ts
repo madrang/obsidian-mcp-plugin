@@ -9,7 +9,7 @@
  * The number was never the problem — the adjective was. TF-IDF has no absolute scale, so
  * a fixed band like "Good ≥ 1.0" asserts a relevance judgement the score cannot support.
  */
-import { interpretScore } from '../../src/formatters/utils';
+import { interpretScore } from '../../src/tools/format-utils';
 import { formatSearchResults } from '../../src/formatters/search';
 
 const ANCHOR = 'Part IV — How We Move It/7. Integration disposition/7.3 The MRP-API hidden hub.md';

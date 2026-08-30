@@ -10,7 +10,7 @@ import {
   tip,
   summaryFooter,
   joinLines
-} from './utils';
+} from '../tools/format-utils';
 
 /**
  * Format dataview.query response
