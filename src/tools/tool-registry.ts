@@ -1,11 +1,12 @@
 /**
  * Registry for the per-tool surface definitions.
  *
- * Each module in ./definitions declares one tool of the MCP surface (its
- * description, actions, annotations, and parameter schema) and registers it
- * here at import time. The registry lives apart from tool-factory.ts so a
- * definition module never imports the factory it registers into. That cycle
- * would run registerOperation before the registry exists.
+ * Each module in ./<tool>/definitions.ts declares one tool of the MCP
+ * surface (its description, actions, annotations, parameter schema, and
+ * formatter) and registers it here at import time. The registry lives apart
+ * from tool-factory.ts so a definition module never imports the factory it
+ * registers into. That cycle would run registerOperation before the
+ * registry exists.
  */
 
 import type { RouterContext } from './router-context';
@@ -26,6 +27,13 @@ export type OperationHandler = (
   action: string,
   params: Params
 ) => Promise<unknown>;
+
+/**
+ * The presentation half of a tool: renders one action's router response as
+ * markdown. Returns undefined for an action it does not format — the
+ * dispatcher falls back to the raw-JSON rendering.
+ */
+export type OperationFormatter = (action: string, response: unknown) => string | undefined;
 
 /**
  * One line of a tool description. A plain string always ships. A
@@ -149,6 +157,8 @@ export interface OperationDefinition {
   annotations?: ToolAnnotations;
   parameters: Record<string, unknown>;
   execute: OperationHandler;
+  /** The family formatter. formatResponse dispatches through this slot. */
+  format?: OperationFormatter;
 }
 
 const registry = new Map<string, OperationDefinition>();
@@ -183,3 +193,53 @@ export const contentParam = {
     , description: 'The text content to write (markdown supported)'
   }
 };
+
+/**
+ * Format dispatcher - routes a response to the formatter the operation
+ * registered, based on the tool/action combination.
+ *
+ * @param tool - The MCP tool name (view, files, graph, etc.)
+ * @param action - The action performed (list, read, search, etc.)
+ * @param response - The raw response data
+ * @param raw - If true, return raw JSON instead of formatted markdown
+ * @returns Formatted markdown string or raw JSON string
+ */
+export function formatResponse(
+  tool: string,
+  action: string,
+  response: unknown,
+  raw: boolean = false
+): string {
+  // If raw requested, return JSON
+  if (raw) {
+    return JSON.stringify(response, null, 2);
+  }
+
+  // Each operation normalizes and formats its own actions. An action with
+  // no registered formatter falls back to the raw-JSON rendering.
+  const format = getOperationDefinition(tool)?.format;
+
+  try {
+    return format?.(action, response) ?? formatUnknownResponse(tool, action, response);
+  } catch (error) {
+    // On formatter error, fall back to JSON with error note
+    console.error(`Formatter error for ${tool}.${action}:`, error);
+    return `_Formatter error, showing raw data:_\n\n\`\`\`json\n${JSON.stringify(response, null, 2)}\n\`\`\``;
+  }
+}
+
+/**
+ * Format unknown or unmapped responses
+ */
+function formatUnknownResponse(tool: string, action: string, response: unknown): string {
+  return [
+    `# ${tool}.${action}`
+    , ''
+    , '```json'
+    , JSON.stringify(response, null, 2)
+    , '```'
+    , ''
+    , '---'
+    , '_No specific formatter for this operation. Showing raw response._'
+  ].join('\n');
+}

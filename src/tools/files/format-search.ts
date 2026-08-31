@@ -236,3 +236,77 @@ export function formatFragmentResults(result: FragmentResult): string {
 
   return joinLines(lines);
 }
+
+/** Shape for a raw fragment from the router */
+interface RawFragment {
+  docPath?: string;
+  path?: string;
+  content?: string;
+  lineStart?: number;
+  lineEnd?: number;
+  score?: number;
+  heading?: string;
+}
+
+/** Shape for router fragment responses */
+interface FragmentsResponse {
+  result?: RawFragment[];
+  query?: string;
+}
+
+/**
+ * Normalize a router response onto the shape the formatter expects.
+ * fragments: the router returns {result: [...fragments across files]}.
+ * Group them by file for the formatter.
+ */
+function normalizeSearchResponse(action: string, response: unknown): unknown {
+  const resp = (typeof response === 'object' && response !== null ? response : {}) as Record<string, unknown>;
+
+  if (action === 'fragments') {
+    const fragResp = resp as FragmentsResponse;
+    if (fragResp.result && Array.isArray(fragResp.result)) {
+      // Group fragments by file path
+      const byFile = new Map<string, RawFragment[]>();
+      for (const frag of fragResp.result) {
+        const path = frag.docPath ?? frag.path ?? 'unknown';
+        if (!byFile.has(path)) {
+          byFile.set(path, []);
+        }
+        byFile.get(path)!.push({
+          content: frag.content
+          , lineStart: frag.lineStart
+          , lineEnd: frag.lineEnd
+          , score: frag.score
+          , heading: frag.heading
+        });
+      }
+      // Return as array of file results
+      return {
+        files: Array.from(byFile.entries()).map(([path, fragments]) => ({
+          path
+          , fragments
+          , totalFragments: fragments.length
+        }))
+        , totalResults: fragResp.result.length
+        , query: fragResp.query
+      };
+    }
+  }
+  return resp;
+}
+
+/**
+ * The presentation entry for the search and fragments cases. The files
+ * family dispatcher delegates both here.
+ */
+export function formatSearchResponse(action: string, response: unknown): string | undefined {
+  const normalized = normalizeSearchResponse(action, response);
+  switch (action) {
+    case 'search':
+      return formatSearchResults(normalized as SearchResponse);
+    case 'fragments':
+      return formatFragmentResults(normalized as FragmentResult);
+    default:
+      return undefined;
+  }
+}

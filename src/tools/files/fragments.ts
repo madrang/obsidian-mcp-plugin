@@ -1,6 +1,7 @@
 /**
- * files fragment search. Reached through view.fragments: indexes on demand,
- * then retrieves passages through the fragment retriever.
+ * files fragment search. The view tool reaches this handler through
+ * view.fragments: it indexes on demand, then retrieves passages through the
+ * fragment retriever.
  */
 import { RouterContext } from '../router-context';
 import { Params, paramStr, readPageArgs } from '../shared';

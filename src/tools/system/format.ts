@@ -355,3 +355,27 @@ export function formatOpenInObsidian(response: OpenInObsidianResponse): string {
 
   return joinLines(lines);
 }
+
+/**
+ * The presentation entry the system tool registers. commands normalizes the
+ * router's flat array onto { commands: [...] } first.
+ */
+export function formatSystemResponse(action: string, response: unknown): string | undefined {
+  switch (action) {
+    case 'info':
+      return formatSystemInfo(response as SystemInfoResponse);
+    case 'commands': {
+      // The router returns a flat array. The formatter expects { commands: [...] }.
+      const normalized: unknown = Array.isArray(response) ? { commands: response as unknown[] } : response;
+      return formatSystemCommands(normalized as SystemCommandsResponse);
+    }
+    case 'fetch_web':
+      return formatWebFetch(response as WebFetchResponse);
+    case 'hints':
+      return formatWorkflowSuggest(response as WorkflowSuggestResponse);
+    case 'open_in_obsidian':
+      return formatOpenInObsidian(response as OpenInObsidianResponse);
+    default:
+      return undefined;
+  }
+}

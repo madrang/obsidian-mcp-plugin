@@ -1,6 +1,6 @@
 /**
- * dataview page listing and per-page metadata, with the custom frontmatter
- * fields folded into each result.
+ * dataview page listing and per-page metadata. Each result carries the
+ * custom frontmatter fields.
  */
 import { PluginDetector } from '../../utils/plugin-detector';
 import { DataviewArray, DataviewPage } from './types';

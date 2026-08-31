@@ -5,6 +5,7 @@
  */
 import { registerOperation, pathParam } from '../tool-registry';
 import { executeEditOperation } from './operations';
+import { formatEditResponse } from './format';
 
 registerOperation({
   name: 'edit'
@@ -43,6 +44,7 @@ registerOperation({
     readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false
   }
   , execute: executeEditOperation
+  , format: formatEditResponse
   , parameters: {
     ...pathParam
     , oldText: {

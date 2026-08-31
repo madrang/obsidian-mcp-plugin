@@ -6,6 +6,7 @@ import { registerOperation, pathParam } from '../tool-registry';
 import { executeFilesOperation, FILES_ACTIONS } from './operations';
 import { executeConcat } from './concat';
 import { executeBasesOperation } from '../bases/operations';
+import { formatFilesResponse } from './format';
 import { paramStr } from '../shared';
 
 registerOperation({
@@ -36,7 +37,7 @@ registerOperation({
   }
   , execute: (ctx, action, params) => {
     // The files tool owns only the write actions. The shared read-side cases
-    // in operations/files.ts are reached through the view tool.
+    // in the sibling operations modules are reached through the view tool.
     if (!(FILES_ACTIONS as readonly string[]).includes(action)) {
       throw new Error(`Unknown files action: ${action}`);
     }
@@ -50,6 +51,7 @@ registerOperation({
     }
     return executeFilesOperation(ctx, action, params);
   }
+  , format: formatFilesResponse
   , parameters: {
     ...pathParam
     , content: {

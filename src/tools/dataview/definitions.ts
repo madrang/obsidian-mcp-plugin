@@ -5,6 +5,7 @@
  */
 import { registerOperation, pathParam } from '../tool-registry';
 import { executeDataviewOperation } from './operations';
+import { formatDataviewResponse } from './format';
 
 registerOperation({
   name: 'dataview'
@@ -29,6 +30,7 @@ registerOperation({
     readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false
   }
   , execute: executeDataviewOperation
+  , format: formatDataviewResponse
   , parameters: {
     query: {
       type: 'string'

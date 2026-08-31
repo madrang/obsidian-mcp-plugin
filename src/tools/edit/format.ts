@@ -78,3 +78,52 @@ export function formatEditResult(response: EditResponse): string {
 
   return joinLines(lines);
 }
+
+/** Shape for router edit responses */
+interface EditRouterResponse {
+  isError?: boolean;
+  path?: string;
+  content?: string;
+  success?: boolean;
+  line?: number;
+  mode?: string;
+}
+
+/**
+ * The presentation entry the edit tool registers. replace maps the router's
+ * {isError, content} onto {success, path}. at_line fills its response shape.
+ */
+export function formatEditResponse(action: string, response: unknown): string | undefined {
+  const resp = (typeof response === 'object' && response !== null ? response : {}) as Record<string, unknown>;
+  switch (action) {
+    case 'replace': {
+      const editResp = resp as EditRouterResponse;
+      const normalized: Record<string, unknown> = editResp.isError !== undefined
+        ? {
+            success: !editResp.isError
+            , path: editResp.path ?? 'file'
+            , operation: 'replace'
+            , content: editResp.content
+          }
+        : resp;
+      return formatEditResult(normalized);
+    }
+    case 'at_line': {
+      const lineResp = resp as EditRouterResponse;
+      const normalized: Record<string, unknown> = {
+        success: lineResp.success ?? true
+        , path: lineResp.path ?? 'file'
+        , operation: 'at_line'
+        , line: lineResp.line
+        , mode: lineResp.mode
+      };
+      return formatEditResult(normalized);
+    }
+    case 'append':
+    case 'patch':
+    case 'multi':
+      return formatEditResult(resp);
+    default:
+      return undefined;
+  }
+}

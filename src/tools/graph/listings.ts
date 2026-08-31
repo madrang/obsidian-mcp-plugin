@@ -1,7 +1,7 @@
 /**
  * graph listing operations: neighbors, backlinks, forwardlinks. They share
- * the node-mapping loop and the listing filters that cut the returned nodes
- * and edges down to the caller's path and tag filters.
+ * the node-mapping loop and the listing filters that narrow the results to
+ * the caller's path and tag filters.
  */
 import { App, TFile } from 'obsidian';
 import { GraphTraversal } from '../../utils/graph-traversal';

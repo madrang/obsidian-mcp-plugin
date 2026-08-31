@@ -8,7 +8,7 @@
  * as the router's.
  *
  * This module is the dispatcher. The action bodies live in the per-action
- * modules beside it; create and delete stay here, small enough to read in
+ * modules beside it. Create and delete stay here, small enough to read in
  * place.
  */
 import { RouterContext } from '../router-context';

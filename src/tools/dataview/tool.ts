@@ -1,7 +1,7 @@
 /**
- * Dataview tool facade. Owns the plugin detector and the availability
- * gate; the work itself lives in the query, pages, values, and reference
- * modules beside it.
+ * Dataview tool facade. Owns the plugin detector and the availability gate.
+ * The work itself lives in the query, pages, values, and reference modules
+ * beside it.
  */
 import { ObsidianAPI } from '../../utils/obsidian-api';
 import { PluginDetector } from '../../utils/plugin-detector';

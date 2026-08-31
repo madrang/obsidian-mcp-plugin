@@ -5,6 +5,7 @@
  */
 import { registerOperation } from '../tool-registry';
 import { executeSystemOperation } from './operations';
+import { formatSystemResponse } from './format';
 
 registerOperation({
   name: 'system'
@@ -33,6 +34,7 @@ registerOperation({
     readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true
   }
   , execute: executeSystemOperation
+  , format: formatSystemResponse
   , parameters: {
     path: {
       type: 'string'

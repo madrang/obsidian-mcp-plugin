@@ -1,6 +1,6 @@
 /**
- * files split. Names every output up front and refuses on any collision
- * before the first write: a refused split writes nothing.
+ * files split. The handler names every output up front and refuses on any
+ * collision before the first write: a refused split writes nothing.
  */
 import { RouterContext } from '../router-context';
 import { Params, paramStr, paramNum } from '../shared';

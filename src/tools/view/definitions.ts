@@ -5,6 +5,7 @@
 import { registerOperation } from '../tool-registry';
 import { executeFilesOperation } from '../files/operations';
 import { executeViewOperation } from './operations';
+import { formatViewResponse } from './format';
 
 registerOperation({
   name: 'view'
@@ -43,11 +44,12 @@ registerOperation({
     readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false
   }
   // folder/read/search/fragments run the shared file handlers. window and
-  // active have their own handler in operations/view.ts.
+  // active have their own handler in the sibling operations module.
   , execute: (ctx, action, params) =>
     (action === 'folder' || action === 'read' || action === 'search' || action === 'fragments')
       ? executeFilesOperation(ctx, action, params)
       : executeViewOperation(ctx, action, params)
+  , format: formatViewResponse
   , parameters: {
     // The view tool overrides the shared path param: here a path can also
     // name a folder (folder action, grep subtree), not only a file.

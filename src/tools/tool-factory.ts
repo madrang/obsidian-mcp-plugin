@@ -4,8 +4,7 @@ import { VaultRouter } from './router';
 import { OperationRequest } from '../types/operations';
 import { ObsidianImageFile } from '../types/obsidian';
 import { isDataviewToolAvailable } from './dataview/tool';
-import { formatResponse } from './format';
-import { getOperationDefinition, getRegisteredOperations, buildDescription, type ToolAnnotations } from './tool-registry';
+import { getOperationDefinition, getRegisteredOperations, buildDescription, formatResponse, type ToolAnnotations } from './tool-registry';
 import type { DataviewResult } from './dataview/operations';
 
 export type { ToolAnnotations } from './tool-registry';

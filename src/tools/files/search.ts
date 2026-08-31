@@ -1,6 +1,7 @@
 /**
- * files search. Reached through view.search: ranked search with snippets,
- * content-budget pagination, and a filename-only fallback on failure.
+ * files search. The view tool reaches this handler through view.search:
+ * ranked search with snippets, content-budget pagination, and a
+ * filename-only fallback on failure.
  */
 import { RouterContext } from '../router-context';
 import { Params, paramStr, readPageArgs } from '../shared';

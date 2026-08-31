@@ -1,5 +1,5 @@
 /**
- * files copy. A file copy goes through copyFile; when the source does not
+ * files copy. A file copy goes through copyFile. When the source does not
  * resolve as a file, the handler retries as a directory and recurses.
  */
 import { RouterContext } from '../router-context';

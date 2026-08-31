@@ -1,6 +1,6 @@
 /**
- * files read. Reached through view.read, with optional fragment retrieval
- * and content-budget pagination.
+ * files read. The view tool reaches this handler through view.read, with
+ * optional fragment retrieval and content-budget pagination.
  */
 import { RouterContext } from '../router-context';
 import { Params, paramStr, paramBool, readPageArgs } from '../shared';

@@ -1,6 +1,7 @@
 /**
- * files folder listing. Reached through view.folder: the read-side cases
- * share the files handlers, and the view definition delegates here.
+ * files folder listing. The view tool reaches this handler through
+ * view.folder: the read-side cases share the files handlers, and the view
+ * definition delegates here.
  */
 import { RouterContext } from '../router-context';
 import { Params, paramStr, readPageArgs } from '../shared';

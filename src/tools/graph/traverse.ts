@@ -1,5 +1,5 @@
 /**
- * graph traverse. Breadth-first walk from a starting point; the path and
+ * graph traverse. Breadth-first walk from a starting point. The path and
  * tag filters compose into the walk itself, so it never enters a filtered
  * note.
  */

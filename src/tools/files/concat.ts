@@ -1,7 +1,7 @@
 /**
- * files concat. Joins files in the order of the paths array. Routed from
- * files.concat, and accepted from edit.concat though the tool schema no
- * longer advertises the edit form.
+ * files concat. The handler joins files in the order of the paths array.
+ * Calls arrive from files.concat, and from edit.concat though the tool
+ * schema no longer advertises the edit form.
  */
 import { RouterContext } from '../router-context';
 import { Params, paramStr, paramBool } from '../shared';

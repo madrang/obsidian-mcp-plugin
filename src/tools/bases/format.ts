@@ -266,3 +266,25 @@ export function formatBasesExport(response: BasesExportResponse): string {
 
   return joinLines(lines);
 }
+
+/**
+ * The presentation entry the bases tool registers. query covers the old
+ * export too: the serialized shape ({ success, data, format }) routes to
+ * the export formatter.
+ */
+export function formatBasesResponse(action: string, response: unknown): string | undefined {
+  switch (action) {
+    case 'list':
+      return formatBasesList(response as BasesListResponse);
+    case 'read':
+      return formatBasesRead(response as BasesReadResponse);
+    case 'query': {
+      const resp = response as Record<string, unknown>;
+      return resp.format !== undefined && resp.data !== undefined
+        ? formatBasesExport(response as BasesExportResponse)
+        : formatBasesQuery(response as BasesQueryResponse);
+    }
+    default:
+      return undefined;
+  }
+}

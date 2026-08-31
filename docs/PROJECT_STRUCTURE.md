@@ -20,7 +20,7 @@ obsidian-mcp-plugin/
 │   │   ├── state-tokens.ts   # Router state tokens
 │   │   ├── definitions.ts    # Side-effect barrel, pins tools/list order
 │   │   └── <tool>/           # One folder per tool (files, edit, view, …):
-│   │                           definitions.ts, operations.ts, helper modules
+│   │                           definitions.ts, operations.ts, format.ts, helpers
 │   ├── utils/                # Utility functions
 │   │   ├── obsidian-api.ts   # Vault operations
 │   │   ├── session-manager.ts # Session handling

@@ -1,7 +1,7 @@
 /**
  * graph path. Shortest path first, then all paths up to maxDepth when the
- * caller asks deeper. A found chain is never filtered — hiding its middle
- * nodes would corrupt it.
+ * caller asks deeper. The facade never filters a found chain: hiding its
+ * middle nodes would corrupt it.
  */
 import { GraphTraversal } from '../../utils/graph-traversal';
 import { GraphSearchParams, GraphSearchResult } from './types';

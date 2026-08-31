@@ -4,6 +4,7 @@
  */
 import { registerOperation } from '../tool-registry';
 import { executeGraphOperation } from './operations';
+import { formatGraphResponse } from './format';
 
 registerOperation({
   name: 'graph'
@@ -46,6 +47,7 @@ registerOperation({
     readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false
   }
   , execute: executeGraphOperation
+  , format: formatGraphResponse
   , parameters: {
     sourcePath: {
       type: 'string'

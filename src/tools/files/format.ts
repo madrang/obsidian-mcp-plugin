@@ -15,6 +15,8 @@ import {
   joinLines
 } from '../format-utils';
 
+import { formatSearchResponse } from './format-search';
+
 /**
  * Format file list results
  */
@@ -534,4 +536,116 @@ export function formatFileCombine(response: FileCombineResponse): string {
   lines.push(summaryFooter());
 
   return joinLines(lines);
+}
+
+/** Shape for router move/rename responses */
+interface MoveRenameResponse {
+  oldPath?: string;
+  newPath?: string;
+  sourcePath?: string;
+  destination?: string;
+  success?: boolean;
+}
+
+/** Shape for router copy responses */
+interface CopyResponse {
+  sourcePath?: string;
+  copiedTo?: string;
+  source?: string;
+  destination?: string;
+  success?: boolean;
+}
+
+/**
+ * Normalize a router response onto the shape the formatter expects. Field
+ * names differ between the two layers. Each case maps one action.
+ */
+function normalizeFilesResponse(action: string, response: unknown): unknown {
+  const resp = (typeof response === 'object' && response !== null ? response : {}) as Record<string, unknown>;
+
+  switch (action) {
+    // move: router returns {oldPath, newPath}, formatter expects {source, destination}
+    case 'move': {
+      const moveResp = resp as MoveRenameResponse;
+      if (moveResp.oldPath !== undefined || moveResp.newPath !== undefined) {
+        return {
+          source: moveResp.oldPath ?? moveResp.sourcePath
+          , destination: moveResp.newPath ?? moveResp.destination
+          , success: moveResp.success ?? true
+          , operation: 'move'
+        };
+      }
+      return resp;
+    }
+
+    // copy: router returns {sourcePath, copiedTo}, formatter expects {source, destination}
+    case 'copy': {
+      const copyResp = resp as CopyResponse;
+      if (copyResp.sourcePath !== undefined || copyResp.copiedTo !== undefined) {
+        return {
+          source: copyResp.sourcePath ?? copyResp.source
+          , destination: copyResp.copiedTo ?? copyResp.destination
+          , success: copyResp.success ?? true
+          , operation: 'copy'
+        };
+      }
+      return resp;
+    }
+
+    // folder (paginated): router returns
+    //   {files: [{path, name, type: 'file'|'folder', ...}], page, pageSize,
+    //    totalFiles, totalPages, directory}
+    // Formatter expects FileListResponse with isFolder boolean. Translate
+    // shape so the structured branch renders correctly (previously it
+    // looked for f.isFolder which was always undefined, lumping every
+    // entry into "files" regardless of actual type).
+    case 'folder': {
+      const listResp = resp as { files?: unknown };
+      if (Array.isArray(listResp.files)) {
+        const items = listResp.files as Array<Record<string, unknown>>;
+        return {
+          ...resp
+          , files: items.map(item => ({
+            ...item
+            , isFolder: item.type === 'folder',
+          })),
+        };
+      }
+      return resp;
+    }
+
+    default:
+      return resp;
+  }
+}
+
+/**
+ * The presentation entry the files tool registers. Owns the write actions
+ * and the view read-side cases (folder, read) whose payloads the sibling
+ * handlers produce. search and fragments delegate to format-search.
+ */
+export function formatFilesResponse(action: string, response: unknown): string | undefined {
+  const normalized = normalizeFilesResponse(action, response);
+  switch (action) {
+    case 'folder':
+      return formatFileList(normalized as FileListResponse);
+    case 'read':
+      return formatFileRead(normalized as FileReadResponse);
+    case 'search':
+    case 'fragments':
+      return formatSearchResponse(action, normalized);
+    case 'create':
+      return formatFileWrite(normalized as FileWriteResponse, 'create');
+    case 'delete':
+      return formatFileDelete(normalized as FileDeleteResponse);
+    case 'move':
+    case 'copy':
+      return formatFileMove(normalized as FileMoveResponse);
+    case 'split':
+      return formatFileSplit(normalized as FileSplitResponse);
+    case 'concat':
+      return formatFileCombine(normalized as FileCombineResponse);
+    default:
+      return undefined;
+  }
 }

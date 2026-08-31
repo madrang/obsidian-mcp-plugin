@@ -474,3 +474,81 @@ export function formatDataviewMetadata(response: DataviewMetadataResponse): stri
 
   return joinLines(lines);
 }
+
+/**
+ * Normalize a router response onto the shape the formatter expects. Each
+ * case maps one action.
+ */
+function normalizeDataviewResponse(action: string, response: unknown): unknown {
+  const resp = (typeof response === 'object' && response !== null ? response : {}) as Record<string, unknown>;
+
+  switch (action) {
+    // query: the tool returns
+    //   {success, query, format, result: {type, values, headers?} | {type:'unknown', data}, type, error?, ...}
+    // Formatter expects {query, type, values?, headers?, successful, error?} at top level.
+    // Flatten result.{type,values,headers} and rename success → successful so the
+    // formatter renders typed results and surfaces Dataview's own error messages.
+    case 'query': {
+      const dvResp = resp as {
+        success?: boolean;
+        query?: string;
+        error?: string;
+        type?: string;
+        result?: { type?: string; values?: unknown; headers?: unknown };
+      };
+      const inner = dvResp.result;
+      return {
+        ...resp
+        , successful: dvResp.success ?? true
+        , type: inner?.type ?? dvResp.type ?? 'list'
+        , values: inner?.values
+        , headers: inner?.headers
+        , error: dvResp.error
+      };
+    }
+
+    // status: the detector returns {installed, enabled, apiReady, version},
+    // formatter expects {available, version}. Without this bridge the formatter
+    // reads a non-existent `available` field and always renders "not available"
+    // even when Dataview is fully ready (#216). Treat apiReady as the source of
+    // truth (it already implies installed + enabled), falling back to the
+    // conjunction for older status shapes.
+    case 'status': {
+      const s = resp as {
+        installed?: boolean;
+        enabled?: boolean;
+        apiReady?: boolean;
+        available?: boolean;
+        version?: string;
+      };
+      return {
+        available: s.available ?? s.apiReady ?? (Boolean(s.installed) && Boolean(s.enabled))
+        , version: s.version
+      };
+    }
+
+    default:
+      return resp;
+  }
+}
+
+/**
+ * The presentation entry the dataview tool registers. validate has no
+ * formatter: it returns undefined and the dispatcher falls back to raw
+ * JSON, as before.
+ */
+export function formatDataviewResponse(action: string, response: unknown): string | undefined {
+  const normalized = normalizeDataviewResponse(action, response);
+  switch (action) {
+    case 'query':
+      return formatDataviewQuery(normalized as DataviewQueryResponse);
+    case 'status':
+      return formatDataviewStatus(normalized as DataviewStatusResponse);
+    case 'list':
+      return formatDataviewPages(normalized as DataviewPagesResponse);
+    case 'metadata':
+      return formatDataviewMetadata(normalized as DataviewMetadataResponse);
+    default:
+      return undefined;
+  }
+}

@@ -11,6 +11,8 @@ import {
   joinLines
 } from '../format-utils';
 
+import { formatFilesResponse } from '../files/format';
+
 /**
  * Format view.window response (windowed view around a line)
  * Actual response: { path, lines[], startLine, endLine, totalLines, centerLine }
@@ -263,4 +265,30 @@ export function formatViewGrep(response: ViewGrepResponse): string {
   lines.push(summaryFooter());
 
   return joinLines(lines);
+}
+
+/**
+ * The presentation entry the view tool registers. window, lines, active,
+ * and grep render here. The read-side cases (folder, read, search,
+ * fragments) delegate to the files family formatter, the same split as the
+ * operation handlers.
+ */
+export function formatViewResponse(action: string, response: unknown): string | undefined {
+  switch (action) {
+    case 'window':
+      return formatViewWindow(response as ViewWindowResponse);
+    case 'lines':
+      return formatViewLines(response as ViewLinesResponse);
+    case 'active':
+      return formatViewActive(response as ViewActiveResponse);
+    case 'grep':
+      return formatViewGrep(response as ViewGrepResponse);
+    case 'folder':
+    case 'read':
+    case 'search':
+    case 'fragments':
+      return formatFilesResponse(action, response);
+    default:
+      return undefined;
+  }
 }

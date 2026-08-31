@@ -5,6 +5,7 @@
  */
 import { registerOperation } from '../tool-registry';
 import { executeBasesOperation } from './operations';
+import { formatBasesResponse } from './format';
 
 registerOperation({
   name: 'bases'
@@ -26,6 +27,7 @@ registerOperation({
     readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false
   }
   , execute: executeBasesOperation
+  , format: formatBasesResponse
   , parameters: {
     path: {
       type: 'string'
