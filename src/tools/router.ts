@@ -4,9 +4,7 @@ import {
   WorkflowConfig,
   OperationContext,
   OperationRequest,
-  SuggestedAction,
-  ConditionalSuggestions,
-  EfficiencyRule
+  SuggestedAction
 } from '../types/operations';
 import { ContentBufferManager } from '../utils/content-buffer';
 import { StateTokenManager } from './state-tokens';
@@ -23,7 +21,8 @@ import { getOperationDefinition } from './tool-registry';
 // through. It must live here, not only in tool-factory.ts, so a direct
 // VaultRouter construction also sees every registered handler.
 import './definitions';
-import { Params, SearchResultItem, paramStr } from './shared';
+import { Params, paramStr } from './shared';
+import { buildConfiguredHints, buildWorkflowSuggestions, checkEfficiencyRules, generateEnhancedHints } from './system/hints';
 
 export class VaultRouter implements RouterContext {
   private config!: WorkflowConfig;
@@ -137,18 +136,22 @@ export class VaultRouter implements RouterContext {
     
     // Add workflow hints
     if (actionConfig) {
-      const hints = isError ? actionConfig.failure_hints : actionConfig.success_hints;
-      if (hints && hints.suggested_next) {
-        response.workflow = {
-          message: this.interpolateMessage(hints.message || '', params, result)
-          , suggested_next: this.generateSuggestions(hints.suggested_next, params, result)
-        };
+      const configuredHints = buildConfiguredHints(
+        actionConfig
+        , params
+        , result
+        , isError
+        , { app: this.app, dailyNotePattern: this.config.context_triggers?.daily_note_pattern }
+        , (condition) => this.tokenManager.hasTokensFor(condition)
+      );
+      if (configuredHints) {
+        response.workflow = configuredHints;
       }
     }
     
     // Add enhanced hints for search and other operations to encourage graph exploration
     if (!isError) {
-      const enhancedHints = this.generateEnhancedHints(operation, action, params, result);
+      const enhancedHints = generateEnhancedHints(operation, action, params, result);
       if (enhancedHints && enhancedHints.suggested_next.length > 0) {
         if (response.workflow) {
           // Merge with existing workflow hints
@@ -164,7 +167,7 @@ export class VaultRouter implements RouterContext {
     }
     
     // Add efficiency hints
-    const efficiencyHints = this.checkEfficiencyRules(operation, action, params);
+    const efficiencyHints = checkEfficiencyRules(operation, action, params, this.config.efficiency_rules, this.context.last_file);
     if (efficiencyHints.length > 0) {
       response.efficiency_hints = {
         message: efficiencyHints[0].hint
@@ -173,138 +176,6 @@ export class VaultRouter implements RouterContext {
     }
     
     return response;
-  }
-  
-  private interpolateMessage(template: string, params: Params, result: unknown): string {
-    const resultRecord = (result && typeof result === 'object') ? result as Record<string, unknown> : {};
-    return template.replace(/{(\w+)}/g, (match, key: string) => {
-      const paramVal = params[key];
-      const resultVal = resultRecord[key];
-      if (typeof paramVal === 'string') return paramVal;
-      if (typeof resultVal === 'string') return resultVal;
-      return match;
-    });
-  }
-  
-  private generateSuggestions(conditionalSuggestions: ConditionalSuggestions[], params: Params, result: unknown): SuggestedAction[] {
-    const suggestions: SuggestedAction[] = [];
-    
-    if (!Array.isArray(conditionalSuggestions)) {
-      return suggestions;
-    }
-    
-    for (const conditional of conditionalSuggestions) {
-      if (this.evaluateCondition(conditional.condition, params, result)) {
-        for (const suggestion of conditional.suggestions || []) {
-          // Check if required tokens are available
-          if (suggestion.requires_tokens && !this.tokenManager.hasTokensFor(suggestion.requires_tokens)) {
-            continue; // Skip this suggestion - required tokens not available
-          }
-          
-          suggestions.push({
-            description: suggestion.description
-            , command: this.interpolateMessage(suggestion.command, params, result)
-            , reason: suggestion.reason
-          });
-        }
-      }
-    }
-    
-    return suggestions;
-  }
-  
-  private evaluateCondition(condition: string, params: Params, result: unknown): boolean {
-    const resultObj = (result && typeof result === 'object') ? result as Record<string, unknown> : null;
-    switch (condition) {
-      case 'always':
-        return true;
-      case 'has_results': {
-        if (!resultObj) return false;
-        const results = resultObj.results;
-        const totalResults = resultObj.totalResults;
-        return (Array.isArray(results) && results.length > 0) || (typeof totalResults === 'number' && totalResults > 0);
-      }
-      case 'no_results': {
-        if (!resultObj) return true;
-        const results = resultObj.results;
-        const totalResults = resultObj.totalResults;
-        return (!Array.isArray(results) || results.length === 0) && (!totalResults || totalResults === 0);
-      }
-      case 'has_links': {
-        if (!resultObj) return false;
-        const links = resultObj.links;
-        return Array.isArray(links) && links.length > 0;
-      }
-      case 'has_tags': {
-        if (!resultObj) return false;
-        const tags = resultObj.tags;
-        return Array.isArray(tags) && tags.length > 0;
-      }
-      case 'has_markdown_files':
-        return Array.isArray(result) && result.some(f => typeof f === 'string' && f.endsWith('.md'));
-      case 'is_daily_note': {
-        const pathVal = paramStr(params, 'path');
-        if (!pathVal) return false;
-
-        // Try to read the configured Daily Notes folder from Obsidian's internal plugin
-        const dailyNotesFolder = this.getDailyNotesFolder();
-        if (dailyNotesFolder) {
-          return pathVal.startsWith(dailyNotesFolder + '/') || pathVal === dailyNotesFolder;
-        }
-
-        // Fall back to regex pattern heuristic
-        return this.matchesPattern(pathVal, this.config.context_triggers?.daily_note_pattern);
-      }
-      default:
-        return false;
-    }
-  }
-  
-  /**
-   * Get the configured Daily Notes folder from Obsidian's internal plugin.
-   * Returns undefined if the plugin is not enabled or no folder is configured.
-   */
-  private getDailyNotesFolder(): string | undefined {
-    if (!this.app) return undefined;
-    try {
-      const internalPlugins = (this.app as unknown as Record<string, unknown>).internalPlugins as
-        { getPluginById(id: string): { enabled: boolean; instance?: { options?: { folder?: string } } } | null } | undefined;
-      if (!internalPlugins) return undefined;
-
-      const dailyNotes = internalPlugins.getPluginById('daily-notes');
-      if (dailyNotes?.enabled && dailyNotes.instance?.options?.folder) {
-        return dailyNotes.instance.options.folder;
-      }
-    } catch {
-      // Internal plugin API not available — fall back to pattern
-    }
-    return undefined;
-  }
-
-  private matchesPattern(value: string, pattern?: string): boolean {
-    if (!pattern) return false;
-    try {
-      const regex = new RegExp(pattern, 'i');
-      return regex.test(value);
-    } catch {
-      return false;
-    }
-  }
-  
-  private checkEfficiencyRules(operation: string, action: string, params: Params): EfficiencyRule[] {
-    if (!this.config.efficiency_rules) return [];
-
-    const matches: EfficiencyRule[] = [];
-    for (const rule of this.config.efficiency_rules) {
-      // Simple pattern matching for now
-      if (rule.pattern === 'multiple_edits_same_file' && 
-          this.context.last_file === params.path &&
-          operation === 'edit') {
-        matches.push(rule);
-      }
-    }
-    
-    return matches;
   }
   
   private updateContext(operation: string, action: string, params: Params) {
@@ -422,238 +293,10 @@ export class VaultRouter implements RouterContext {
   }
   
   generateWorkflowSuggestions(): { current_context: ReturnType<VaultRouter['getCurrentContext']>; suggestions: SuggestedAction[] } {
-    // Generate contextual workflow suggestions based on current state
-    const suggestions: SuggestedAction[] = [];
-    
-    if (this.context.last_file) {
-      suggestions.push({
-        description: 'Continue working with last file'
-        , command: `view(action='read', path='${this.context.last_file}')`
-        , reason: 'Return to previous work'
-      });
-    }
-    
-    if (this.context.search_history?.length) {
-      const lastSearch = this.context.search_history[this.context.search_history.length - 1];
-      suggestions.push({
-        description: 'Refine last search'
-        , command: `view(action='search', query='${lastSearch} AND ...')`
-        , reason: 'Narrow down results'
-      });
-    }
-    
-    // Always include a default suggestion if no context-specific ones
-    if (suggestions.length === 0) {
-      suggestions.push({
-        description: 'Use workflow hints from other operations'
-        , command: 'view(action="folder") or view(action="read", path="...")'
-        , reason: 'Each operation provides contextual workflow suggestions'
-      });
-    }
-    
     return {
       current_context: this.getCurrentContext()
-      , suggestions
+      , suggestions: buildWorkflowSuggestions(this.context)
     };
-  }
-
-  /**
-   * Generate enhanced hints that encourage graph exploration over simple search
-   */
-  private generateEnhancedHints(operation: string, action: string, params: Params, result: unknown): { message: string; suggested_next: SuggestedAction[] } | null {
-    const suggestions: SuggestedAction[] = [];
-    let message = '';
-
-    const resultObj = (result && typeof result === 'object') ? result as Record<string, unknown> : null;
-
-    // Enhanced hints for search operations
-    if (operation === 'view' && action === 'search') {
-      const searchResults = resultObj?.results;
-      if (searchResults && Array.isArray(searchResults) && searchResults.length > 0) {
-        message = 'Consider exploring connections between these files using graph operations.';
-
-        // Get first few results for graph exploration suggestions
-        const firstResult = searchResults[0] as SearchResultItem | undefined;
-        const hasMultipleResults = searchResults.length > 1;
-
-        if (firstResult?.path) {
-          suggestions.push({
-            description: 'Explore connections from first result'
-            , command: `graph(action='traverse', sourcePath='${firstResult.path}', maxDepth=2)`
-            , reason: 'Discover related files through links and references'
-          });
-
-          suggestions.push({
-            description: 'Find files linking to this result'
-            , command: `graph(action='backlinks', sourcePath='${firstResult.path}')`
-            , reason: 'See what files reference this content'
-          });
-
-          suggestions.push({
-            description: 'Find files linked from this result'
-            , command: `graph(action='forwardlinks', sourcePath='${firstResult.path}')`
-            , reason: 'See what this file references'
-          });
-        }
-
-        if (hasMultipleResults) {
-          const secondResult = searchResults[1] as SearchResultItem | undefined;
-          if (secondResult?.path && firstResult?.path) {
-            suggestions.push({
-              description: 'Find connection path between top results'
-              , command: `graph(action='path', sourcePath='${firstResult.path}', targetPath='${secondResult.path}')`
-              , reason: 'Discover how these search results are connected'
-            });
-          }
-        }
-
-        // Tag-based exploration if we detect potential tag-related content
-        const queryParam = paramStr(params, 'query');
-        if (queryParam && queryParam.includes('#')) {
-          const tagQuery = queryParam.replace('#', '');
-          suggestions.push({
-            description: 'Explore files with similar tags'
-            , command: `graph(action='tag-analysis', tagFilter=['${tagQuery}'])`
-            , reason: 'Find files grouped by similar tags'
-          });
-        }
-      }
-    }
-
-    // Enhanced hints for read operations - suggest exploring connections
-    if (operation === 'view' && action === 'read') {
-      const readPath = paramStr(params, 'path');
-      const hasError = resultObj ? 'error' in resultObj : false;
-      if (readPath && !hasError) {
-        message = 'Explore connections and references for deeper context.';
-
-        suggestions.push({
-          description: 'Explore graph connections from this file'
-          , command: `graph(action='neighbors', sourcePath='${readPath}')`
-          , reason: 'Find directly connected files'
-        });
-
-        suggestions.push({
-          description: 'Find files that reference this one'
-          , command: `graph(action='backlinks', sourcePath='${readPath}')`
-          , reason: 'See where this file is mentioned or linked'
-        });
-
-        // Check if the content suggests it might have many connections
-        const rawContent = typeof result === 'string' ? result : (resultObj?.content ?? '');
-
-        // Safely count links and tags, handling both string content and Fragment arrays
-        let linkCount = 0;
-        let tagCount = 0;
-
-        if (typeof rawContent === 'string') {
-          linkCount = (rawContent.match(/\[\[.*?\]\]/g) || []).length;
-          tagCount = (rawContent.match(/#\w+/g) || []).length;
-        } else if (Array.isArray(rawContent)) {
-          // Handle Fragment[] - extract content from each fragment
-          for (const fragment of rawContent) {
-            let fragmentText = '';
-            if (typeof fragment === 'string') {
-              fragmentText = fragment;
-            } else if (fragment && typeof fragment === 'object') {
-              const fObj = fragment as Record<string, unknown>;
-              const fVal = fObj.content ?? fObj.text ?? fObj.data;
-              fragmentText = typeof fVal === 'string' ? fVal : '';
-            }
-            if (fragmentText.length > 0) {
-              linkCount += (fragmentText.match(/\[\[.*?\]\]/g) || []).length;
-              tagCount += (fragmentText.match(/#\w+/g) || []).length;
-            }
-          }
-        }
-
-        if (linkCount > 2) {
-          suggestions.push({
-            description: 'Traverse the link network from this file'
-            , command: `graph(action='traverse', sourcePath='${readPath}', maxDepth=3)`
-            , reason: `This file has ${linkCount} links - explore the broader network`
-          });
-        }
-
-        if (tagCount > 0) {
-          suggestions.push({
-            description: 'Find files with similar tags'
-            , command: `graph(action='tag-traverse', startPath='${readPath}', maxDepth=2)`
-            , reason: `This file has ${tagCount} tags - explore related content`
-          });
-        }
-      }
-    }
-
-    // Enhanced hints for list operations - suggest exploring discovered files
-    if (operation === 'view' && action === 'folder') {
-      if (result && Array.isArray(result) && result.length > 1) {
-        message = 'Consider exploring relationships between these files.';
-
-        const mdFiles = result.filter((f): f is string => typeof f === 'string' && f.endsWith('.md'));
-        if (mdFiles.length >= 2) {
-          suggestions.push({
-            description: 'Find connections between files in this directory'
-            , command: `graph(action='path', sourcePath='${mdFiles[0]}', targetPath='${mdFiles[1]}')`
-            , reason: 'Discover how files in this directory relate to each other'
-          });
-
-          suggestions.push({
-            description: 'Analyze tag relationships in this directory'
-            , command: `graph(action='tag-analysis', folderFilter='${paramStr(params, 'path') || '/'}')`
-            , reason: 'Find common themes and tags among these files'
-          });
-        }
-      } else if (resultObj && 'files' in resultObj && Array.isArray(resultObj.files)) {
-        // Handle paginated results
-        interface PaginatedFile { name: string; path: string; type: string }
-        const paginatedFiles = resultObj.files as PaginatedFile[];
-        const mdFiles = paginatedFiles.filter(f => f.name && f.name.endsWith('.md'));
-        if (mdFiles.length >= 2) {
-          message = 'Consider exploring relationships between these files.';
-
-          suggestions.push({
-            description: 'Find connections between files in this directory'
-            , command: `graph(action='path', sourcePath='${mdFiles[0].path}', targetPath='${mdFiles[1].path}')`
-            , reason: 'Discover how files in this directory relate to each other'
-          });
-        }
-      }
-    }
-
-    // Enhanced hints for fragments operation - suggest broader exploration
-    if (operation === 'view' && action === 'fragments') {
-      const fragments = resultObj?.fragments;
-      if (fragments && Array.isArray(fragments) && fragments.length > 0) {
-        message = 'Explore connections between documents containing these fragments.';
-
-        const sourcePathsSet = new Set<string>();
-        for (const f of fragments) {
-          if (f && typeof f === 'object' && 'source' in (f as Record<string, unknown>)) {
-            const source = String((f as Record<string, unknown>).source);
-            if (source.length > 0) sourcePathsSet.add(source);
-          }
-        }
-        const sourcePaths = [...sourcePathsSet];
-        if (sourcePaths.length >= 2) {
-          const firstPath = sourcePaths[0];
-          const secondPath = sourcePaths[1];
-          suggestions.push({
-            description: 'Find connections between fragment sources'
-            , command: `graph(action='path', sourcePath='${firstPath}', targetPath='${secondPath}')`
-            , reason: 'Explore how documents with similar content are connected'
-          });
-
-          suggestions.push({
-            description: 'Traverse network from first fragment source'
-            , command: `graph(action='traverse', sourcePath='${firstPath}', maxDepth=2)`
-            , reason: 'Discover the broader context around this content'
-          });
-        }
-      }
-    }
-    
-    return suggestions.length > 0 ? { message, suggested_next: suggestions } : null;
   }
 
 }
