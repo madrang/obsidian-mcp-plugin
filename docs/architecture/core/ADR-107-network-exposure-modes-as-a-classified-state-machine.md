@@ -21,8 +21,8 @@ each as an isolated knob with no awareness of the combined state.
 Two concrete consequences of that:
 
 1. **The bind address has no setting at all.** `this.server.listen(this.port, …)`
-   is called without a host argument (`src/mcp-server.ts:638`,
-   `src/node-mcp-server.ts:52`), so Node binds the wildcard (`0.0.0.0`) —
+   is called without a host argument (`src/mcp-server.ts:638`), so Node binds
+   the wildcard (`0.0.0.0`) —
    every interface, LAN-reachable. There is no UI to change this and no
    documentation that it is the default. ADR-103 §"Zero-config" already
    states *"The server listens on `127.0.0.1` over HTTP by default"* — that

@@ -4,8 +4,8 @@
  * Test concurrent MCP sessions with the plugin
  */
 
-const http = require('http');
-const { randomUUID } = require('crypto');
+import http from 'node:http';
+import { randomUUID } from 'node:crypto';
 
 const MCP_PORT = 3001;
 const MCP_URL = `http://localhost:${MCP_PORT}/mcp`;
@@ -14,7 +14,7 @@ const MCP_URL = `http://localhost:${MCP_PORT}/mcp`;
 async function createSession(sessionName) {
   const sessionId = randomUUID();
   console.log(`🚀 Creating session ${sessionName} (${sessionId})`);
-  
+
   // Initialize session
   const initResponse = await sendRequest({
     jsonrpc: '2.0',
@@ -29,12 +29,12 @@ async function createSession(sessionName) {
     },
     id: 1
   }, sessionId);
-  
+
   console.log(`✅ Session ${sessionName} initialized`);
-  
+
   // Simulate concurrent graph search operations
   const searchPromises = [];
-  
+
   for (let i = 0; i < 3; i++) {
     const promise = sendRequest({
       jsonrpc: '2.0',
@@ -53,14 +53,14 @@ async function createSession(sessionName) {
       console.log(`📊 Session ${sessionName} - Request ${i} completed`);
       return response;
     });
-    
+
     searchPromises.push(promise);
   }
-  
+
   // Wait for all requests to complete
   const results = await Promise.all(searchPromises);
   console.log(`🏁 Session ${sessionName} completed all requests`);
-  
+
   return { sessionId, results };
 }
 
@@ -77,14 +77,14 @@ function sendRequest(body, sessionId) {
         'Mcp-Session-Id': sessionId
       }
     };
-    
+
     const req = http.request(options, (res) => {
       let data = '';
-      
+
       res.on('data', (chunk) => {
         data += chunk;
       });
-      
+
       res.on('end', () => {
         try {
           resolve(JSON.parse(data));
@@ -93,7 +93,7 @@ function sendRequest(body, sessionId) {
         }
       });
     });
-    
+
     req.on('error', reject);
     req.write(JSON.stringify(body));
     req.end();
@@ -103,7 +103,7 @@ function sendRequest(body, sessionId) {
 // Main test function
 async function runTest() {
   console.log('🧪 Testing concurrent MCP sessions...\n');
-  
+
   try {
     // Check if server is running
     await sendRequest({
@@ -116,25 +116,25 @@ async function runTest() {
     console.error('Please start the Obsidian plugin first.');
     process.exit(1);
   }
-  
+
   // Create multiple concurrent sessions
   const sessionPromises = [];
   const sessionCount = 5;
-  
+
   console.log(`Creating ${sessionCount} concurrent sessions...\n`);
-  
+
   for (let i = 0; i < sessionCount; i++) {
     sessionPromises.push(createSession(`Session-${i + 1}`));
   }
-  
+
   // Wait for all sessions to complete
   const startTime = Date.now();
   const sessions = await Promise.all(sessionPromises);
   const duration = Date.now() - startTime;
-  
+
   console.log(`\n✨ All sessions completed in ${duration}ms`);
   console.log(`📈 Average time per session: ${(duration / sessionCount).toFixed(2)}ms`);
-  
+
   // Get session info resource
   try {
     const sessionInfo = await sendRequest({
@@ -145,7 +145,7 @@ async function runTest() {
       },
       id: 999
     }, sessions[0].sessionId);
-    
+
     console.log('\n📊 Session Statistics:');
     if (sessionInfo.result?.contents?.[0]?.text) {
       const stats = JSON.parse(sessionInfo.result.contents[0].text);
@@ -159,7 +159,7 @@ async function runTest() {
   } catch (error) {
     console.log('Could not fetch session statistics');
   }
-  
+
   console.log('\n✅ Concurrent session test completed successfully!');
 }
 

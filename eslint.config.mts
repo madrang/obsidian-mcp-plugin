@@ -82,8 +82,6 @@ export default tseslint.config(
 		"*.config.mjs",
 		"esbuild.config.mjs",
 		"eslint.config.mts",
-		"sync-version.mjs",
-		"version-bump.mjs",
 		"jest.config.js",
 		"versions.json",
 		"main.js",
@@ -99,6 +97,5 @@ export default tseslint.config(
 		"manifest.json",
 		"versions.json",
 		".claude/**",
-		"src/config/**/*.json",
 	]),
 );
