@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "scoped-vault-mcp",
   "display_name": "Scoped Vault MCP",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "Read, write, search, and traverse your Obsidian vault from any MCP client — bridges to the MCP server built into the Scoped Vault MCP plugin.",
   "long_description": "Bridges MCP clients to the HTTP MCP server exposed by the Scoped Vault MCP plugin running inside Obsidian. Open Obsidian first, enable the Scoped Vault MCP plugin in Settings, copy the URL and API key from the plugin's Settings tab, then paste them into the install prompt below.",
   "author": {

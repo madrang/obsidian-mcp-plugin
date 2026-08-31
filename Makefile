@@ -95,7 +95,7 @@ clean: ## Remove build artifacts
 	rm -rf main.js main.js.map dist/ scoped-vault-mcp-*.mcpb scoped-vault-mcp.mcpb
 
 sync-version: ## Sync version + description from package.json to manifest.json, mcpb, version.ts
-	node sync-version.mjs
+	node scripts/sync-version.mjs
 
 mcpb: ## Build MCPB bundle (scoped-vault-mcp-<version>.mcpb) for bundle-compatible MCP clients
 	node scripts/build-mcpb.mjs
@@ -111,4 +111,4 @@ scorecard-baseline: ## DELIBERATELY re-snapshot scorecard-baseline.json (only af
 
 set-description: ## Set plugin description (SoT: package.json) + sync. Usage: make set-description DESC='...'
 	@node scripts/set-description.mjs "$(DESC)"
-	@node sync-version.mjs
+	@node scripts/sync-version.mjs

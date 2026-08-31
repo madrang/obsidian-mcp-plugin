@@ -1,13 +1,13 @@
 {
   "name": "obsidian-mcp-plugin",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "Independent fork by Madrang of Semantic Notes Vault MCP. Adds scoped bearer tokens and per-token session limits. Read, write, search, and traverse your vault from any MCP client, with no external server to run.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
-    "build": "node sync-version.mjs && tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-    "sync-version": "node sync-version.mjs",
-    "version": "node sync-version.mjs && git add manifest.json",
+    "build": "node scripts/sync-version.mjs && tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "sync-version": "node scripts/sync-version.mjs",
+    "version": "node scripts/sync-version.mjs && git add manifest.json",
     "test": "node --no-warnings node_modules/.bin/jest",
     "test:coverage": "node --no-warnings node_modules/.bin/jest --coverage",
     "lint": "eslint .",
