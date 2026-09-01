@@ -49,5 +49,6 @@ A tool-visibility setting can hide any action from the enum.
 - Always include the \`.md\` extension on note paths.
 - CSS snippet files are reachable through the virtual namespace: pass \`obsidian://snippets/<name>.css\` as \`path\` to create or delete a snippet. Snippet writes need the plugin setting "Allow snippet editing". Delete is permanent, and a delete of an enabled snippet is refused with \`SNIPPET_ENABLED\` until the snippet is disabled.
 - Config keys under \`obsidian://config/<key>\` refuse create and delete with \`CONFIG_ACTION_UNSUPPORTED\`. Change config values with the edit tool.
+- Resource pages under \`obsidian://resources/<name>\` are server-computed. Every write and file action on one refuses with \`RESOURCE_ACTION_UNSUPPORTED\`.
 `;
 }

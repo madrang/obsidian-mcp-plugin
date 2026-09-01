@@ -129,9 +129,36 @@ becomes a no-op and is deleted.
   the maintenance and replacement rules sit above the constant. A key
   outside the catalog still reads and writes through its URI.
 - `obsidian://resources/` (registry-based computed resources) predates
-  this ADR and keeps its own resolution path in the view handlers; its
-  matcher is prefix-narrowed so snippets and config URIs are never
-  swallowed by it.
+  this ADR and kept its own resolution path in the view handlers until the
+  2026-09-01 amendment below folded it into the same dispatch.
 - Tests pin the gates on recorded writes (`tests/security/managed-namespaces.test.ts`,
   `tests/snippets-config-access.test.ts`): every refusal case asserts the
   adapter and `setConfig` stayed untouched.
+
+## Amendment 2026-09-01: resources join the dispatch
+
+The third namespace, `obsidian://resources/`, moved from per-action
+branches in the view handlers into the same `ObsidianAPI` dispatch this
+ADR established for snippets and config. No action knows the namespace
+exists.
+
+- The registry's prefix and matcher live in `src/resources/uri.ts`, a leaf
+  module. The registry, the API layer, and `VaultSecurityManager` import
+  it, so none depends on the others.
+- `VaultRouter` binds the session-bound `ResourceService` onto the API
+  (`setResourceService`) at construction, so the API serves the same
+  session content the `resources/read` protocol handler serves.
+- `getFile` and `getFileStat` serve resource text and its stat through
+  namespace branches shaped like the config ones (no mtime; an
+  unregistered name stats `exists: false`). Every write, create, delete,
+  and move on a resource URI refuses with `RESOURCE_ACTION_UNSUPPORTED`
+  at `validateManagedUriOperation` — reads open, writes unsupported, no
+  setting opens one.
+- Every text action inherits the namespace: a single-file `grep` on a
+  resource URI works, `edit.*` writes refuse with the code instead of a
+  misleading `File not found`, and write preconditions chain off the
+  resource stat (`ifHash` over the served text). The `view.folder` tree
+  walk stays on the registry service: listing a virtual tree is not a
+  text read.
+- Pinned by `tests/resources-via-api.test.ts` and
+  `tests/security/resources-namespace.test.ts`.

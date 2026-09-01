@@ -36,6 +36,8 @@ import {
   writeConfigText,
   ConfigError
 } from './app-config';
+import { isResourceUri } from '../resources/uri';
+import { ResourceError, ResourceService } from '../resources/types';
 
 /** MCP server info used by ObsidianAPI */
 interface ObsidianAPIMCPServerInfo {
@@ -410,6 +412,38 @@ export class ObsidianAPI {
       : result);
   }
 
+  /** Session-bound reader for the obsidian://resources/ namespace. The
+   * router binds it per request, so the API layer serves the same session
+   * content the resources/read protocol handler serves. Absent on a bare
+   * router: resource reads then fail with a "not wired" error. */
+  private resourceService?: ResourceService;
+
+  setResourceService(service: ResourceService): void {
+    this.resourceService = service;
+  }
+
+  /** Resource text through the session-bound service. ResourceError
+   * propagates so UNKNOWN_RESOURCE reaches the caller as an error code. */
+  private readResourceText(uri: string): string {
+    if (!this.resourceService) {
+      throw new Error(`Resource access is not wired on this API: ${uri}`);
+    }
+    return this.resourceService.read(uri).text;
+  }
+
+  /** Resources are server-computed reference pages: no write action
+   * applies. The security layer refuses first; this is the backstop for
+   * direct API calls. */
+  private refuseResourceWrite(path: string, targetPath?: string): void {
+    if (isResourceUri(path) || isResourceUri(targetPath)) {
+      const uri = isResourceUri(path) ? path : targetPath;
+      throw new ResourceError(
+        `Resources are server-computed reference pages, and no write action applies: ${uri}`
+        , 'RESOURCE_ACTION_UNSUPPORTED'
+      );
+    }
+  }
+
   async getFile(path: string): Promise<ObsidianFileResponse> {
     // Config namespace: the current value as JSON text (ADR-113). No
     // mtime: the text regenerates from the live value on every read.
@@ -421,6 +455,12 @@ export class ObsidianAPI {
     // Snippet namespace: adapter-backed, outside the vault index (ADR-113).
     if (isSnippetsUri(path)) {
       return await this.readSnippet(path);
+    }
+
+    // Resources namespace: server-computed reference pages, served through
+    // the same dispatch so every text action reads them like a file.
+    if (isResourceUri(path)) {
+      return { path, content: this.readResourceText(path), tags: [], frontmatter: {} };
     }
 
     // Check if path is excluded
@@ -489,6 +529,24 @@ export class ObsidianAPI {
       };
     }
 
+    // Resources namespace: stat over the served text. An unregistered name
+    // answers exists: false, the same shape an unknown config key gives.
+    if (isResourceUri(path)) {
+      try {
+        const text = this.readResourceText(path);
+        return {
+          path
+          , exists: true
+          , size: text.length
+          , lineCount: text.split('\n').length
+          , hash: contentHash(text)
+        };
+      } catch (error) {
+        if (error instanceof ResourceError) return { path, exists: false };
+        throw error;
+      }
+    }
+
     // Snippet namespace: stat from the adapter, hash from the content
     // (ADR-113). Preconditions chain off these fields like vault files.
     if (isSnippetsUri(path)) {
@@ -535,6 +593,7 @@ export class ObsidianAPI {
   }
 
   async createFile(path: string, content: string) {
+    this.refuseResourceWrite(path);
     // Config namespace: keys are the app's own settings. Creating one is
     // not a supported move — an edit on an existing key is (ADR-113).
     if (isConfigUri(path)) {
@@ -600,6 +659,7 @@ export class ObsidianAPI {
   }
 
   async updateFile(path: string, content: string) {
+    this.refuseResourceWrite(path);
     // Config namespace: parse the edited JSON and apply it with setConfig
     // (ADR-113). writeConfigText refuses invalid JSON before anything is
     // written.
@@ -660,6 +720,7 @@ export class ObsidianAPI {
   }
 
   async deleteFile(path: string) {
+    this.refuseResourceWrite(path);
     // Config namespace: deleting a key is not a supported move (ADR-113).
     if (isConfigUri(path)) {
       throw new ConfigError(
@@ -713,6 +774,7 @@ export class ObsidianAPI {
    * dead config.
    */
   async moveFile(path: string, newPath: string) {
+    this.refuseResourceWrite(path, newPath);
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!file) {
       throw new Error(`File not found: ${path}`);
@@ -723,6 +785,7 @@ export class ObsidianAPI {
   }
 
   async appendToFile(path: string, content: string) {
+    this.refuseResourceWrite(path);
     // Config namespace (ADR-113): append is a text edit on the JSON form,
     // so the parse gate in writeConfigText still guards the result.
     if (isConfigUri(path)) {
@@ -804,6 +867,7 @@ export class ObsidianAPI {
   }
 
   async patchVaultFile(path: string, params: PatchParams) {
+    this.refuseResourceWrite(path);
     // Config namespace (ADR-113)
     if (isConfigUri(path)) {
       const key = configKeyFromUri(path);

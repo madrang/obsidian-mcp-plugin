@@ -55,7 +55,7 @@ registerOperation({
     // name a folder (folder action, grep subtree), not only a file.
     path: {
       type: 'string'
-      , description: 'The target path relative to the vault root. A file for window, lines, read, fragments, and a single-file grep. A folder for folder, and a grep subtree. The window, lines, and read actions also accept an obsidian://resources/<name> URI for server-computed resources, an obsidian://snippets/<name>.css URI for a CSS snippet, and an obsidian://config/<key> URI for an app setting. Pass obsidian://resources/, obsidian://snippets/, or obsidian://config/ to folder to list each namespace'
+      , description: 'The target path relative to the vault root. A file for window, lines, read, fragments, and a single-file grep. A folder for folder, and a grep subtree. The window, lines, read, and single-file grep actions also accept an obsidian://resources/<name> URI for server-computed resources, an obsidian://snippets/<name>.css URI for a CSS snippet, and an obsidian://config/<key> URI for an app setting. Pass obsidian://resources/, obsidian://snippets/, or obsidian://config/ to folder to list each namespace'
     }
     , searchText: {
       type: 'string'

@@ -9,6 +9,7 @@ import { App } from 'obsidian';
 import { VaultRouter } from '../src/tools/router';
 import { ContentBufferManager } from '../src/utils/content-buffer';
 import { contentHash } from '../src/utils/content-hash';
+import { StateTokenManager } from '../src/tools/state-tokens';
 
 function stubApi(initial: string) {
   let content = initial;
@@ -59,5 +60,28 @@ describe('buffer_available in the response context', () => {
 
     expect(response.error).toBeUndefined();
     expect(response.context?.buffer_available).toBe(false);
+  });
+});
+
+describe('the can_use_buffer token after a failed replace', () => {
+  beforeEach(() => {
+    ContentBufferManager.getInstance().clear();
+  });
+
+  it('is false when the failure buffered nothing', () => {
+    const manager = new StateTokenManager();
+
+    manager.updateTokens('edit', 'replace', { path: 'note.md', oldText: 'a' }, null, false);
+
+    expect(manager.hasTokensFor('can_use_buffer')).toBe(false);
+  });
+
+  it('is true when the live buffer holds a replacement', () => {
+    ContentBufferManager.getInstance().store('X', undefined, { filePath: 'note.md', searchText: 'a' });
+    const manager = new StateTokenManager();
+
+    manager.updateTokens('edit', 'replace', { path: 'note.md', oldText: 'a' }, null, false);
+
+    expect(manager.hasTokensFor('can_use_buffer')).toBe(true);
   });
 });

@@ -1,8 +1,10 @@
 /**
- * Resource URIs through the view tool: read, lines, and window serve
- * obsidian://resources/<name> content without touching the vault, and
- * folder walks the namespace tree. This is the access path for clients
- * that cannot use the MCP resources/read request.
+ * Resource URIs serve through the ObsidianAPI dispatch, so the view
+ * actions read obsidian://resources/<name> pages like files. The app stub
+ * carries no vault: any probe past the resource branch crashes, so a clean
+ * serve proves the namespace never touches the vault. folder walks the
+ * registry tree. This is the access path for clients that cannot use the
+ * MCP resources/read request.
  */
 import { App } from 'obsidian';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
@@ -17,9 +19,9 @@ class RecordingAPI extends ObsidianAPI {
     super({} as App);
   }
 
-  async getFile(path: string): Promise<never> {
+  async getFile(path: string) {
     this.getFileCalls.push(path);
-    throw new Error(`unexpected vault getFile: ${path}`);
+    return super.getFile(path);
   }
 }
 
@@ -57,7 +59,7 @@ function setup(opts: { withResources?: boolean } = {}) {
 }
 
 describe('view actions on resource URIs', () => {
-  it('read serves the resource and never probes the vault', async () => {
+  it('read serves the resource through the API, with no vault probe', async () => {
     const { api, router } = setup();
     const response = await router.route({
       operation: 'view'
@@ -69,7 +71,7 @@ describe('view actions on resource URIs', () => {
     const result = response.result as { path: string; content: string };
     expect(result.path).toBe(`${RESOURCES_URI_PREFIX}infos/vault`);
     expect(JSON.parse(result.content).vault.name).toBe('TestVault');
-    expect(api.getFileCalls).toEqual([]);
+    expect(api.getFileCalls).toEqual([`${RESOURCES_URI_PREFIX}infos/vault`]);
   });
 
   it('read serves a tool reference page as markdown', async () => {
@@ -113,7 +115,7 @@ describe('view actions on resource URIs', () => {
     expect(result.path).toBe(`${RESOURCES_URI_PREFIX}infos/vault`);
     expect(result.lines).toHaveLength(3);
     expect(result.lines[0]).toBe('{');
-    expect(api.getFileCalls).toEqual([]);
+    expect(api.getFileCalls).toEqual([`${RESOURCES_URI_PREFIX}infos/vault`]);
   });
 
   it('lines reports a stale address past the end of the resource text', async () => {
@@ -140,10 +142,10 @@ describe('view actions on resource URIs', () => {
     const result = response.result as { path: string; lines: string[]; centerLine: number };
     expect(result.path).toBe(`${RESOURCES_URI_PREFIX}infos/vault`);
     expect(result.centerLine).toBe(2);
-    expect(api.getFileCalls).toEqual([]);
+    expect(api.getFileCalls).toEqual([`${RESOURCES_URI_PREFIX}infos/vault`]);
   });
 
-  it('read of an unregistered resource fails with UNKNOWN_RESOURCE and no vault probe', async () => {
+  it('read of an unregistered resource fails with UNKNOWN_RESOURCE', async () => {
     const { api, router } = setup();
     const response = await router.route({
       operation: 'view'
@@ -153,10 +155,10 @@ describe('view actions on resource URIs', () => {
 
     expect(response.error).toBeDefined();
     expect((response.error as { code?: string }).code).toBe('UNKNOWN_RESOURCE');
-    expect(api.getFileCalls).toEqual([]);
+    expect(api.getFileCalls).toEqual(['obsidian://resources/nope']);
   });
 
-  it('fails clearly when the router carries no resource service', async () => {
+  it('fails clearly when the API carries no resource service', async () => {
     const { router } = setup({ withResources: false });
     const response = await router.route({
       operation: 'view'

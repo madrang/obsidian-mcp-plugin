@@ -28,6 +28,10 @@ export interface OperationResponse<T = unknown> {
     current_directory?: string;
     buffer_available?: boolean;
     search_results?: number;
+    has_file_content?: boolean;
+    has_links?: boolean;
+    has_tags?: boolean;
+    search_results_available?: boolean;
     linked_files?: string[];
     tags?: string[];
   };

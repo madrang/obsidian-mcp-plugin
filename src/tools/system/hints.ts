@@ -321,10 +321,17 @@ export function generateEnhancedHints(operation: string, action: string, params:
       // Safely count links and tags, handling both string content and Fragment arrays
       let linkCount = 0;
       let tagCount = 0;
+      // The read result's tags array is the authoritative tag count: it
+      // carries frontmatter tags, skips code-text false positives, and a
+      // repeated tag counts once. The text scan is the fallback for result
+      // shapes without one.
+      const resultTags = resultObj?.tags;
 
       if (typeof rawContent === 'string') {
         linkCount = (rawContent.match(/\[\[.*?\]\]/g) || []).length;
-        tagCount = (rawContent.match(/#\w+/g) || []).length;
+        tagCount = Array.isArray(resultTags)
+          ? new Set(resultTags as string[]).size
+          : (rawContent.match(/#\w+/g) || []).length;
       } else if (Array.isArray(rawContent)) {
         // Handle Fragment[] - extract content from each fragment
         for (const fragment of rawContent) {
@@ -340,6 +347,9 @@ export function generateEnhancedHints(operation: string, action: string, params:
             linkCount += (fragmentText.match(/\[\[.*?\]\]/g) || []).length;
             tagCount += (fragmentText.match(/#\w+/g) || []).length;
           }
+        }
+        if (Array.isArray(resultTags)) {
+          tagCount = new Set(resultTags as string[]).size;
         }
       }
 

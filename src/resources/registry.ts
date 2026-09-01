@@ -32,8 +32,11 @@ import { generateSearchReference } from './syntax/search';
 import { generatePropertiesReference } from './syntax/properties';
 import { generateTagsReference } from './syntax/tags';
 import { ResourceBody, ResourceContent, ResourceDeps, ResourceError, ResourceListEntry, ResourceService } from './types';
-
-export const RESOURCES_URI_PREFIX = 'obsidian://resources/';
+// The prefix and matcher live in the leaf ./uri module so the API layer and
+// the security layer can name the namespace without importing the registry
+// (and, through it, every reference builder).
+export { RESOURCES_URI_PREFIX, isResourceUri } from './uri';
+import { RESOURCES_URI_PREFIX } from './uri';
 
 interface ResourceSpec {
   name: string;
@@ -287,9 +290,3 @@ export function createResourceService(deps: ResourceDeps): ResourceService {
   };
 }
 
-/** True when a path belongs to the obsidian://resources/ namespace this
- * registry serves. Snippets and config URIs are other namespaces and must
- * fall through to their own handlers. */
-export function isResourceUri(path: string): boolean {
-  return path.startsWith(RESOURCES_URI_PREFIX);
-}

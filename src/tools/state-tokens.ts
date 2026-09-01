@@ -2,6 +2,7 @@
  * State token system for workflow hints - inspired by Petri nets
  * Tokens represent available states/resources that enable certain actions
  */
+import { ContentBufferManager } from '../utils/content-buffer';
 
 /** Params shape for vault read/create/search/list operations */
 interface FilesParams {
@@ -127,11 +128,14 @@ export class StateTokenManager {
     } else {
       this.tokens.edit_in_progress = true;
 
-      // Buffer tokens for failed edits
+      // Buffer tokens follow the live slot: only a failure that actually
+      // buffered a replacement claims the buffer. The path and search text
+      // come from the buffered entry, not the failed call's params.
       if (action === 'replace') {
-        this.tokens.buffer_available = true;
-        this.tokens.buffer_file = editParams.path;
-        this.tokens.buffer_search_text = editParams.oldText;
+        const buffered = ContentBufferManager.getInstance().retrieve();
+        this.tokens.buffer_available = buffered !== null;
+        this.tokens.buffer_file = buffered?.filePath;
+        this.tokens.buffer_search_text = buffered?.searchText;
       }
     }
   }

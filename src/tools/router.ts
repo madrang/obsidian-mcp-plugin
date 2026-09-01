@@ -13,7 +13,7 @@ import { UniversalFragmentRetriever } from '../indexing/fragment-retriever';
 import { GraphSearchTool } from './graph/search';
 import { GraphSearchTool as GraphSearchTraversalTool } from './graph/search-tool';
 import { GraphTagTool } from './graph/tag-tool';
-import { App } from 'obsidian';
+import { App, getAllTags } from 'obsidian';
 import { InputValidator } from '../validation/input-validator';
 import { RouterContext } from './router-context';
 import { getOperationDefinition } from './tool-registry';
@@ -44,6 +44,10 @@ export class VaultRouter implements RouterContext {
     this.api = api;
     this.app = app;
     this.resources = resources;
+    // The API layer serves the obsidian://resources/ namespace through the
+    // same dispatch as snippets and config, so it carries the same
+    // session-bound service the folder walk reads.
+    if (resources) api.setResourceService(resources);
     this.tokenManager = new StateTokenManager();
     this.fragmentRetriever = new UniversalFragmentRetriever();
     this.validator = new InputValidator();
@@ -246,7 +250,9 @@ export class VaultRouter implements RouterContext {
   
   private getCurrentContext() {
     const tokens = this.tokenManager.getTokens();
-    
+    const currentTags = this.getLiveTags(this.context.last_file);
+    const currentLinks = this.getLiveLinks(this.context.last_file);
+
     return {
       current_file: this.context.last_file
       , current_directory: this.context.last_directory
@@ -255,12 +261,41 @@ export class VaultRouter implements RouterContext {
       , search_history: this.context.search_history
       // Include relevant token states
       , has_file_content: tokens.file_content
-      , has_links: (tokens.file_has_links?.length ?? 0) > 0
-      , has_tags: (tokens.file_has_tags?.length ?? 0) > 0
+      , has_links: currentLinks.length > 0
+      , has_tags: currentTags.length > 0
       , search_results_available: tokens.search_has_results
-      , linked_files: tokens.file_has_links
-      , tags: tokens.file_has_tags
+      , linked_files: currentLinks
+      , tags: currentTags
     };
+  }
+
+  /**
+   * Unique tags of the current file, read live from the metadata cache —
+   * the same source view.read serves. Every response reports them, so they
+   * always describe the current file, never the previously read one.
+   * A cache without getCache reports no tags; a hint never fails a response.
+   */
+  private getLiveTags(path?: string): string[] {
+    const cache = this.getLiveCache(path);
+    if (!cache) return [];
+    return [...new Set(getAllTags(cache) ?? [])];
+  }
+
+  /**
+   * Unique link targets of the current file, same live source as the tags.
+   * These are Obsidian's parsed links: markdown links included, aliases
+   * dropped, embeds excluded.
+   */
+  private getLiveLinks(path?: string): string[] {
+    const cache = this.getLiveCache(path);
+    if (!cache?.links) return [];
+    return [...new Set(cache.links.map(l => l.link))];
+  }
+
+  private getLiveCache(path?: string) {
+    const metadataCache = this.app?.metadataCache;
+    if (!path || !metadataCache || typeof metadataCache.getCache !== 'function') return null;
+    return metadataCache.getCache(path);
   }
   
   private handleError(error: unknown, operation: string, action: string, params: Params): OperationResponse {

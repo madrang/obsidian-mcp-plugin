@@ -47,7 +47,7 @@ Reads only. Every action is a read. Each action takes an \`action\` string plus 
 
 The read actions also accept virtual URIs as \`path\`:
 
-- \`obsidian://resources/<name>\` — server-computed resources. Pass \`obsidian://resources/\` to \`folder\` to list them. Each tool also has a reference page, for example \`obsidian://resources/view\`.
+- \`obsidian://resources/<name>\` — server-computed resources. Pass \`obsidian://resources/\` to \`folder\` to list them. Each tool also has a reference page, for example \`obsidian://resources/view\`. No write action applies to a resource URI: writes refuse with \`RESOURCE_ACTION_UNSUPPORTED\`.
 - \`obsidian://snippets/<name>.css\` — a CSS snippet file. Pass \`obsidian://snippets/\` to \`folder\` to list them. Reads are open.
 - \`obsidian://config/<key>\` — one app setting as pretty-printed JSON. Pass \`obsidian://config/\` to \`folder\` for a catalog of known keys with types and descriptions. Reads are open.
 `;

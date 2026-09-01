@@ -4,6 +4,7 @@ import { Debug } from '../utils/debug';
 import { MCPIgnoreManager } from './mcp-ignore-manager';
 import { isSnippetsUri, isSnippetsFolderUri, snippetFileNameFromUri } from '../utils/css-snippets';
 import { isConfigUri, isConfigFolderUri, configKeyFromUri } from '../utils/app-config';
+import { isResourceUri } from '../resources/uri';
 
 /**
  * Operation types matching CRUD + special operations
@@ -156,19 +157,21 @@ export class VaultSecurityManager {
 		await Promise.resolve(); // Ensure async behavior for callers that expect rejected promises on throw
 		Debug.log(`🔐 VaultSecurityManager.validateOperation called for: ${operation.type} on "${operation.path}"`);
 		try {
-			// Managed URI namespaces: obsidian://snippets/ and
-			// obsidian://config/ (ADR-113). This branch runs ahead of every
-			// step, including the pathValidation 'disabled' early return,
-			// because the namespace gates (shape, write settings) are
-			// independent of path-validation mode. validatePath would reject
-			// these URIs twice over — '://' as a forbidden sequence, and the
-			// resolved config path as a hidden segment — so the namespaces are
-			// separate doors, never holes in those rules: a raw .obsidian path
-			// from an agent still hits them.
+			// Managed URI namespaces: obsidian://snippets/,
+			// obsidian://config/, and obsidian://resources/ (ADR-113). This
+			// branch runs ahead of every step, including the pathValidation
+			// 'disabled' early return, because the namespace gates (shape,
+			// write settings) are independent of path-validation mode.
+			// validatePath would reject these URIs twice over — '://' as a
+			// forbidden sequence, and the resolved config path as a hidden
+			// segment — so the namespaces are separate doors, never holes in
+			// those rules: a raw .obsidian path from an agent still hits them.
 			const isSnippetsOp = isSnippetsUri(operation.path) || isSnippetsUri(operation.targetPath);
 			const isConfigOp = isConfigUri(operation.path) || isConfigUri(operation.targetPath);
-			if (isSnippetsOp || isConfigOp) {
-				return this.validateManagedUriOperation(operation, isSnippetsOp);
+			const isResourcesOp = isResourceUri(operation.path) || isResourceUri(operation.targetPath);
+			if (isSnippetsOp || isConfigOp || isResourcesOp) {
+				const namespace = isSnippetsOp ? 'snippets' : isConfigOp ? 'config' : 'resources';
+				return this.validateManagedUriOperation(operation, namespace);
 			}
 
 			// Step 1: Check if security is enabled
@@ -298,7 +301,10 @@ export class VaultSecurityManager {
 	 * never match — is denied here exactly as an out-of-folder vault path
 	 * would be.
 	 */
-	private validateManagedUriOperation(operation: VaultOperation, isSnippetsOp: boolean): ValidatedOperation {
+	private validateManagedUriOperation(
+		operation: VaultOperation,
+		namespace: 'snippets' | 'config' | 'resources'
+	): ValidatedOperation {
 		// Permission first: read-only mode and permission presets apply
 		// unchanged, ahead of the namespace's own gate.
 		if (!this.isOperationAllowed(operation.type)) {
@@ -319,34 +325,48 @@ export class VaultSecurityManager {
 				);
 			}
 			// Shape check. The folder forms are the namespace roots and valid
-			// for listings; every other URI must carry a legal name.
+			// for listings; every other URI must carry a legal name. The
+			// resources namespace has no shape gate here: a read's registry
+			// lookup refuses unregistered names with UNKNOWN_RESOURCE, and
+			// every write is refused below whatever the shape.
 			try {
-				if (isSnippetsOp) {
+				if (namespace === 'snippets') {
 					if (!isSnippetsFolderUri(path)) {
 						snippetFileNameFromUri(path);
 					}
-				} else if (!isConfigFolderUri(path)) {
-					configKeyFromUri(path);
+				} else if (namespace === 'config') {
+					if (!isConfigFolderUri(path)) {
+						configKeyFromUri(path);
+					}
 				}
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				const code = isSnippetsOp ? 'INVALID_SNIPPET_NAME' : 'INVALID_CONFIG_KEY';
+				const code = namespace === 'snippets' ? 'INVALID_SNIPPET_NAME' : 'INVALID_CONFIG_KEY';
 				this.logSecurityEvent(operation, 'blocked', code);
 				throw new SecurityError(message, code);
 			}
 		}
 
 		// The namespace write gates. Reads stay open by design; every write
-		// needs its dedicated setting, live (ADR-108 shape).
+		// needs its dedicated setting, live (ADR-108 shape). Resources have
+		// no setting: the pages are server-computed, so every write is
+		// unsupported, not merely disabled.
 		if (operation.type !== OperationType.READ) {
-			if (isSnippetsOp && this.isSnippetWriteAllowed?.() !== true) {
+			if (namespace === 'resources') {
+				this.logSecurityEvent(operation, 'blocked', 'RESOURCE_ACTION_UNSUPPORTED');
+				throw new SecurityError(
+					'Resources are server-computed reference pages. No write or file action applies to an obsidian://resources/ URI.',
+					'RESOURCE_ACTION_UNSUPPORTED'
+				);
+			}
+			if (namespace === 'snippets' && this.isSnippetWriteAllowed?.() !== true) {
 				this.logSecurityEvent(operation, 'blocked', 'SNIPPET_WRITE_DISABLED');
 				throw new SecurityError(
 					'Snippet editing is disabled. Enable "Allow snippet editing" in the plugin settings to change CSS snippets.',
 					'SNIPPET_WRITE_DISABLED'
 				);
 			}
-			if (!isSnippetsOp && this.isConfigWriteAllowed?.() !== true) {
+			if (namespace === 'config' && this.isConfigWriteAllowed?.() !== true) {
 				this.logSecurityEvent(operation, 'blocked', 'CONFIG_WRITE_DISABLED');
 				throw new SecurityError(
 					'Config editing is disabled. Enable "Allow config editing" in the plugin settings to change app settings.',
