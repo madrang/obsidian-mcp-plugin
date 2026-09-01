@@ -817,6 +817,14 @@ export class MCPHttpServer {
   }
 
   /**
+   * Number of resources the registry serves, for the settings status display.
+   * Zero before the pool exists (server not started).
+   */
+  getResourceCount(): number {
+    return this.mcpServerPool?.getResourceCount() ?? 0;
+  }
+
+  /**
    * Get or create a session-specific API instance
    */
   private getSessionAPI(sessionId?: string): ObsidianAPI {

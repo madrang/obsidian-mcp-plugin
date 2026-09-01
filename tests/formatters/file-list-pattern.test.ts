@@ -1,9 +1,38 @@
-import { formatFileList } from '../../src/tools/files/format';
+import { formatFileList, formatFilesResponse } from '../../src/tools/files/format';
 
 // The pattern-aware parts of the folder listing: the glob is echoed so the
 // agent sees the filter it asked for, the next-page hint carries the
 // pattern (a hint without it would send the agent to an unfiltered page 2),
 // and an empty match is stated instead of left as a bare listing.
+
+describe('formatFilesResponse — folder entries that carry isFolder', () => {
+  it('keeps an explicit isFolder flag: folders render in their own section', () => {
+    const out = formatFilesResponse('folder', {
+      directory: 'obsidian://resources/'
+      , files: [
+        { path: 'obsidian://resources/view', name: 'view', isFolder: false }
+        , { path: 'obsidian://resources/infos', name: 'infos', isFolder: true }
+      ]
+      , totalFiles: 1
+      , totalFolders: 1
+    });
+    expect(out).toContain('## Folders');
+    expect(out).toContain('- obsidian://resources/infos/');
+    expect(out).toContain('## Files');
+    expect(out).toContain('- obsidian://resources/view');
+    expect(out).toContain('1 folders, 1 files');
+  });
+
+  it('still translates type-based entries from the paginated listing', () => {
+    const out = formatFilesResponse('folder', {
+      directory: 'docs'
+      , files: [{ path: 'docs/sub', name: 'sub', type: 'folder' }]
+      , totalFiles: 0
+    });
+    expect(out).toContain('## Folders');
+    expect(out).toContain('- docs/sub/');
+  });
+});
 
 describe('formatFileList — pattern filter display', () => {
   it('echoes the pattern in the listing header', () => {

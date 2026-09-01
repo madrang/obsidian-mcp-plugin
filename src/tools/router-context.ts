@@ -19,6 +19,7 @@ import { GraphSearchTool } from './graph/search';
 import { GraphSearchTool as GraphSearchTraversalTool } from './graph/search-tool';
 import { GraphTagTool } from './graph/tag-tool';
 import { SuggestedAction } from '../types/operations';
+import { ResourceService } from '../resources/types';
 
 export interface RouterContext {
   readonly api: ObsidianAPI;
@@ -28,5 +29,9 @@ export interface RouterContext {
   readonly graphSearchTool?: GraphSearchTool;
   readonly graphSearchTraversalTool?: GraphSearchTraversalTool;
   readonly graphTagTool?: GraphTagTool;
+  /** Serves the obsidian://resources/ namespace to tool actions. Absent on
+   * a bare router: only the server pool wires it, binding session identity
+   * into the content. */
+  readonly resources?: ResourceService;
   generateWorkflowSuggestions(): { current_context: unknown; suggestions: SuggestedAction[] };
 }

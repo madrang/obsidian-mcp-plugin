@@ -214,8 +214,17 @@ function gettingStartedGroup(host: SettingsUIHost): Group {
         });
 
         const resourcesList = block.createEl('ul');
-        resourcesList.createEl('li', { text: '📊 Obsidian://vault-info - real-time vault metadata' });
-        resourcesList.createEl('li', { text: '🔄 Obsidian://session-info - active MCP sessions and statistics' });
+        // The URIs stay in variables: exact, copyable, and out of the
+        // sentence-case rule's reach (the Obsidian brand casing would
+        // capitalize the scheme). Same pattern as the MCP URL rows below.
+        const vaultInfoUri = 'obsidian://resources/infos/vault';
+        const sessionInfoUri = 'obsidian://resources/infos/session';
+        const vaultInfoItem = resourcesList.createEl('li');
+        vaultInfoItem.createSpan({ text: '📊 Real-time vault metadata: ' });
+        vaultInfoItem.createEl('code', { text: vaultInfoUri, cls: 'mcp-code-inline' });
+        const sessionInfoItem = resourcesList.createEl('li');
+        sessionInfoItem.createSpan({ text: '🔄 Active MCP sessions and statistics: ' });
+        sessionInfoItem.createEl('code', { text: sessionInfoUri, cls: 'mcp-code-inline' });
 
         const protocol = s.httpsEnabled ? 'https' : 'http';
         const port = s.httpsEnabled ? s.httpsPort : s.httpPort;
@@ -750,6 +759,18 @@ function securityGroup(host: SettingsUIHost): Group {
         , desc: 'Lets connected agents fetch web pages (system.fetch_web). Off: the plugin makes no outbound connections at all. On: internal addresses (localhost, local network, cloud metadata) are always blocked, but an agent reading untrusted notes could still be tricked into leaking vault data inside a URL to a public site — read-only mode does not prevent that. Enforcement takes effect immediately; agents see the tool appear on their next connection.'
         , aliases: ['web', 'fetch', 'fetch_web', 'internet']
         , control: { type: 'toggle', key: 'enableWebFetch' }
+      }
+      , {
+        name: 'Allow snippet editing'
+        , desc: 'Lets agents change CSS snippet files through the obsidian://snippets/ namespace. Reads stay on with the toggle off. A delete is permanent: the snippet folder has no trash. Deleting a snippet that is enabled requires disabling it first through obsidian://config/enabledCssSnippets. Takes effect immediately.'
+        , aliases: ['snippets', 'css', 'obsidian snippets']
+        , control: { type: 'toggle', key: 'allowSnippetEditing' }
+      }
+      , {
+        name: 'Allow config editing'
+        , desc: 'Lets agents change app settings through the obsidian://config/ namespace. Reads stay on with the toggle off. Every value travels as JSON text, and a write that is not valid JSON is refused. A write applies live where the app exposes a handler for it, and when Obsidian next loads the setting otherwise. Takes effect immediately.'
+        , aliases: ['config', 'settings', 'getconfig', 'setconfig']
+        , control: { type: 'toggle', key: 'allowConfigEditing' }
       }
       , {
         name: 'Path exclusions'

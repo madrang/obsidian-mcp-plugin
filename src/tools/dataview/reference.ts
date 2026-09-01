@@ -1,5 +1,5 @@
 /**
- * The DQL reference behind the MCP resource `obsidian://dataview-reference`.
+ * The DQL reference behind the MCP resource `obsidian://resources/dataview`.
  * Static content, apart from the query logic, so the markdown stays readable
  * top to bottom.
  */

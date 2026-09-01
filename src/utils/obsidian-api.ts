@@ -14,6 +14,28 @@ import { BasesAPI } from './bases-api';
 import { BaseYAML, BaseQueryResult as BasesQueryResult } from '../types/bases-yaml';
 import { BaseQueryOptions } from '../types/bases';
 import { InputValidator, ValidationException, ValidationConfig } from '../validation/input-validator';
+import {
+  isSnippetsUri,
+  isSnippetsFolderUri,
+  SNIPPETS_URI_PREFIX,
+  snippetFileNameFromUri,
+  snippetId,
+  snippetExists,
+  listSnippetFiles,
+  readSnippetFile,
+  writeSnippetFile,
+  removeSnippetFile,
+  isSnippetEnabled,
+  SnippetError
+} from './css-snippets';
+import {
+  isConfigUri,
+  configKeyFromUri,
+  configKeyExists,
+  readConfigText,
+  writeConfigText,
+  ConfigError
+} from './app-config';
 
 /** MCP server info used by ObsidianAPI */
 interface ObsidianAPIMCPServerInfo {
@@ -248,6 +270,11 @@ export class ObsidianAPI {
 
   // Vault file operations
   listFiles(directory?: string): Promise<string[]> {
+    // Snippets namespace root: adapter listing mapped to URIs (ADR-113).
+    if (directory && isSnippetsFolderUri(directory)) {
+      return listSnippetFiles(this.app).then((names) => names.map((name) => SNIPPETS_URI_PREFIX + name));
+    }
+
     const vault = this.app.vault;
     let files: TAbstractFile[];
 
@@ -384,6 +411,18 @@ export class ObsidianAPI {
   }
 
   async getFile(path: string): Promise<ObsidianFileResponse> {
+    // Config namespace: the current value as JSON text (ADR-113). No
+    // mtime: the text regenerates from the live value on every read.
+    if (isConfigUri(path)) {
+      const key = configKeyFromUri(path);
+      return { path, content: this.readConfigContentOrThrow(path, key), tags: [], frontmatter: {} };
+    }
+
+    // Snippet namespace: adapter-backed, outside the vault index (ADR-113).
+    if (isSnippetsUri(path)) {
+      return await this.readSnippet(path);
+    }
+
     // Check if path is excluded
     if (this.ignoreManager && this.ignoreManager.isExcluded(path)) {
       throw new Error(`File not found: ${path}`);
@@ -434,6 +473,41 @@ export class ObsidianAPI {
    * "File not found".
    */
   async getFileStat(path: string): Promise<FileStatResponse> {
+    // Config namespace: stat over the JSON text form (ADR-113).
+    if (isConfigUri(path)) {
+      const key = configKeyFromUri(path);
+      if (!configKeyExists(this.app, key)) {
+        return { path, exists: false };
+      }
+      const text = readConfigText(this.app, path, key);
+      return {
+        path
+        , exists: true
+        , size: text.length
+        , lineCount: text.split('\n').length
+        , hash: contentHash(text)
+      };
+    }
+
+    // Snippet namespace: stat from the adapter, hash from the content
+    // (ADR-113). Preconditions chain off these fields like vault files.
+    if (isSnippetsUri(path)) {
+      const fileName = snippetFileNameFromUri(path);
+      try {
+        const { content, mtime, size } = await readSnippetFile(this.app, fileName);
+        return {
+          path
+          , exists: true
+          , size
+          , mtime
+          , lineCount: content.split('\n').length
+          , hash: contentHash(content)
+        };
+      } catch {
+        return { path, exists: false };
+      }
+    }
+
     if (this.ignoreManager && this.ignoreManager.isExcluded(path)) {
       return { path, exists: false };
     }
@@ -461,6 +535,33 @@ export class ObsidianAPI {
   }
 
   async createFile(path: string, content: string) {
+    // Config namespace: keys are the app's own settings. Creating one is
+    // not a supported move — an edit on an existing key is (ADR-113).
+    if (isConfigUri(path)) {
+      throw new ConfigError(
+        `Creating config keys is not supported. Change an existing key with the edit tool on ${path}.`
+        , 'CONFIG_ACTION_UNSUPPORTED'
+      );
+    }
+
+    // Snippet namespace (ADR-113). Validation runs on the file name, not
+    // the URI, so the content rules apply unchanged.
+    if (isSnippetsUri(path)) {
+      const fileName = snippetFileNameFromUri(path);
+      const validationResult = this.validator.validate('file.create', { path: fileName, content });
+      if (!validationResult.valid) {
+        throw new ValidationException(
+          validationResult.errors || []
+          , `Validation failed for createFile: ${validationResult.errors?.map(e => e.message).join(', ')}`
+        );
+      }
+      if (await snippetExists(this.app, fileName)) {
+        throw new Error(`File already exists: ${path}`);
+      }
+      const { mtime } = await writeSnippetFile(this.app, fileName, content);
+      return { success: true, path, name: fileName, mtime, hash: contentHash(content) };
+    }
+
     // Validate input
     const validationResult = this.validator.validate('file.create', { path, content });
     if (!validationResult.valid) {
@@ -499,6 +600,42 @@ export class ObsidianAPI {
   }
 
   async updateFile(path: string, content: string) {
+    // Config namespace: parse the edited JSON and apply it with setConfig
+    // (ADR-113). writeConfigText refuses invalid JSON before anything is
+    // written.
+    if (isConfigUri(path)) {
+      const key = configKeyFromUri(path);
+      const validationResult = this.validator.validate('file.update', { path: key, content });
+      if (!validationResult.valid) {
+        throw new ValidationException(
+          validationResult.errors || []
+          , `Validation failed for updateFile: ${validationResult.errors?.map(e => e.message).join(', ')}`
+        );
+      }
+      if (!configKeyExists(this.app, key)) {
+        throw new Error(`File not found: ${path}`);
+      }
+      const { mtime } = writeConfigText(this.app, path, key, content);
+      return { success: true, path, mtime, hash: contentHash(content) };
+    }
+
+    // Snippet namespace (ADR-113)
+    if (isSnippetsUri(path)) {
+      const fileName = snippetFileNameFromUri(path);
+      const validationResult = this.validator.validate('file.update', { path: fileName, content });
+      if (!validationResult.valid) {
+        throw new ValidationException(
+          validationResult.errors || []
+          , `Validation failed for updateFile: ${validationResult.errors?.map(e => e.message).join(', ')}`
+        );
+      }
+      if (!(await snippetExists(this.app, fileName))) {
+        throw new Error(`File not found: ${path}`);
+      }
+      const { mtime } = await writeSnippetFile(this.app, fileName, content);
+      return { success: true, path, mtime, hash: contentHash(content) };
+    }
+
     // Validate input
     const validationResult = this.validator.validate('file.update', { path, content });
     if (!validationResult.valid) {
@@ -523,6 +660,36 @@ export class ObsidianAPI {
   }
 
   async deleteFile(path: string) {
+    // Config namespace: deleting a key is not a supported move (ADR-113).
+    if (isConfigUri(path)) {
+      throw new ConfigError(
+        `Deleting config keys is not supported. Change the value with the edit tool on ${path}.`
+        , 'CONFIG_ACTION_UNSUPPORTED'
+      );
+    }
+
+    // Snippet namespace (ADR-113). No trash exists in config space: removal
+    // is permanent. An enabled snippet styles the live app, so deleting one
+    // is a deliberate two-step — disable first, then delete.
+    if (isSnippetsUri(path)) {
+      const fileName = snippetFileNameFromUri(path);
+      if (isSnippetEnabled(this.app, fileName)) {
+        throw new SnippetError(
+          `Snippet "${fileName}" is enabled. To delete it, disable it first: remove "${snippetId(fileName)}" from obsidian://config/enabledCssSnippets with the edit tool.`
+          , 'SNIPPET_ENABLED'
+        );
+      }
+      try {
+        await removeSnippetFile(this.app, fileName);
+      } catch (error) {
+        if (error instanceof SnippetError && error.code === 'SNIPPET_NOT_FOUND') {
+          throw new Error(`File not found: ${path}`);
+        }
+        throw error;
+      }
+      return { success: true, path };
+    }
+
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!file) {
       throw new Error(`File not found: ${path}`);
@@ -556,6 +723,51 @@ export class ObsidianAPI {
   }
 
   async appendToFile(path: string, content: string) {
+    // Config namespace (ADR-113): append is a text edit on the JSON form,
+    // so the parse gate in writeConfigText still guards the result.
+    if (isConfigUri(path)) {
+      const key = configKeyFromUri(path);
+      const validationResult = this.validator.validate('file.append', { content });
+      if (!validationResult.valid) {
+        throw new ValidationException(
+          validationResult.errors || []
+          , `Validation failed for appendToFile: ${validationResult.errors?.map(e => e.message).join(', ')}`
+        );
+      }
+      const existing = this.readConfigContentOrThrow(path, key);
+      const combinedValidation = this.validator.validate('file.append', { content: existing + content });
+      if (!combinedValidation.valid) {
+        throw new ValidationException(
+          combinedValidation.errors || []
+          , 'Validation failed: Combined file size would exceed limit'
+        );
+      }
+      const { mtime } = writeConfigText(this.app, path, key, existing + content);
+      return { success: true, path, mtime, hash: contentHash(existing + content) };
+    }
+
+    // Snippet namespace (ADR-113)
+    if (isSnippetsUri(path)) {
+      const fileName = snippetFileNameFromUri(path);
+      const validationResult = this.validator.validate('file.append', { content });
+      if (!validationResult.valid) {
+        throw new ValidationException(
+          validationResult.errors || []
+          , `Validation failed for appendToFile: ${validationResult.errors?.map(e => e.message).join(', ')}`
+        );
+      }
+      const existing = await this.readSnippetContentOrThrow(path, fileName);
+      const combinedValidation = this.validator.validate('file.append', { content: existing + content });
+      if (!combinedValidation.valid) {
+        throw new ValidationException(
+          combinedValidation.errors || []
+          , 'Validation failed: Combined file size would exceed limit'
+        );
+      }
+      const { mtime } = await writeSnippetFile(this.app, fileName, existing + content);
+      return { success: true, path, mtime, hash: contentHash(existing + content) };
+    }
+
     // Validate input
     const validationResult = this.validator.validate('file.append', { content });
     if (!validationResult.valid) {
@@ -592,31 +804,31 @@ export class ObsidianAPI {
   }
 
   async patchVaultFile(path: string, params: PatchParams) {
+    // Config namespace (ADR-113)
+    if (isConfigUri(path)) {
+      const key = configKeyFromUri(path);
+      const existing = this.readConfigContentOrThrow(path, key);
+      const content = this.applyPatchToContent(existing, params);
+      const { mtime } = writeConfigText(this.app, path, key, content);
+      return { success: true, updated_content: content, mtime, hash: contentHash(content) };
+    }
+
+    // Snippet namespace (ADR-113)
+    if (isSnippetsUri(path)) {
+      const fileName = snippetFileNameFromUri(path);
+      const existing = await this.readSnippetContentOrThrow(path, fileName);
+      const content = this.applyPatchToContent(existing, params);
+      const { mtime } = await writeSnippetFile(this.app, fileName, content);
+      return { success: true, updated_content: content, mtime, hash: contentHash(content) };
+    }
+
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!file || !(file instanceof TFile)) {
       throw new Error(`File not found: ${path}`);
     }
 
     let content = await this.app.vault.read(file);
-
-    // Handle structured targeting (heading, block, frontmatter)
-    if (params.targetType && params.target) {
-      content = this.applyStructuredPatch(content, params);
-    }
-    // Handle legacy patch operations
-    else if (params.operation === 'replace') {
-      if (params.old_text && params.new_text) {
-        content = content.replace(params.old_text, params.new_text);
-      }
-    } else if (params.operation === 'insert') {
-      if (params.position !== undefined) {
-        content = content.slice(0, params.position) + (params.text ?? '') + content.slice(params.position);
-      }
-    } else if (params.operation === 'delete') {
-      if (params.start !== undefined && params.end !== undefined) {
-        content = content.slice(0, params.start) + content.slice(params.end);
-      }
-    }
+    content = this.applyPatchToContent(content, params);
 
     await this.app.vault.modify(file, content);
     // Post-write stat for write chaining (see updateFile).
@@ -626,6 +838,69 @@ export class ObsidianAPI {
       , mtime: file.stat.mtime
       , hash: contentHash(content)
     };
+  }
+
+  /** The content transformation of patchVaultFile, shared by the vault and
+   * snippet branches. Pure: content in, content out. */
+  private applyPatchToContent(content: string, params: PatchParams): string {
+    // Handle structured targeting (heading, block, frontmatter)
+    if (params.targetType && params.target) {
+      return this.applyStructuredPatch(content, params);
+    }
+    // Handle legacy patch operations
+    if (params.operation === 'replace') {
+      if (params.old_text && params.new_text) {
+        return content.replace(params.old_text, params.new_text);
+      }
+    } else if (params.operation === 'insert') {
+      if (params.position !== undefined) {
+        return content.slice(0, params.position) + (params.text ?? '') + content.slice(params.position);
+      }
+    } else if (params.operation === 'delete') {
+      if (params.start !== undefined && params.end !== undefined) {
+        return content.slice(0, params.start) + content.slice(params.end);
+      }
+    }
+    return content;
+  }
+
+  /** getFile branch for a snippets URI. Tags and frontmatter do not exist
+   * for CSS files: the fields stay empty so response shapes match. */
+  private async readSnippet(uri: string): Promise<ObsidianFileResponse> {
+    const fileName = snippetFileNameFromUri(uri);
+    const { content, mtime } = await this.readSnippetOrThrow(uri, fileName);
+    return { path: uri, content, tags: [], frontmatter: {}, mtime };
+  }
+
+  /** Snippet read with the vault-file error shape, so handlers treat a
+   * missing snippet exactly like a missing vault file. */
+  private async readSnippetOrThrow(uri: string, fileName: string): Promise<{ content: string; mtime: number; size: number }> {
+    try {
+      return await readSnippetFile(this.app, fileName);
+    } catch (error) {
+      if (error instanceof SnippetError && error.code === 'SNIPPET_NOT_FOUND') {
+        throw new Error(`File not found: ${uri}`);
+      }
+      throw error;
+    }
+  }
+
+  /** Content-only view of readSnippetOrThrow. */
+  private async readSnippetContentOrThrow(uri: string, fileName: string): Promise<string> {
+    return (await this.readSnippetOrThrow(uri, fileName)).content;
+  }
+
+  /** Config text with the vault-file error shape, so handlers treat an
+   * unknown key exactly like a missing vault file. */
+  private readConfigContentOrThrow(uri: string, key: string): string {
+    try {
+      return readConfigText(this.app, uri, key);
+    } catch (error) {
+      if (error instanceof ConfigError && error.code === 'NOT_FOUND') {
+        throw new Error(`File not found: ${uri}`);
+      }
+      throw error;
+    }
   }
 
   private applyStructuredPatch(content: string, params: PatchParams): string {

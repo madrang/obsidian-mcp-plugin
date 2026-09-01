@@ -4,6 +4,7 @@ import { VaultRouter } from './router';
 import { OperationRequest } from '../types/operations';
 import { ObsidianImageFile } from '../types/obsidian';
 import { isDataviewToolAvailable } from './dataview/tool';
+import { ResourceService } from '../resources/types';
 import { getOperationDefinition, getRegisteredOperations, buildDescription, formatResponse, type ToolAnnotations } from './tool-registry';
 import type { DataviewResult } from './dataview/operations';
 
@@ -83,7 +84,7 @@ interface PluginWithSettings {
  * registered definition into a ToolDefinition with the dispatch handler.
  */
 
-const createOperationTool = (operation: string, visibility?: ToolVisibility, webFetchEnabled?: boolean, allowCreateOverwrite?: boolean): ToolDefinition | null => {
+const createOperationTool = (operation: string, visibility?: ToolVisibility, webFetchEnabled?: boolean, allowCreateOverwrite?: boolean, resources?: ResourceService): ToolDefinition | null => {
   // Check operation-level toggle
   if (visibility && visibility[operation] === false) return null;
 
@@ -310,7 +311,7 @@ const createOperationTool = (operation: string, visibility?: ToolVisibility, web
     // returns a DataviewResult with structured errors. The handler is
     // registered like every other operation and called with the router as
     // context.
-    const router = new VaultRouter(api, app);
+    const router = new VaultRouter(api, app, resources);
 
     // Handle Dataview operations separately
     if (operation === 'dataview') {
@@ -470,7 +471,7 @@ function getParametersForOperation(operation: string): Record<string, unknown> {
 /**
  * Create the tool array with optional Dataview support
  */
-export function createTools(api?: ObsidianAPI, visibility?: ToolVisibility, webFetchEnabled?: boolean, allowCreateOverwrite?: boolean): ToolDefinition[] {
+export function createTools(api?: ObsidianAPI, visibility?: ToolVisibility, webFetchEnabled?: boolean, allowCreateOverwrite?: boolean, resources?: ResourceService): ToolDefinition[] {
   // Dataview joins the surface only when the plugin is installed and enabled.
   const operations = getRegisteredOperations()
     .map(definition => definition.name)
@@ -478,7 +479,7 @@ export function createTools(api?: ObsidianAPI, visibility?: ToolVisibility, webF
 
   // Create tools, filtering by visibility (null = operation fully disabled)
   return operations
-    .map(op => createOperationTool(op, visibility, webFetchEnabled, allowCreateOverwrite))
+    .map(op => createOperationTool(op, visibility, webFetchEnabled, allowCreateOverwrite, resources))
     .filter((tool): tool is ToolDefinition => tool !== null);
 }
 

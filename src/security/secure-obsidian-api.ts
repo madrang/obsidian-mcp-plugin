@@ -20,6 +20,8 @@ interface SecurePluginRef {
 		validation?: Partial<import('../validation/input-validator').ValidationConfig>;
 		httpPort?: number;
 		readOnlyMode?: boolean;
+		allowSnippetEditing?: boolean;
+		allowConfigEditing?: boolean;
 	};
 	ignoreManager?: MCPIgnoreManager;
 	mcpServer?: { isServerRunning(): boolean; getConnectionCount(): number };
@@ -53,6 +55,14 @@ export class SecureObsidianAPI extends ObsidianAPI {
 		const isReadOnly = plugin
 			? (): boolean => plugin.settings?.readOnlyMode === true
 			: undefined;
+		// Same live-predicate shape as read-only, for the managed-namespace
+		// write gates (ADR-113). Reads of the namespaces need no setting.
+		const isSnippetWriteAllowed = plugin
+			? (): boolean => plugin.settings?.allowSnippetEditing === true
+			: undefined;
+		const isConfigWriteAllowed = plugin
+			? (): boolean => plugin.settings?.allowConfigEditing === true
+			: undefined;
 		if (!plugin) {
 			Debug.error(
 				'⚠️ SecureObsidianAPI built without a plugin reference: read-only mode ' +
@@ -60,7 +70,7 @@ export class SecureObsidianAPI extends ObsidianAPI {
 			);
 		}
 
-		this.security = new VaultSecurityManager(app, settings, ignoreManager, isReadOnly);
+		this.security = new VaultSecurityManager(app, settings, ignoreManager, isReadOnly, isSnippetWriteAllowed, isConfigWriteAllowed);
 		
 		Debug.log('🔐 SecureObsidianAPI initialized with security settings:', this.security.getSettings());
 		Debug.log('🔐 SecureObsidianAPI has ignoreManager:', !!ignoreManager);

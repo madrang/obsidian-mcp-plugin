@@ -7,6 +7,8 @@ import { RouterContext } from '../router-context';
 import { Params, paramStr, paramNum, requireParamStr } from '../shared';
 import { isImageFile } from '../../types/obsidian';
 import { grepContent, GrepMatch } from '../../utils/grep-search';
+import { isResourceUri } from '../../resources/registry';
+import { readResourceContent } from './resource-read';
 
 export async function executeViewOperation(ctx: RouterContext, action: string, params: Params): Promise<unknown> {
   switch (action) {
@@ -119,11 +121,21 @@ export async function executeViewOperation(ctx: RouterContext, action: string, p
         );
       }
 
-      const file = await ctx.api.getFile(linesPath);
-      if (isImageFile(file)) {
-        throw new Error('Cannot view lines of image files');
+      // Resource URIs serve computed text: no vault file, no image probe.
+      const resource = isResourceUri(linesPath) ? readResourceContent(ctx, linesPath) : undefined;
+      let content: string;
+      let resultPath: string;
+      if (resource) {
+        content = resource.text;
+        resultPath = resource.uri;
+      } else {
+        const file = await ctx.api.getFile(linesPath);
+        if (isImageFile(file)) {
+          throw new Error('Cannot view lines of image files');
+        }
+        content = typeof file === 'string' ? file : file.content;
+        resultPath = linesPath;
       }
-      const content = typeof file === 'string' ? file : file.content;
       const allLines = content.split('\n');
       if (startLine > allLines.length) {
         // A start past the end means the address is stale — the caller is
@@ -136,7 +148,7 @@ export async function executeViewOperation(ctx: RouterContext, action: string, p
       const clampedEnd = Math.min(endLine, allLines.length);
 
       return {
-        path: linesPath
+        path: resultPath
         , lines: allLines.slice(startLine - 1, clampedEnd)
         , startLine
         , endLine: clampedEnd
@@ -147,11 +159,21 @@ export async function executeViewOperation(ctx: RouterContext, action: string, p
     case 'window': {
       // View a portion of a file
       const viewPath = requireParamStr(params, 'path', 'view.window');
-      const file = await ctx.api.getFile(viewPath);
-      if (isImageFile(file)) {
-        throw new Error('Cannot view window of image files');
+      // Resource URIs serve computed text: no vault file, no image probe.
+      const resource = isResourceUri(viewPath) ? readResourceContent(ctx, viewPath) : undefined;
+      let content: string;
+      let resultPath: string;
+      if (resource) {
+        content = resource.text;
+        resultPath = resource.uri;
+      } else {
+        const file = await ctx.api.getFile(viewPath);
+        if (isImageFile(file)) {
+          throw new Error('Cannot view window of image files');
+        }
+        content = typeof file === 'string' ? file : file.content;
+        resultPath = viewPath;
       }
-      const content = typeof file === 'string' ? file : file.content;
       const lines = content.split('\n');
       const searchText = paramStr(params, 'searchText');
 
@@ -173,7 +195,7 @@ export async function executeViewOperation(ctx: RouterContext, action: string, p
       const endLine = Math.min(lines.length, centerLine + halfWindow);
 
       return {
-        path: viewPath
+        path: resultPath
         , lines: lines.slice(startLine - 1, endLine)
         , startLine
         , endLine

@@ -596,9 +596,9 @@ function normalizeFilesResponse(action: string, response: unknown): unknown {
     //   {files: [{path, name, type: 'file'|'folder', ...}], page, pageSize,
     //    totalFiles, totalPages, directory}
     // Formatter expects FileListResponse with isFolder boolean. Translate
-    // shape so the structured branch renders correctly (previously it
-    // looked for f.isFolder which was always undefined, lumping every
-    // entry into "files" regardless of actual type).
+    // type-based entries, and keep an explicit isFolder: the resource tree
+    // listings carry the flag directly, and overwriting it here rendered
+    // every namespace folder as a file.
     case 'folder': {
       const listResp = resp as { files?: unknown };
       if (Array.isArray(listResp.files)) {
@@ -607,7 +607,7 @@ function normalizeFilesResponse(action: string, response: unknown): unknown {
           ...resp
           , files: items.map(item => ({
             ...item
-            , isFolder: item.type === 'folder',
+            , isFolder: item.type === 'folder' || item.isFolder === true,
           })),
         };
       }

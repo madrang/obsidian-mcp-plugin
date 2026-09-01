@@ -6,12 +6,92 @@
 import { RouterContext } from '../router-context';
 import { Params, paramStr, readPageArgs } from '../shared';
 import { contentPage, jsonSize } from '../../utils/content-page';
+import { RESOURCES_URI_PREFIX } from '../../resources/registry';
+import { ResourceError } from '../../resources/types';
+import { isSnippetsUri, isSnippetsFolderUri, SNIPPETS_URI_PREFIX } from '../../utils/css-snippets';
+import { CONFIG_URI_PREFIX, CONFIG_KEYS, LOCALSTORAGE_KEYS } from '../../utils/app-config';
 import { FOLDER_FETCH_ALL } from './helpers';
 
 export async function handleFolder(ctx: RouterContext, params: Params): Promise<unknown> {
   // `path` names the folder to list. "/" means the vault root.
   const dirParam = paramStr(params, 'path');
   const directory = dirParam === '/' ? undefined : dirParam;
+
+  // The resources namespace lists through the registry, as a tree: a
+  // resource file at this level, or a folder for any deeper name
+  // segment (infos/ holds the info resources). The listing is small and
+  // complete, so pattern and page parameters do not apply. The bare
+  // root (no trailing slash) lists the same content.
+  const resourcesBareRoot = RESOURCES_URI_PREFIX.slice(0, -1);
+  if (directory !== undefined && (directory.startsWith(RESOURCES_URI_PREFIX) || directory === resourcesBareRoot)) {
+    if (!ctx.resources) {
+      throw new Error(`Resource access is not wired on this router: ${directory}`);
+    }
+    const subPath = (directory.startsWith(RESOURCES_URI_PREFIX) ? directory.slice(RESOURCES_URI_PREFIX.length) : '')
+      .replace(/\/+$/, '');
+    const children = new Map<string, boolean>();
+    for (const entry of ctx.resources.list()) {
+      const rel = entry.uri.slice(RESOURCES_URI_PREFIX.length);
+      if (subPath !== '' && !rel.startsWith(subPath + '/')) continue;
+      const rest = subPath === '' ? rel : rel.slice(subPath.length + 1);
+      const segment = rest.split('/')[0];
+      if (segment !== '') {
+        children.set(segment, rest.includes('/'));
+      }
+    }
+    if (children.size === 0) {
+      throw new ResourceError(`Unknown resource: ${directory}`);
+    }
+    const base = RESOURCES_URI_PREFIX + (subPath === '' ? '' : subPath + '/');
+    const entries = [...children.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([segment, isFolder]) => ({ path: base + segment, name: segment, isFolder }));
+    const folderCount = entries.filter((entry) => entry.isFolder).length;
+    return {
+      directory: base
+      , files: entries
+      , totalFiles: entries.length - folderCount
+      , totalFolders: folderCount
+    };
+  }
+  // The snippets namespace lists through the adapter, via listFiles so the
+  // security layer applies: a folder-scoped session cannot enumerate it.
+  // The entries are the URIs the read and edit actions accept. The listing
+  // is small, so pattern and page parameters do not apply.
+  if (directory !== undefined && isSnippetsUri(directory)) {
+    if (!isSnippetsFolderUri(directory)) {
+      throw new Error(`Directory not found: ${directory}`);
+    }
+    const names = await ctx.api.listFiles(SNIPPETS_URI_PREFIX);
+    return {
+      directory: SNIPPETS_URI_PREFIX
+      , files: names.map((path) => {
+        const name = path.slice(SNIPPETS_URI_PREFIX.length);
+        return { path, name, isFolder: false };
+      })
+      , totalFiles: names.length
+    };
+  }
+
+  // The config namespace lists the curated key catalog. The catalog is
+  // plugin documentation, not app state: it holds no vault or config data,
+  // so unlike the snippets listing it needs no security pass. The values
+  // behind each key stay behind getFile.
+  const configBareRoot = CONFIG_URI_PREFIX.slice(0, -1);
+  if (directory !== undefined && (directory.startsWith(CONFIG_URI_PREFIX) || directory === configBareRoot)) {
+    if (directory !== CONFIG_URI_PREFIX && directory !== configBareRoot) {
+      throw new Error(`Directory not found: ${directory}`);
+    }
+    return {
+      directory: CONFIG_URI_PREFIX
+      , files: [
+        ...Object.entries(CONFIG_KEYS)
+        , ...Object.entries(LOCALSTORAGE_KEYS)
+      ].map(([key]) => ({ path: CONFIG_URI_PREFIX + key, name: key, isFolder: false }))
+      , totalFiles: Object.keys(CONFIG_KEYS).length + Object.keys(LOCALSTORAGE_KEYS).length
+    };
+  }
+
   // A glob filter. Blank means absent.
   const pattern = paramStr(params, 'pattern')?.trim() || undefined;
 

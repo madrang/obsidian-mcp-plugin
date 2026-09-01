@@ -35,6 +35,10 @@ export interface MCPPluginSettings {
 	readOnlyMode: boolean;
 	enableWebFetch: boolean;
 	allowCreateOverwrite: boolean;
+	// ADR-113: managed-namespace write gates. Reads of both namespaces are
+	// open; every write needs its dedicated setting, both default off.
+	allowSnippetEditing: boolean;
+	allowConfigEditing: boolean;
 	pathExclusionsEnabled: boolean;
 	enableIgnoreContextMenu: boolean;
 	validation?: Partial<ValidationConfig>;
@@ -92,6 +96,8 @@ export const DEFAULT_SETTINGS: MCPPluginSettings = {
 	, readOnlyMode: false // Read-only mode disabled by default
 	, enableWebFetch: false // ADR-109: outbound web fetch off by default, for everyone
 	, allowCreateOverwrite: false // Create-as-upsert off by default: overwrite must be opted into
+	, allowSnippetEditing: false // ADR-113: snippet file writes off by default, reads open
+	, allowConfigEditing: false // ADR-113: config writes off by default, reads open
 	, pathExclusionsEnabled: false // Path exclusions disabled by default
 	, enableIgnoreContextMenu: false // Context menu disabled by default
 	, validation: {

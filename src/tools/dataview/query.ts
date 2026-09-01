@@ -194,7 +194,7 @@ function generateQueryWorkflow(query: string, result: DataviewQueryResult): Work
   // Base suggestions for all query types
   suggestions.push({
     description: 'View Dataview query reference'
-    , command: 'system(action="fetch_resource", uri="obsidian://dataview-reference")'
+    , command: 'view(action="read", path="obsidian://resources/dataview")'
     , reason: 'Learn more DQL syntax and examples'
   });
 

@@ -23,6 +23,7 @@ import { getOperationDefinition } from './tool-registry';
 import './definitions';
 import { Params, paramStr } from './shared';
 import { buildConfiguredHints, buildWorkflowSuggestions, checkEfficiencyRules, generateEnhancedHints } from './system/hints';
+import { ResourceService } from '../resources/types';
 
 export class VaultRouter implements RouterContext {
   private config!: WorkflowConfig;
@@ -37,10 +38,12 @@ export class VaultRouter implements RouterContext {
   readonly graphTagTool?: GraphTagTool;
   readonly app?: App;
   readonly validator: InputValidator;
+  readonly resources?: ResourceService;
 
-  constructor(api: ObsidianAPI, app?: App) {
+  constructor(api: ObsidianAPI, app?: App, resources?: ResourceService) {
     this.api = api;
     this.app = app;
+    this.resources = resources;
     this.tokenManager = new StateTokenManager();
     this.fragmentRetriever = new UniversalFragmentRetriever();
     this.validator = new InputValidator();

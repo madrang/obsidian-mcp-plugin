@@ -254,6 +254,11 @@ export default class ObsidianMCPPlugin extends Plugin {
 		this.settings.dangerouslyDisableAuth = this.settings.dangerouslyDisableAuth === true;
 		this.settings.enableWebFetch = this.settings.enableWebFetch === true;
 		this.settings.allowCreateOverwrite = this.settings.allowCreateOverwrite === true;
+		// ADR-113: both managed-namespace write gates fail closed on
+		// hand-edited values. No migration code: a missing key takes the
+		// false default.
+		this.settings.allowSnippetEditing = this.settings.allowSnippetEditing === true;
+		this.settings.allowConfigEditing = this.settings.allowConfigEditing === true;
 
 		// ADR-109: fetch_web moved from the visibility tree to the dedicated
 		// enableWebFetch setting. A leftover visibility key would be a second
@@ -345,7 +350,7 @@ export default class ObsidianMCPPlugin extends Plugin {
 			, vaultName: this.app.vault.getName()
 			, vaultPath: this.getVaultPath()
 			, toolsCount: 6
-			, resourcesCount: 2 // vault-info + session-info
+			, resourcesCount: this.mcpServer?.getResourceCount() ?? 0
 			, connections: this.mcpServer?.getConnectionCount() ?? -1
 			, poolStats: poolStats
 		};
@@ -834,6 +839,26 @@ class MCPSettingTab extends PluginSettingTab {
 				s.allowCreateOverwrite = bool;
 				await plugin.saveSettings();
 				plugin.mcpServer?.notifyToolListChanged();
+				return;
+			}
+			case 'allowSnippetEditing': {
+				s.allowSnippetEditing = bool;
+				await plugin.saveSettings();
+				if (bool) {
+					new Notice('✅ Snippet editing enabled. Agents can now write CSS snippets. Delete is permanent.');
+				} else {
+					new Notice('🔒 Snippet editing disabled. Snippet reads stay available.');
+				}
+				return;
+			}
+			case 'allowConfigEditing': {
+				s.allowConfigEditing = bool;
+				await plugin.saveSettings();
+				if (bool) {
+					new Notice('✅ Config editing enabled. Agents can now change app settings. Changes apply when Obsidian reloads them.');
+				} else {
+					new Notice('🔒 Config editing disabled. Config reads stay available.');
+				}
 				return;
 			}
 			case 'showConnectionStatus': {

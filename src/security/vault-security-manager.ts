@@ -2,6 +2,8 @@ import { App } from 'obsidian';
 import { SecurePathValidator, SecurityError, ValidatedPath } from './path-validator';
 import { Debug } from '../utils/debug';
 import { MCPIgnoreManager } from './mcp-ignore-manager';
+import { isSnippetsUri, isSnippetsFolderUri, snippetFileNameFromUri } from '../utils/css-snippets';
+import { isConfigUri, isConfigFolderUri, configKeyFromUri } from '../utils/app-config';
 
 /**
  * Operation types matching CRUD + special operations
@@ -110,6 +112,8 @@ export class VaultSecurityManager {
 	private readonly maxLogEntries = 1000;
 	private ignoreManager?: MCPIgnoreManager;
 	private isReadOnly?: () => boolean;
+	private isSnippetWriteAllowed?: () => boolean;
+	private isConfigWriteAllowed?: () => boolean;
 
 	/**
 	 * @param isReadOnly - Live read-only predicate, consulted per call (ADR-108).
@@ -120,17 +124,27 @@ export class VaultSecurityManager {
 	 *   Session-scoped API instances are closure-captured with no registry to
 	 *   push updates to, so pulling from one live source is the only design that
 	 *   cannot miss an instance.
+	 * @param isSnippetWriteAllowed - Live gate for writes into the
+	 *   obsidian://snippets/ namespace (ADR-113). Reads of the namespace stay
+	 *   open; every write requires `=== true`, so an absent predicate denies —
+	 *   the same fail-closed shape as the flag itself.
+	 * @param isConfigWriteAllowed - Live gate for writes into the
+	 *   obsidian://config/ namespace, same shape (ADR-113).
 	 */
 	constructor(
 		app: App,
 		settings: Partial<SecuritySettings> = {},
 		ignoreManager?: MCPIgnoreManager,
-		isReadOnly?: () => boolean
+		isReadOnly?: () => boolean,
+		isSnippetWriteAllowed?: () => boolean,
+		isConfigWriteAllowed?: () => boolean
 	) {
 		this.validator = new SecurePathValidator(app);
 		this.settings = { ...DEFAULT_SECURITY_SETTINGS, ...settings };
 		this.ignoreManager = ignoreManager;
 		this.isReadOnly = isReadOnly;
+		this.isSnippetWriteAllowed = isSnippetWriteAllowed;
+		this.isConfigWriteAllowed = isConfigWriteAllowed;
 		Debug.log(`VaultSecurityManager initialized with ignoreManager: ${!!ignoreManager}`);
 	}
 
@@ -142,6 +156,21 @@ export class VaultSecurityManager {
 		await Promise.resolve(); // Ensure async behavior for callers that expect rejected promises on throw
 		Debug.log(`🔐 VaultSecurityManager.validateOperation called for: ${operation.type} on "${operation.path}"`);
 		try {
+			// Managed URI namespaces: obsidian://snippets/ and
+			// obsidian://config/ (ADR-113). This branch runs ahead of every
+			// step, including the pathValidation 'disabled' early return,
+			// because the namespace gates (shape, write settings) are
+			// independent of path-validation mode. validatePath would reject
+			// these URIs twice over — '://' as a forbidden sequence, and the
+			// resolved config path as a hidden segment — so the namespaces are
+			// separate doors, never holes in those rules: a raw .obsidian path
+			// from an agent still hits them.
+			const isSnippetsOp = isSnippetsUri(operation.path) || isSnippetsUri(operation.targetPath);
+			const isConfigOp = isConfigUri(operation.path) || isConfigUri(operation.targetPath);
+			if (isSnippetsOp || isConfigOp) {
+				return this.validateManagedUriOperation(operation, isSnippetsOp);
+			}
+
 			// Step 1: Check if security is enabled
 			if (this.settings.pathValidation === 'disabled') {
 				// Still check permissions even if path validation is disabled
@@ -256,6 +285,85 @@ export class VaultSecurityManager {
 			}
 			throw error;
 		}
+	}
+
+	/**
+	 * Validation for the managed URI namespaces (ADR-113).
+	 *
+	 * The URI is the only representation that flows on: callers downstream
+	 * (ObsidianAPI) dispatch on the prefix themselves. Containment comes from
+	 * the namespace shape, not from SecurePathValidator: the file name or
+	 * config key is the only variable part. The blocked-path check still
+	 * runs, so a folder-scoped token — whose scope an obsidian:// URI can
+	 * never match — is denied here exactly as an out-of-folder vault path
+	 * would be.
+	 */
+	private validateManagedUriOperation(operation: VaultOperation, isSnippetsOp: boolean): ValidatedOperation {
+		// Permission first: read-only mode and permission presets apply
+		// unchanged, ahead of the namespace's own gate.
+		if (!this.isOperationAllowed(operation.type)) {
+			this.logSecurityEvent(operation, 'blocked', 'PERMISSION_DENIED');
+			throw new SecurityError(
+				`Operation '${operation.type}' is not permitted in current security mode`,
+				'PERMISSION_DENIED'
+			);
+		}
+
+		for (const path of [operation.path, operation.targetPath]) {
+			if (path === undefined || path === null) continue;
+			if (this.isPathBlocked(path)) {
+				this.logSecurityEvent(operation, 'blocked', 'PATH_BLOCKED');
+				throw new SecurityError(
+					`Access to path '${path}' is blocked`,
+					'PATH_BLOCKED'
+				);
+			}
+			// Shape check. The folder forms are the namespace roots and valid
+			// for listings; every other URI must carry a legal name.
+			try {
+				if (isSnippetsOp) {
+					if (!isSnippetsFolderUri(path)) {
+						snippetFileNameFromUri(path);
+					}
+				} else if (!isConfigFolderUri(path)) {
+					configKeyFromUri(path);
+				}
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				const code = isSnippetsOp ? 'INVALID_SNIPPET_NAME' : 'INVALID_CONFIG_KEY';
+				this.logSecurityEvent(operation, 'blocked', code);
+				throw new SecurityError(message, code);
+			}
+		}
+
+		// The namespace write gates. Reads stay open by design; every write
+		// needs its dedicated setting, live (ADR-108 shape).
+		if (operation.type !== OperationType.READ) {
+			if (isSnippetsOp && this.isSnippetWriteAllowed?.() !== true) {
+				this.logSecurityEvent(operation, 'blocked', 'SNIPPET_WRITE_DISABLED');
+				throw new SecurityError(
+					'Snippet editing is disabled. Enable "Allow snippet editing" in the plugin settings to change CSS snippets.',
+					'SNIPPET_WRITE_DISABLED'
+				);
+			}
+			if (!isSnippetsOp && this.isConfigWriteAllowed?.() !== true) {
+				this.logSecurityEvent(operation, 'blocked', 'CONFIG_WRITE_DISABLED');
+				throw new SecurityError(
+					'Config editing is disabled. Enable "Allow config editing" in the plugin settings to change app settings.',
+					'CONFIG_WRITE_DISABLED'
+				);
+			}
+		}
+
+		// The URI flows on unchanged: the brand belongs to validatePath
+		// output, which this branch replaces by design. Same cast shape as
+		// the pathValidation 'disabled' branch above.
+		const validated = {
+			...operation
+			, validatedAt: Date.now()
+		} as ValidatedOperation;
+		this.logSecurityEvent(validated, 'allowed');
+		return validated;
 	}
 
 	/**

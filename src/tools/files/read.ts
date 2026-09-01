@@ -5,10 +5,17 @@
 import { RouterContext } from '../router-context';
 import { Params, paramStr, paramBool, readPageArgs } from '../shared';
 import { readFileWithFragments } from '../../utils/file-reader';
+import { isResourceUri } from '../../resources/registry';
+import { resourceReadResult } from '../view/resource-read';
 import { resolveFragmentStrategy } from './helpers';
 
 export async function handleRead(ctx: RouterContext, params: Params): Promise<unknown> {
   const path = paramStr(params, 'path') ?? '';
+  // Resource URIs serve computed text whole: pagination and fragment
+  // retrieval are vault-file concepts.
+  if (isResourceUri(path)) {
+    return resourceReadResult(ctx, path);
+  }
   const strategy = paramStr(params, 'strategy') !== undefined
     ? resolveFragmentStrategy(paramStr(params, 'strategy'))
     : undefined;

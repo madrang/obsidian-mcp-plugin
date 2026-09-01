@@ -11,7 +11,8 @@ import { Debug } from './debug';
 import { ObsidianAPI } from './obsidian-api';
 import { SecureObsidianAPI } from '../security/secure-obsidian-api';
 import { createTools } from '../tools/tool-factory';
-import { DataviewTool, isDataviewToolAvailable } from '../tools/dataview/tool';
+import { buildResourceList, createResourceService, readResource } from '../resources/registry';
+import type { ResourceDeps } from '../resources/types';
 import { getVersion } from '../version';
 import type { SessionManager } from './session-manager';
 import type { ConnectionPool } from './connection-pool';
@@ -101,14 +102,35 @@ export class MCPServerPool extends EventEmitter {
    * applies to sessions that already exist. `enableWebFetch` is passed
    * explicitly as a boolean — `createTools` fails closed on an omitted
    * flag, and this keeps the intent visible at the call site (ADR-109).
+   *
+   * The resource service is bound to the calling session, so resource
+   * content served through tool actions carries the same session identity
+   * as resources/read.
    */
-  private buildTools() {
+  private buildTools(sessionId: string) {
     return createTools(
       this.obsidianAPI,
       this.plugin?.settings?.toolVisibility,
       this.plugin?.settings?.enableWebFetch === true,
-      this.plugin?.settings?.allowCreateOverwrite === true
+      this.plugin?.settings?.allowCreateOverwrite === true,
+      createResourceService(this.resourceDeps(sessionId))
     );
+  }
+
+  /** The registry's inputs, rebuilt per read so every value is live. */
+  private resourceDeps(sessionId: string): ResourceDeps {
+    return {
+      obsidianAPI: this.obsidianAPI
+      , sessionId
+      , sessionManager: this.sessionManager
+      , connectionPool: this.connectionPool
+      , serverPoolStats: this.getStats()
+      , sessionPolicy: {
+        sessionTimeoutLabel: this.sessionTimeoutLabel()
+        , sessionsPerTokenLimit: this.sessionsPerTokenLimit()
+        , maxConcurrentConnections: this.maxServers
+      }
+    };
   }
 
   /**
@@ -315,7 +337,7 @@ export class MCPServerPool extends EventEmitter {
     server.setRequestHandler(ListToolsRequestSchema, () => {
       Debug.log(`📋 [Session ${sessionId}] Listing available tools`);
       return {
-        tools: this.buildTools().map(tool => ({
+        tools: this.buildTools(sessionId).map(tool => ({
           name: tool.name
           , title: tool.title
           , description: tool.description
@@ -344,7 +366,7 @@ export class MCPServerPool extends EventEmitter {
 
       Debug.log(`🔧 [Session ${sessionId}] Executing tool: ${name}`, args);
 
-      const tool = this.buildTools().find(t => t.name === name);
+      const tool = this.buildTools(sessionId).find(t => t.name === name);
       if (!tool) {
         return {
           content: [{
@@ -370,176 +392,24 @@ export class MCPServerPool extends EventEmitter {
       }
     });
 
-    // Build resources list
-    const resources = [
-      {
-        uri: 'obsidian://vault-info'
-        , name: 'Vault Information'
-        , description: 'Current vault status, file counts, and metadata'
-        , mimeType: 'application/json'
-      }
-    ];
-
-    // Add session-info resource
-    if (this.sessionManager) {
-      resources.push({
-        uri: 'obsidian://session-info'
-        , name: 'Session Information'
-        , description: 'Active MCP sessions and connection pool statistics'
-        , mimeType: 'application/json'
-      });
-    }
-
-    // Add Dataview reference if available
-    if (isDataviewToolAvailable(this.obsidianAPI)) {
-      resources.push({
-        uri: 'obsidian://dataview-reference'
-        , name: 'Dataview Query Language Reference'
-        , description: 'Complete DQL syntax guide with examples, functions, and best practices'
-        , mimeType: 'text/markdown'
-      });
-    }
-
-    // List resources handler
+    // Resources live in src/resources/: the registry owns the
+    // obsidian://resources/ namespace for the MCP resource protocol and the
+    // view tool actions alike.
     server.setRequestHandler(ListResourcesRequestSchema, () => {
       Debug.log(`📋 [Session ${sessionId}] Listing available resources`);
-      return { resources };
+      return { resources: buildResourceList(this.resourceDeps(sessionId)) };
     });
 
-    // Read resource handler
+    // Read resource handler. The MCP protocol requires a URI on this
+    // request, so the canonical obsidian://resources/<name> form is the
+    // only one the registry serves.
     server.setRequestHandler(ReadResourceRequestSchema, (request) => {
       const { uri } = request.params;
       Debug.log(`📖 [Session ${sessionId}] Reading resource: ${uri}`);
 
-      if (uri === 'obsidian://vault-info') {
-        const app = this.obsidianAPI.getApp();
-        const vaultName = app.vault.getName();
-        const activeFile = app.workspace.getActiveFile();
-        const allFiles = app.vault.getAllLoadedFiles();
-        const markdownFiles = app.vault.getMarkdownFiles();
-
-        const vaultInfo = {
-          vault: {
-            name: vaultName
-            , path: (app.vault.adapter as unknown as { basePath?: string }).basePath ?? 'Unknown'
-          }
-          , activeFile: activeFile ? {
-            name: activeFile.name
-            , path: activeFile.path
-            , basename: activeFile.basename
-            , extension: activeFile.extension
-          } : null
-          , files: {
-            total: allFiles.length
-            , markdown: markdownFiles.length
-            , attachments: allFiles.length - markdownFiles.length
-          }
-          , plugin: {
-            version: getVersion()
-            , status: 'Connected and operational'
-            , transport: 'HTTP MCP via Express.js + MCP SDK'
-            , sessionId: sessionId
-          }
-          , timestamp: new Date().toISOString()
-        };
-
-        return {
-          contents: [{
-            uri: 'obsidian://vault-info'
-            , mimeType: 'application/json'
-            , text: JSON.stringify(vaultInfo, null, 2)
-          }]
-        };
-      }
-
-      if (uri === 'obsidian://session-info' && this.sessionManager) {
-        const sessions = this.sessionManager.getAllSessions();
-        const sessionStats = this.sessionManager.getStats();
-        const poolStats = this.connectionPool?.getStats();
-        const serverPoolStats = this.getStats();
-
-        interface SessionDataItem {
-          sessionId: string;
-          isCurrentSession: boolean;
-          createdAt: string;
-          lastActivityAt: string;
-          requestCount: number;
-          ageSeconds: number;
-          idleSeconds: number;
-          status: string;
-        }
-
-        const sessionData: SessionDataItem[] = sessions.map((session) => {
-          const idleTime = Date.now() - session.lastActivityAt;
-          const age = Date.now() - session.createdAt;
-          return {
-            sessionId: session.sessionId
-            , isCurrentSession: session.sessionId === sessionId
-            , createdAt: new Date(session.createdAt).toISOString()
-            , lastActivityAt: new Date(session.lastActivityAt).toISOString()
-            , requestCount: session.requestCount
-            , ageSeconds: Math.round(age / 1000)
-            , idleSeconds: Math.round(idleTime / 1000)
-            , status: session.sessionId === sessionId ? '🟢 This is you!' : '🔵 Active'
-          };
-        });
-
-        sessionData.sort((a: SessionDataItem, b: SessionDataItem) => {
-          if (a.isCurrentSession) return -1;
-          if (b.isCurrentSession) return 1;
-          return b.lastActivityAt.localeCompare(a.lastActivityAt);
-        });
-
-        const sessionInfo = {
-          summary: {
-            activeSessions: sessionStats.activeSessions
-            , maxSessions: sessionStats.maxSessions
-            , utilization: `${Math.round((sessionStats.activeSessions / sessionStats.maxSessions) * 100)}%`
-            , totalRequests: sessionStats.totalRequests
-            , oldestSessionAge: `${Math.round(sessionStats.oldestSessionAge / 1000)}s`
-            , newestSessionAge: `${Math.round(sessionStats.newestSessionAge / 1000)}s`
-          }
-          , serverPool: {
-            activeServers: serverPoolStats.activeServers
-            , maxServers: serverPoolStats.maxServers
-            , utilization: serverPoolStats.utilization
-            , totalRequests: serverPoolStats.totalRequests
-          }
-          , connectionPool: poolStats ? {
-            activeConnections: poolStats.activeConnections
-            , queuedRequests: poolStats.queuedRequests
-            , maxConnections: poolStats.maxConnections
-            , poolUtilization: `${Math.round(poolStats.utilization * 100)}%`
-          } : null
-          , sessions: sessionData
-          , settings: {
-            sessionTimeout: this.sessionTimeoutLabel()
-            , sessionsPerToken: this.sessionsPerTokenLimit()
-            , maxConcurrentConnections: this.maxServers
-          }
-          , timestamp: new Date().toISOString()
-        };
-
-        return {
-          contents: [{
-            uri: 'obsidian://session-info'
-            , mimeType: 'application/json'
-            , text: JSON.stringify(sessionInfo, null, 2)
-          }]
-        };
-      }
-
-      if (uri === 'obsidian://dataview-reference' && isDataviewToolAvailable(this.obsidianAPI)) {
-        return {
-          contents: [{
-            uri: 'obsidian://dataview-reference'
-            , mimeType: 'text/markdown'
-            , text: DataviewTool.generateDataviewReference()
-          }]
-        };
-      }
-
-      throw new Error(`Unknown resource: ${uri}`);
+      return {
+        contents: [readResource(uri, this.resourceDeps(sessionId))]
+      };
     });
 
     return mcpServer;
@@ -623,6 +493,15 @@ export class MCPServerPool extends EventEmitter {
         ? Math.min(...servers.map(s => now - s.createdAt))
         : 0
     };
+  }
+
+  /**
+   * The number of resources the registry currently serves, for the settings
+   * status display. List entries carry no session identity, so the deps
+   * take a placeholder id.
+   */
+  getResourceCount(): number {
+    return buildResourceList(this.resourceDeps('settings-status')).length;
   }
 
   /**
