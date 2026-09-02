@@ -37,7 +37,7 @@ jest.mock('../../src/security/secure-obsidian-api', () => {
 import { MCPServerPool } from '../../src/utils/mcp-server-pool';
 import { SecureObsidianAPI, SecurityError } from '../../src/security';
 import { FolderScopedIgnoreManager } from '../../src/security/token-scope';
-import { BASELINE_SECURITY_SETTINGS } from '../../src/mcp-server';
+import { BASELINE_SECURITY_SETTINGS } from '../../src/security/baseline-settings';
 
 type Write = { op: string; path: string };
 
@@ -102,7 +102,7 @@ describe('session token scope (ADR-110)', () => {
 
   it('a scoped session gets the wrapped ref: scoped manager, live read-only', () => {
     const { plugin, pool } = makePool([]);
-    pool.getOrCreateServer('s-scoped', { identity: 'tok-1', folder: 'Projects', readOnly: true });
+    pool.getOrCreateServer('s-scoped', { identity: 'tok-1', scopes: [{ folder: 'Projects', readOnly: true }] });
 
     const sessionPlugin = constructorCalls[0][2] as {
       settings?: { readOnlyMode?: boolean };
@@ -117,7 +117,7 @@ describe('session token scope (ADR-110)', () => {
 
   it('the wrapped ref still tracks the global read-only toggle live', () => {
     const { plugin, pool } = makePool([]);
-    pool.getOrCreateServer('s-live', { identity: 'tok-1', folder: 'Projects' });
+    pool.getOrCreateServer('s-live', { identity: 'tok-1', scopes: [{ folder: 'Projects' }] });
 
     const sessionPlugin = constructorCalls[0][2] as { settings?: { readOnlyMode?: boolean } };
     expect(sessionPlugin.settings?.readOnlyMode).toBe(false);
@@ -142,7 +142,7 @@ describe('session token scope (ADR-110)', () => {
 
     it('binds the creating credential and refuses every other', () => {
       const { pool } = makePool([]);
-      pool.getOrCreateServer('s-bound', { identity: 'tok-1', folder: 'Projects' });
+      pool.getOrCreateServer('s-bound', { identity: 'tok-1', scopes: [{ folder: 'Projects' }] });
 
       expect(pool.sessionIdentityMatches('s-bound', 'tok-1')).toBe(true);
       // A different scoped token must not ride the session.
@@ -160,11 +160,82 @@ describe('session token scope (ADR-110)', () => {
     });
   });
 
+  describe('multi-scope sessions (per-scope options)', () => {
+    it('writes land in a writable scope and are refused in a read-only scope', async () => {
+      const writes: Write[] = [];
+      const { pool } = makePool(writes);
+      pool.getOrCreateServer('s-mixed', {
+        identity: 'tok-mixed'
+        , scopes: [{ folder: 'Projects' }, { folder: 'Notes', readOnly: true }]
+      });
+      const api = instances[0];
+
+      await api.createFile('Projects/new.md', 'x');
+      await expect(api.createFile('Notes/evil.md', 'x')).rejects.toThrow('read-only scope');
+      expect(writes).toEqual([{ op: 'create', path: 'Projects/new.md' }]);
+    });
+
+    it('a scoped session reads the resources namespace', async () => {
+      const writes: Write[] = [];
+      const { pool } = makePool(writes);
+      pool.getOrCreateServer('s-res', { identity: 'tok-res', scopes: [{ folder: 'Projects' }] });
+      const api = instances[0];
+
+      // The scope gate passed iff the call reaches the resource-service
+      // check. PATH_BLOCKED means the namespace stayed out of scope.
+      const error = await api.getFile('obsidian://resources/view').then(
+        () => null
+        , (e: Error) => e
+      );
+      expect(error?.message).toContain('not wired');
+    });
+  });
+
+  describe('view.active answers out-of-scope with nothing', () => {
+    function setActive(app: App, path: string | null): void {
+      (app.workspace as unknown as { getActiveFile: () => TFile | null }).getActiveFile =
+        () => (path === null ? null : mkFile(path));
+    }
+
+    it('an out-of-scope active file answers as no active file, path unnamed', async () => {
+      const { app, pool } = makePool([]);
+      pool.getOrCreateServer('s-active-out', { identity: 'tok-1', scopes: [{ folder: 'Projects' }] });
+      const api = instances[0];
+      setActive(app, 'Notes/b.md');
+
+      const error = await api.getActiveFile().then(
+        () => { throw new Error('expected a refusal'); }
+        , (e: Error) => e
+      );
+      expect(error.message).toBe('No active file');
+      expect(String(error)).not.toContain('Notes/b.md');
+    });
+
+    it('an in-scope active file is served', async () => {
+      const { app, pool } = makePool([]);
+      pool.getOrCreateServer('s-active-in', { identity: 'tok-1', scopes: [{ folder: 'Projects' }] });
+      const api = instances[0];
+      setActive(app, 'Projects/a.md');
+
+      const file = await api.getActiveFile();
+      expect((file as { path: string }).path).toBe('Projects/a.md');
+    });
+
+    it('no active file stays the plain no-active-file error', async () => {
+      const { app, pool } = makePool([]);
+      pool.getOrCreateServer('s-active-none', { identity: 'tok-1', scopes: [{ folder: 'Projects' }] });
+      const api = instances[0];
+      setActive(app, null);
+
+      await expect(api.getActiveFile()).rejects.toThrow('No active file');
+    });
+  });
+
   describe('enforcement on the session API', () => {
     it('reads inside the folder work, reads outside are blocked', async () => {
       const writes: Write[] = [];
       const { pool } = makePool(writes);
-      pool.getOrCreateServer('s-read', { identity: 'tok-1', folder: 'Projects' });
+      pool.getOrCreateServer('s-read', { identity: 'tok-1', scopes: [{ folder: 'Projects' }] });
       const api = instances[0];
 
       const inside = await api.getFile('Projects/a.md');
@@ -177,7 +248,7 @@ describe('session token scope (ADR-110)', () => {
     it('writes outside the folder record zero vault writes', async () => {
       const writes: Write[] = [];
       const { pool } = makePool(writes);
-      pool.getOrCreateServer('s-write', { identity: 'tok-1', folder: 'Projects' });
+      pool.getOrCreateServer('s-write', { identity: 'tok-1', scopes: [{ folder: 'Projects' }] });
       const api = instances[0];
 
       await expect(api.createFile('Notes/evil.md', 'x')).rejects.toThrow(SecurityError);
@@ -188,7 +259,7 @@ describe('session token scope (ADR-110)', () => {
     it('writes inside the folder land', async () => {
       const writes: Write[] = [];
       const { pool } = makePool(writes);
-      pool.getOrCreateServer('s-write-ok', { identity: 'tok-1', folder: 'Projects' });
+      pool.getOrCreateServer('s-write-ok', { identity: 'tok-1', scopes: [{ folder: 'Projects' }] });
       const api = instances[0];
 
       await api.createFile('Projects/new.md', 'x');
@@ -198,7 +269,7 @@ describe('session token scope (ADR-110)', () => {
     it('a read-only token cannot write even inside its folder', async () => {
       const writes: Write[] = [];
       const { pool } = makePool(writes);
-      pool.getOrCreateServer('s-ro', { identity: 'tok-1', folder: 'Projects', readOnly: true });
+      pool.getOrCreateServer('s-ro', { identity: 'tok-1', scopes: [{ folder: 'Projects', readOnly: true }] });
       const api = instances[0];
 
       await expect(api.createFile('Projects/new.md', 'x')).rejects.toThrow(SecurityError);
@@ -208,7 +279,7 @@ describe('session token scope (ADR-110)', () => {
     it('folder listing is filtered to the folder', async () => {
       const writes: Write[] = [];
       const { pool } = makePool(writes);
-      pool.getOrCreateServer('s-list', { identity: 'tok-1', folder: 'Projects' });
+      pool.getOrCreateServer('s-list', { identity: 'tok-1', scopes: [{ folder: 'Projects' }] });
       const api = instances[0];
 
       const listed = await api.listFiles('Projects');

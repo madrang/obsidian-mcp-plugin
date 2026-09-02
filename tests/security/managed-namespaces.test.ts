@@ -452,7 +452,7 @@ describe('folder-scoped tokens and the managed namespaces', () => {
       snippets: { 'theme.css': 'body {}' }
       , config: { cssTheme: 'Minimal' }
     });
-    const scope = new FolderScopedIgnoreManager(app, undefined, 'Projects');
+    const scope = new FolderScopedIgnoreManager(app, undefined, [{ folder: 'Projects' }]);
     const api = makeApi(app, { allowSnippetEditing: true, allowConfigEditing: true }, scope);
 
     await expectCode(api.getFile('obsidian://snippets/theme.css'), 'PATH_BLOCKED');

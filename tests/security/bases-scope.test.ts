@@ -63,7 +63,7 @@ const PERMISSIVE = {
 };
 
 describe('BasesAPI scoped by the ignore manager (ADR-110)', () => {
-  const scoped = () => new FolderScopedIgnoreManager(makeApp(), undefined, 'Projects');
+  const scoped = () => new FolderScopedIgnoreManager(makeApp(), undefined, [{ folder: 'Projects' }]);
 
   test('listBases returns only in-scope bases for a folder-scoped manager', async () => {
     const api = new BasesAPI(makeApp(), scoped());
@@ -91,7 +91,7 @@ describe('SecureObsidianAPI charges bases reads (ADR-110)', () => {
     return new SecureObsidianAPI(
       makeApp(),
       undefined,
-      { ignoreManager: new FolderScopedIgnoreManager(makeApp(), undefined, 'Projects') },
+      { ignoreManager: new FolderScopedIgnoreManager(makeApp(), undefined, [{ folder: 'Projects' }]) },
       PERMISSIVE
     );
   }

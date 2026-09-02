@@ -113,6 +113,9 @@ export class VaultSecurityManager {
 	private readonly maxLogEntries = 1000;
 	private ignoreManager?: MCPIgnoreManager;
 	private isReadOnly?: () => boolean;
+	/** Path-aware read-only: true denies writes to that path only (scoped
+	 * sessions whose scopes carry per-scope read-only flags). */
+	private isPathReadOnly?: (path?: string) => boolean;
 	private isSnippetWriteAllowed?: () => boolean;
 	private isConfigWriteAllowed?: () => boolean;
 
@@ -138,7 +141,8 @@ export class VaultSecurityManager {
 		ignoreManager?: MCPIgnoreManager,
 		isReadOnly?: () => boolean,
 		isSnippetWriteAllowed?: () => boolean,
-		isConfigWriteAllowed?: () => boolean
+		isConfigWriteAllowed?: () => boolean,
+		isPathReadOnly?: (path?: string) => boolean
 	) {
 		this.validator = new SecurePathValidator(app);
 		this.settings = { ...DEFAULT_SECURITY_SETTINGS, ...settings };
@@ -146,6 +150,7 @@ export class VaultSecurityManager {
 		this.isReadOnly = isReadOnly;
 		this.isSnippetWriteAllowed = isSnippetWriteAllowed;
 		this.isConfigWriteAllowed = isConfigWriteAllowed;
+		this.isPathReadOnly = isPathReadOnly;
 		Debug.log(`VaultSecurityManager initialized with ignoreManager: ${!!ignoreManager}`);
 	}
 
@@ -207,6 +212,7 @@ export class VaultSecurityManager {
 					'PERMISSION_DENIED'
 				);
 			}
+			this.checkScopeWriteGate(operation);
 
 			// Step 3: Validate paths if present
 			let validatedPath: ValidatedPath | undefined;
@@ -314,6 +320,7 @@ export class VaultSecurityManager {
 				'PERMISSION_DENIED'
 			);
 		}
+		this.checkScopeWriteGate(operation);
 
 		for (const path of [operation.path, operation.targetPath]) {
 			if (path === undefined || path === null) continue;
@@ -384,6 +391,30 @@ export class VaultSecurityManager {
 		} as ValidatedOperation;
 		this.logSecurityEvent(validated, 'allowed');
 		return validated;
+	}
+
+	/**
+	 * Per-scope read-only gate: a write whose path (or move target) sits in a
+	 * read-only scope of the calling session is refused. Sits behind the
+	 * permission checks and applies to every non-READ operation, on both the
+	 * managed-namespace branch and the ordinary path.
+	 */
+	private checkScopeWriteGate(operation: VaultOperation): void {
+		if (operation.type === OperationType.READ) return;
+		if (this.isPathReadOnly?.(operation.path) === true) {
+			this.logSecurityEvent(operation, 'blocked', 'SCOPE_READ_ONLY');
+			throw new SecurityError(
+				`'${operation.path}' is in a read-only scope of this token`,
+				'SCOPE_READ_ONLY'
+			);
+		}
+		if (operation.targetPath !== undefined && this.isPathReadOnly?.(operation.targetPath) === true) {
+			this.logSecurityEvent(operation, 'blocked', 'SCOPE_READ_ONLY');
+			throw new SecurityError(
+				`'${operation.targetPath}' is in a read-only scope of this token`,
+				'SCOPE_READ_ONLY'
+			);
+		}
 	}
 
 	/**

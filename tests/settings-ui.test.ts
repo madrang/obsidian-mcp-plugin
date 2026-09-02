@@ -243,7 +243,7 @@ describe('buildSettingsUI', () => {
   it('the scoped tokens list has one row per token plus add/delete affordances', async () => {
     const { host, settings, calls } = makeHost({
       scopedTokens: [
-        { name: 'Blog reader', token: 'a', folder: 'Projects/Blog', readOnly: true },
+        { name: 'Blog reader', token: 'a', scopes: [{ folder: 'Projects/Blog', readOnly: true }] },
         { name: '', token: 'b' }
       ]
     });

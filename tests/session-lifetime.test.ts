@@ -17,7 +17,7 @@ import { App } from 'obsidian';
 import { SessionManager } from '../src/utils/session-manager';
 import { MCPServerPool } from '../src/utils/mcp-server-pool';
 import { SecureObsidianAPI } from '../src/security';
-import { BASELINE_SECURITY_SETTINGS } from '../src/mcp-server';
+import { BASELINE_SECURITY_SETTINGS } from '../src/security/baseline-settings';
 import { DEFAULT_SETTINGS } from '../src/settings/plugin-settings';
 
 jest.mock('obsidian');

@@ -16,7 +16,8 @@ import type { ResourceDeps } from '../resources/types';
 import { getVersion } from '../version';
 import type { SessionManager } from './session-manager';
 import type { ConnectionPool } from './connection-pool';
-import type { AuthScope } from '../security/http-auth';
+import { AuthScope } from '../security/http-auth';
+import { RESOURCES_URI_PREFIX } from '../resources/uri';
 import { FolderScopedIgnoreManager } from '../security/token-scope';
 import { ToolCallRateLimiter, rateLimitErrorResponse } from '../security/rate-limiter';
 
@@ -41,6 +42,8 @@ interface PluginWithSettings {
     toolVisibility?: Record<string, boolean>;
   };
   ignoreManager?: import('../security/mcp-ignore-manager').MCPIgnoreManager;
+  /** Scoped sessions: true when the path sits in a read-only scope. */
+  scopeWriteGate?: (path?: string) => boolean;
   mcpServer?: { isServerRunning(): boolean; getConnectionCount(): number };
   manifest?: { dir?: string };
 }
@@ -55,6 +58,10 @@ interface PooledServer {
    * Undefined for the primary key, no-key mode, and auth-disabled mode. */
   identity?: string;
 }
+
+/** The silent read-only scope every scoped session carries: the reference
+ * pages stay reachable whatever the token's folders say. */
+const RESOURCES_SCOPE_PREFIX = RESOURCES_URI_PREFIX;
 
 export class MCPServerPool extends EventEmitter {
   private servers: Map<string, PooledServer> = new Map();
@@ -241,17 +248,32 @@ export class MCPServerPool extends EventEmitter {
   private scopedPluginRef(scope: AuthScope): PluginWithSettings | undefined {
     const plugin = this.plugin;
     if (!plugin) return plugin;
-    const tokenReadOnly = scope.readOnly === true;
+    const tokenScopes = scope.scopes ?? [];
+    // Every scoped session silently carries the resources namespace as a
+    // read-only scope: the reference pages stay reachable whatever the
+    // token's folders say, and nothing in that namespace is writable anyway.
+    const sessionScopes = tokenScopes.length > 0
+      ? [...tokenScopes, { folder: RESOURCES_SCOPE_PREFIX, readOnly: true }]
+      : [];
+    // A token whose every scope is read-only is a read-only session: fold
+    // it into the live readOnlyMode predicate (ADR-108 shape). Mixed scopes
+    // keep the per-path gate below.
+    const allScopesReadOnly = tokenScopes.length > 0
+      && tokenScopes.every(scope => scope.readOnly === true);
+    const scopedManager = sessionScopes.length > 0
+      ? new FolderScopedIgnoreManager(this.obsidianAPI.getApp(), plugin.ignoreManager, sessionScopes)
+      : undefined;
     return {
       get settings() {
         return {
           ...plugin.settings
-          , readOnlyMode: plugin.settings?.readOnlyMode === true || tokenReadOnly
+          , readOnlyMode: plugin.settings?.readOnlyMode === true || allScopesReadOnly
         };
       }
-      , ignoreManager: scope.folder
-        ? new FolderScopedIgnoreManager(this.obsidianAPI.getApp(), plugin.ignoreManager, scope.folder)
-        : plugin.ignoreManager
+      , ignoreManager: scopedManager ?? plugin.ignoreManager
+      , scopeWriteGate: scopedManager
+        ? (path?: string) => scopedManager.isPathReadOnly(path)
+        : undefined
       , mcpServer: plugin.mcpServer
       , manifest: plugin.manifest
     };

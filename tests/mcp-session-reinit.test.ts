@@ -19,6 +19,7 @@
  * thing #190 established cannot be driven synthetically).
  */
 import { MCPHttpServer } from '../src/mcp-server';
+import { sendSessionTerminated } from '../src/server/mcp-protocol';
 import { App } from 'obsidian';
 
 jest.mock('fs', () => ({
@@ -100,10 +101,10 @@ describe('MCP session re-initialization signal (ADR-106 / #190 / #128)', () => {
   });
 
   test('initialize request is never short-circuited as a terminated session', async () => {
-    const spy = jest.spyOn(server as any, 'sendSessionTerminated');
-
     // (a) initialize with no session id (fresh) and (b) initialize bearing a
     // stale session id (recreate path) must both bypass the 404/400 signal.
+    // The signal lives in server/mcp-protocol.ts; the outcome is pinned here
+    // because a module-internal call cannot be intercepted by a spy.
     for (const sid of [undefined, 'previously-evicted-id']) {
       const res = makeRes();
       await (server as any).handleMCPRequest(
@@ -114,20 +115,19 @@ describe('MCP session re-initialization signal (ADR-106 / #190 / #128)', () => {
         res
       );
       expect(res.statusCode).not.toBe(404);
+      expect(res.statusCode).not.toBe(400);
     }
-    expect(spy).not.toHaveBeenCalled();
-    spy.mockRestore();
   });
 
   test('sendSessionTerminated emits the spec signals directly', () => {
     const withId = makeRes();
-    (server as any).sendSessionTerminated(withId, { id: 3 }, 'sess-abc');
+    sendSessionTerminated(withId as never, { id: 3 }, 'sess-abc');
     expect(withId.statusCode).toBe(404);
     expect(withId.headers['mcp-session-id']).toBe('sess-abc');
     expect((withId.body as { id?: unknown }).id).toBe(3);
 
     const noId = makeRes();
-    (server as any).sendSessionTerminated(noId, { id: null }, undefined);
+    sendSessionTerminated(noId as never, { id: null }, undefined);
     expect(noId.statusCode).toBe(400);
     expect(noId.headers['mcp-session-id']).toBeUndefined();
   });

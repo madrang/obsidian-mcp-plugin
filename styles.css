@@ -442,12 +442,18 @@ input.mcp-api-key-input {
 
 /* Scoped-token fields: label+control pairs flow on one full-width line and
    wrap as units when the panel is narrow. A pair never splits across lines.
-   Copy and the framework delete stay in the control area at the top right. */
+   Copy and the framework delete stay in the control area at the top right.
+   Multi-scope tokens stack one field line per scope, so consecutive lines
+   get a small vertical gap. */
 .mcp-token-fields {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 6px 12px;
+}
+
+.mcp-token-fields + .mcp-token-fields {
+    margin-top: 4px;
 }
 
 .mcp-token-field {

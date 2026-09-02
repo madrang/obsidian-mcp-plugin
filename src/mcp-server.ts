@@ -1,18 +1,11 @@
 import express from 'express';
-import cors from 'cors';
 import { App, Notice } from 'obsidian';
-import { createServer as createHttpServer, Server } from 'http';
+import { Server } from 'http';
 import { Server as HttpsServer } from 'https';
-import { McpServer as MCPServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import {
-  isInitializeRequest
-} from '@modelcontextprotocol/sdk/types.js';
-import { randomUUID } from 'crypto';
-import { getVersion } from './version';
 import { ObsidianAPI } from './utils/obsidian-api';
 import { SecureObsidianAPI } from './security';
-import { authorizeRequest, AuthScope, ScopedToken } from './security/http-auth';
+import { BASELINE_SECURITY_SETTINGS } from './security/baseline-settings';
 import { Debug } from './utils/debug';
 import { ConnectionPool } from './utils/connection-pool';
 import { SessionManager } from './utils/session-manager';
@@ -22,59 +15,16 @@ import {
   classifyFromSettings,
   resolveListenHost,
   agentInstructionsForVerdict,
-  BindMode,
   Verdict
 } from './utils/network-classifier';
-
-/** Minimal plugin interface for MCPHttpServer.
- * Includes fields from SecurePluginRef and ObsidianAPIPluginRef so the same object
- * can be passed through the constructor chain. */
-interface MCPPluginRef {
-  settings?: {
-    httpsEnabled?: boolean;
-    httpsPort?: number;
-    httpPort?: number;
-    certificateConfig?: CertificateConfig;
-    // ADR-107: bind mode + custom host
-    bindMode?: BindMode;
-    customBindHost?: string;
-    readOnlyMode?: boolean;
-    apiKey?: string;
-    scopedTokens?: ScopedToken[];
-    // ADR-111: session lifetime policy
-    sessionTimeoutMs?: number;
-    sessionsPerToken?: number;
-    dangerouslyDisableAuth?: boolean;
-    // From SecurePluginRef (for SecureObsidianAPI)
-    security?: Partial<import('./security/vault-security-manager').SecuritySettings>;
-    // From ObsidianAPIPluginRef (for ObsidianAPI)
-    validation?: Partial<import('./validation/input-validator').ValidationConfig>;
-  };
-  manifest: { dir?: string };
-  // From ObsidianAPIPluginRef
-  ignoreManager?: import('./security/mcp-ignore-manager').MCPIgnoreManager;
-  mcpServer?: { isServerRunning(): boolean; getConnectionCount(): number };
-}
-
-/** JSON-RPC request body structure */
-interface JsonRpcRequest {
-  jsonrpc?: string;
-  id?: string | number | null;
-  method?: string;
-  params?: Record<string, unknown>;
-}
-
-/** Express request after the auth middleware: carries the matched scoped
- * token's restriction, when one matched (ADR-110). */
-type ScopedHttpRequest = express.Request & { authScope?: AuthScope };
-
-/** Server with configurable timeout properties (Node.js http.Server internals) */
-interface ServerWithTimeouts {
-  keepAliveTimeout: number;
-  headersTimeout: number;
-  requestTimeout: number;
-  setTimeout: (msecs: number) => unknown;
-}
+import {
+  MCPPluginRef,
+  setupExpressMiddleware,
+  setupHttpRoutes,
+  createListenerServer,
+  configureServerTimeouts
+} from './server/transport';
+import { handleStreamableHttpRequest } from './server/mcp-protocol';
 
 /** Connection pool stats response */
 interface ConnectionPoolStatsResponse {
@@ -92,34 +42,6 @@ interface ConnectionPoolStatsResponse {
     totalRequests: number;
   };
 }
-
-
-/**
- * The security baseline every server and session API is built with.
- *
- * Permissions are all TRUE on purpose, and must stay that way (ADR-108).
- * Read-only is enforced by VaultSecurityManager's live predicate, which only
- * ever ADDS denial — it cannot grant. So a restrictive baseline is a one-way
- * door: installing presets.readOnly() here (which is what this used to do when
- * the server booted with read-only on) meant toggling read-only OFF could not
- * restore writes until the next restart.
- *
- * Path validation and .mcpignore blocking are unaffected — those are not
- * permissions and still apply.
- */
-export const BASELINE_SECURITY_SETTINGS = {
-  pathValidation: 'strict' as const  // Always validate paths for security
-  , permissions: {
-    read: true
-    , create: true
-    , update: true
-    , delete: true
-    , move: true
-    , execute: true
-  }
-  , blockedPaths: []  // .mcpignore will handle blocking
-  , logSecurityEvents: false
-};
 
 export class MCPHttpServer {
   private app: express.Application;
@@ -162,12 +84,12 @@ export class MCPHttpServer {
     } else {
       this.certificateManager = null;
     }
-    
+
     // Always use SecureObsidianAPI with VaultSecurityManager as our firewall
     Debug.log('🔐 Initializing VaultSecurityManager firewall');
-    
+
     // One baseline ruleset, regardless of read-only (ADR-108). See
-    // BASELINE_SECURITY_SETTINGS above for why it must stay permissive.
+    // baseline-settings.ts for why it must stay permissive.
     //
     // This used to branch on readOnlyMode and install presets.readOnly() when it
     // was set. That snapshot was the whole bug: read-only became whatever it was
@@ -184,7 +106,7 @@ export class MCPHttpServer {
 
     // Always use SecureObsidianAPI for consistent security layer
     this.obsidianAPI = new SecureObsidianAPI(obsidianApp, undefined, plugin, securitySettings);
-    
+
     // Initialize connection pool and session manager (always concurrent)
     const maxConnections = 32;
 
@@ -253,374 +175,36 @@ export class MCPHttpServer {
     });
 
     Debug.log(`🏊 Connection pool initialized with max ${maxConnections} connections`);
-    
+
     this.app = express();
-    this.setupMiddleware();
-    this.setupRoutes();
-  }
-
-  private setupMiddleware(): void {
-    // CORS middleware for MCP clients
-    this.app.use(cors({
-      origin: '*'
-      , methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
-      , allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Mcp-Session-Id']
-      , exposedHeaders: ['Mcp-Session-Id']
-    }));
-
-    // JSON body parser
-    this.app.use(express.json());
-    
-    // Request logging for debugging (moved before auth to see all requests)
-    this.app.use((req, res, next) => {
-      Debug.log(`📡 ${req.method} ${req.url}`, {
-        headers: req.headers
-        , body: req.body ? JSON.stringify(req.body).substring(0, 200) : ''
-      });
-      next();
-    });
-    
-    // Authentication middleware. The decision itself lives in
-    // security/http-auth.ts as a pure function so every branch is testable —
-    // dangerouslyDisableAuth previously had no test coverage at all because the
-    // logic was only reachable by standing up a server.
-    this.app.use((req, res, next) => {
-      const decision = authorizeRequest({
-        method: req.method
-        , authHeader: req.headers.authorization
-        , apiKey: this.plugin?.settings?.apiKey
-        , scopedTokens: this.plugin?.settings?.scopedTokens
-        , authDisabled: this.plugin?.settings?.dangerouslyDisableAuth
-      });
-
-      if (decision.allow) {
-        if (decision.reason === 'auth-disabled') {
-          Debug.log('⚠️ Authentication is DISABLED - allowing access without credentials');
-        } else if (decision.reason === 'no-key-configured') {
-          Debug.log('🔓 No API key configured, allowing access');
-        } else if (decision.reason === 'authenticated') {
-          Debug.log('✅ Auth successful');
-        }
-        // ADR-110: a scoped token match carries its identity and restriction
-        // into session creation. Everything else (primary key, no-key,
-        // auth-disabled, preflight) leaves authScope unset = full access.
-        if (decision.reason === 'authenticated' && decision.identity) {
-          (req as ScopedHttpRequest).authScope = {
-            identity: decision.identity
-            , folder: decision.folder
-            , readOnly: decision.readOnly
-          };
-        }
-        return next();
-      }
-
-      Debug.log(`❌ Auth failed: ${decision.reason}`);
-      res.status(decision.status).json({ error: decision.error });
-    });
-  }
-
-  private setupRoutes(): void {
-    // Health check endpoint
-    this.app.get('/', (req, res) => {
-      const response = {
-        name: 'Scoped Vault MCP'
-        , version: getVersion()
-        , status: 'running'
-        , vault: this.obsidianApp.vault.getName()
-        , timestamp: new Date().toISOString()
-      };
-      
-      Debug.log('📊 Health check requested');
-      res.json(response);
-    });
-
-    // MCP discovery endpoints
-    this.app.get('/.well-known/appspecific/com.mcp.obsidian-mcp', (req, res) => {
-      const isHttps = this.plugin?.settings?.httpsEnabled === true;
-      const protocol = isHttps ? 'https' : 'http';
-      res.json({
-        endpoint: `${protocol}://localhost:${this.port}/mcp`
-        , protocol: protocol
-        , method: 'POST'
-        , contentType: 'application/json'
-      });
-    });
-
-    // Debug/info endpoint — moved off `GET /mcp` so it no longer shadows the
-    // SSE stream the client opens with `GET /mcp` (the shadowing caused the
-    // SSE reconnection loop in #125).
-    this.app.get('/mcp-info', (req, res) => {
-      res.json({
-        message: 'MCP endpoint active'
-        , usage: 'POST /mcp for messages, GET /mcp for the SSE stream'
-        , protocol: 'Model Context Protocol'
-        , transport: 'HTTP'
-        , sessionHeader: 'Mcp-Session-Id'
-      });
-    });
-
-    // MCP protocol endpoint — StreamableHTTPServerTransport. POST carries
-    // messages, GET establishes the SSE stream; both go to the same handler.
-    // DELETE keeps its own explicit session-close handler below, so we route
-    // GET/POST individually rather than `app.all` (which would shadow it).
-    this.app.post('/mcp', (req, res) => {
-      void this.handleMCPRequest(req, res);
-    });
-    this.app.get('/mcp', (req, res) => {
-      void this.handleMCPRequest(req, res);
-    });
-
-    // Handle session deletion
-    this.app.delete('/mcp', (req, res) => {
-      const sessionId = req.headers['mcp-session-id'] as string;
-
-      if (sessionId && this.transports.has(sessionId)) {
+    setupExpressMiddleware(this.app, this.plugin);
+    setupHttpRoutes(this.app, {
+      vaultName: () => this.obsidianApp.vault.getName()
+      , port: () => this.port
+      , httpsDiscovery: () => this.plugin?.settings?.httpsEnabled === true
+      , transports: this.transports
+      , closeSession: (sessionId) => {
+        if (!this.transports.has(sessionId)) return false;
         const transport = this.transports.get(sessionId)!;
         void transport.close();
         this.transports.delete(sessionId);
         this.connectionCount = Math.max(0, this.connectionCount - 1);
         Debug.log(`🔚 Closed MCP session: ${sessionId} (Remaining: ${this.connectionCount})`);
-        res.status(200).json({ message: 'Session closed' });
-      } else {
-        res.status(404).json({ error: 'Session not found' });
+        return true;
       }
+      , onMCPRequest: (req, res) => this.handleMCPRequest(req, res)
     });
-  }
-
-  /**
-   * Emit the Streamable HTTP spec's session-lifecycle signal so the client
-   * can recover a dropped/evicted session on its own (client-driven re-init,
-   * ADR-106).
-   *
-   * - If the request carried an `Mcp-Session-Id` we no longer hold a
-   *   transport for, the session is terminated: respond **HTTP 404**
-   *   (Session Management §3). A spec-compliant client/bridge MUST then
-   *   start a new session by sending a fresh `InitializeRequest` with no
-   *   session ID (§4) — no client restart required, fixing #128.
-   * - If no `Mcp-Session-Id` was sent on a non-initialize request, a session
-   *   is required: respond **HTTP 400** (§2).
-   *
-   * The HTTP status is the load-bearing signal; the JSON-RPC error body is
-   * courtesy for clients that surface it. We deliberately do not attempt a
-   * server-side synthetic initialize — that cannot drive SDK 1.29's
-   * web-standard transport to an initialized state (see #190).
-   */
-  private sendSessionTerminated(
-    res: express.Response,
-    request: JsonRpcRequest | undefined,
-    sessionId: string | undefined
-  ): void {
-    const id = request?.id ?? null;
-    if (sessionId) {
-      // Spec §3: terminated session → 404; client re-inits per §4.
-      res.setHeader('Mcp-Session-Id', sessionId);
-      res.status(404).json({
-        jsonrpc: '2.0'
-        , error: {
-          code: -32001
-          , message: 'Session expired or not found. Start a new session by sending an initialize request without a session ID.'
-          , data: { sessionId }
-        }
-        , id
-      });
-      Debug.log(`🔁 Session ${sessionId} terminated → 404 (client should re-initialize per MCP spec §4)`);
-      return;
-    }
-    // Spec §2: session required for non-initialize requests → 400.
-    res.status(400).json({
-      jsonrpc: '2.0'
-      , error: {
-        code: -32600
-        , message: 'Bad Request: a session is required. Send an initialize request first.'
-      }
-      , id
-    });
-    Debug.log('⚠️ Non-initialize request with no session id → 400 (session required)');
   }
 
   private async handleMCPRequest(req: express.Request, res: express.Response): Promise<void> {
-    try {
-      const request = req.body as JsonRpcRequest | undefined;
-
-      // Get or create session ID
-      const sessionId = req.headers['mcp-session-id'] as string | undefined;
-      const authScope = (req as ScopedHttpRequest).authScope;
-      Debug.log(`📨 MCP Request: ${request?.method ?? 'unknown'}${sessionId ? ` [Session: ${sessionId}]` : ''}`, request?.params);
-
-      // ADR-110: a session is bound at creation to the credential that
-      // created it. A request presenting different credentials — for example
-      // a folder-scoped token replaying a full-access session ID it learned —
-      // is refused rather than served with the session's broader scope.
-      if (sessionId && !this.mcpServerPool.sessionIdentityMatches(sessionId, authScope?.identity)) {
-        res.status(403).json({
-          jsonrpc: '2.0'
-          , error: {
-            code: -32600
-            , message: 'Forbidden: session is bound to different credentials'
-          }
-          , id: request?.id ?? null
-        });
-        Debug.log(`⛔ Session ${sessionId} presented mismatched credentials → 403`);
-        return;
-      }
-
-      // `GET /mcp` opens the standalone SSE notification stream — long-lived and
-      // idle by design (this server pushes no server-initiated notifications).
-      // The global 120s socket timeout set in start() would otherwise reap it
-      // every ~2 min, surfacing as a "stream terminated" reconnect churn in
-      // bridges and noisy logs (#221). Disable the idle timeout on this GET
-      // socket; POST request sockets keep the server-wide default. (A non-SSE
-      // GET is short-lived — its response is sent immediately — so the
-      // exemption is a harmless no-op for those.)
-      //
-      // Trade-off: with no socket-layer idle reap, a truly-dead SSE socket
-      // (client vanished without a FIN) is no longer dropped at ~2 min.
-      // Sessions do not idle out by default (ADR-111), so abandoned streams
-      // are bounded by the capacity cap and the per-token session cap — both
-      // of which close the transport — not by a timeout. Setting a session
-      // timespan in the plugin settings re-enables the idle reap.
-      if (req.method === 'GET') {
-        req.socket?.setTimeout(0);
-      }
-      // Quick path: lightweight ping to keep session alive
-      if (request?.method === 'session/ping' || request?.method === 'status/ping') {
-        if (sessionId && this.sessionManager) {
-          this.sessionManager.touchSession(sessionId);
-        }
-        if (sessionId) {
-          res.setHeader('Mcp-Session-Id', sessionId);
-        }
-        res.status(200).json({ jsonrpc: '2.0', id: request?.id ?? null, result: { ok: true, sessionId: sessionId || null } });
-        return;
-      }
-      let transport: StreamableHTTPServerTransport | undefined;
-      let effectiveSessionId!: string; // will be set in the branches below
-      if (sessionId) {
-        effectiveSessionId = sessionId;
-      }
-          let mcpServer: MCPServer;
-
-      // Transport cleanup is handled by two existing paths, so there is no
-      // per-transport close hook here:
-      //   • idle eviction — the SessionManager emits `session-evicted`, whose
-      //     handler (see constructor) calls `transport.close()` and drops the
-      //     map entry; every transport maps to a manager-tracked session that
-      //     is eventually idle-evicted, so none leaks permanently.
-      //   • explicit teardown — the DELETE /mcp handler closes + removes it.
-      // A prior `transport.on('close'|'error')` helper here was dead code:
-      // SDK 1.29's StreamableHTTPServerTransport is not an EventEmitter and has
-      // no `.on`, so it never fired. Its only correct hook would be the
-      // `onclose` callback, which would merely duplicate the two paths above.
-
-      // Determine which server to use from the pool
-      if (sessionId && this.transports.has(sessionId)) {
-          // Use existing transport for this session
-          transport = this.transports.get(sessionId)!;
-          
-          // Get the server for this session (it should already exist)
-          mcpServer = this.mcpServerPool.getOrCreateServer(sessionId, authScope);
-          
-          // Update session activity
-          if (this.sessionManager) {
-            this.sessionManager.touchSession(sessionId);
-          }
-        } else if (sessionId && this.sessionManager) {
-          // Session ID provided but no active transport
-          // Only allow re-create on initialize; otherwise signal explicit session expiration
-          if (isInitializeRequest(request)) {
-            const session = this.sessionManager.getOrCreateSession(sessionId);
-            mcpServer = this.mcpServerPool.getOrCreateServer(sessionId, authScope);
-            effectiveSessionId = sessionId;
-            transport = new StreamableHTTPServerTransport({
-              sessionIdGenerator: () => effectiveSessionId
-            });
-            await mcpServer.connect(transport);
-            this.transports.set(effectiveSessionId, transport);
-            this.connectionCount++;
-            Debug.log(`♻️ Recreated transport for session ${sessionId} (requests: ${session.requestCount})`);
-          } else {
-            // Stale/evicted session: the client presented an Mcp-Session-Id
-            // we no longer hold a transport for, and this is not an
-            // initialize request. Per the Streamable HTTP spec (Session
-            // Management §3) the server MUST respond HTTP 404 for a
-            // terminated session; per §4 the client must then start a new
-            // session by sending a fresh InitializeRequest with no session
-            // ID. We do NOT fabricate a transport or attempt a server-side
-            // synthetic initialize — that cannot drive SDK 1.29's
-            // web-standard transport to an initialized state (ADR-106 /
-            // #190) and only produces an unrecoverable 400 loop (#128).
-            this.sendSessionTerminated(res, request, sessionId);
-            return;
-          }
-        } else if (!sessionId && isInitializeRequest(request)) {
-          // New initialization request - create new transport with session
-          effectiveSessionId = randomUUID();
-          
-          // Get or create server for this session
-          mcpServer = this.mcpServerPool.getOrCreateServer(effectiveSessionId, authScope);
-          
-          transport = new StreamableHTTPServerTransport({
-            sessionIdGenerator: () => effectiveSessionId
-          });
-          
-          // Connect the MCP server to this transport
-          await mcpServer.connect(transport);
-          
-          // Store the transport for future requests
-          this.transports.set(effectiveSessionId, transport);
-          this.connectionCount++;
-          
-          // Register session with manager if enabled
-          if (this.sessionManager) {
-            this.sessionManager.getOrCreateSession(effectiveSessionId);
-          }
-        } else {
-          // Non-initialize request with no usable session. Either:
-          //  - an Mcp-Session-Id we don't hold a transport for → spec §3
-          //    terminated-session signal (HTTP 404), client re-inits per §4;
-          //  - no Mcp-Session-Id at all and not an initialize → spec §2
-          //    "session required" (HTTP 400).
-          // sendSessionTerminated picks the status from sessionId presence.
-          // No phantom transport, no synthetic initialize (see #190/#128).
-          this.sendSessionTerminated(res, request, sessionId);
-          return;
-        }
-
-      // Safety: every reachable path above either bound a live `transport`
-      // (existing session, recreate-on-initialize, fresh initialize) or
-      // returned a spec-compliant terminated/required-session response. A
-      // missing transport here is an unexpected invariant break, not a stale
-      // session — surface it explicitly rather than papering it.
-      if (!transport) {
-        Debug.error('Invariant: no transport after session resolution');
-        this.sendSessionTerminated(res, request, sessionId);
-        return;
-      }
-
-      // Handle the request using the transport
-      await transport.handleRequest(
-        req,
-        res,
-        request
-      );
-      
-      Debug.log('📤 MCP Response sent via transport');
-
-    } catch (error) {
-      Debug.error('❌ MCP request error:', error);
-      if (!res.headersSent) {
-        res.status(500).json({
-          jsonrpc: '2.0'
-          , error: {
-            code: -32603
-            , message: 'Internal error: ' + (error instanceof Error ? error.message : 'Unknown error')
-          }
-          , id: null
-        });
-      }
-    }
+    await handleStreamableHttpRequest({
+      transports: this.transports
+      , getOrCreateServer: (sessionId, authScope) => this.mcpServerPool.getOrCreateServer(sessionId, authScope)
+      , sessionIdentityMatches: (sessionId, identity) => this.mcpServerPool.sessionIdentityMatches(sessionId, identity)
+      , sessionManager: this.sessionManager
+      , onTransportAdded: () => { this.connectionCount++; }
+    }, req, res);
   }
-
 
   async start(): Promise<void> {
     if (this.isRunning) {
@@ -644,12 +228,13 @@ export class MCPHttpServer {
       }
 
       // Create server - use certificate manager if available and HTTPS is enabled
-      if (this.isHttps && this.certificateManager) {
-        this.server = this.certificateManager.createServer(this.app, certificateConfig, this.port);
-      } else {
-        // Create standard HTTP server
-        this.server = createHttpServer(this.app);
-      }
+      this.server = createListenerServer({
+        app: this.app
+        , isHttps: this.isHttps
+        , certificateManager: this.certificateManager
+        , certificateConfig
+        , port: this.port
+      });
 
       const protocol = this.isHttps ? 'https' : 'http';
 
@@ -659,23 +244,8 @@ export class MCPHttpServer {
       }
 
       // Configure server timeouts to keep connections healthy and prevent hangs
-      try {
-        const serverWithTimeouts = this.server as unknown as ServerWithTimeouts;
-        // Keep connections alive long enough for clients, but not indefinitely
-        serverWithTimeouts.keepAliveTimeout = 60_000; // 60s
-        // Headers timeout should exceed keepAliveTimeout slightly
-        serverWithTimeouts.headersTimeout = 65_000; // 65s
-        // Per-request timeout; 0 to disable, or a generous value
-        serverWithTimeouts.requestTimeout = 120_000; // 120s
-        // Legacy idle timeout fallback
-        if (typeof serverWithTimeouts.setTimeout === 'function') {
-          serverWithTimeouts.setTimeout(120_000);
-        }
-        Debug.log('⏱️ Server timeouts configured (keepAlive=60s, headers=65s, request=120s)');
-      } catch (e) {
-        Debug.error('Failed to configure server timeouts:', e);
-      }
-      
+      configureServerTimeouts(this.server);
+
       // ADR-107: resolve bind host from settings and classify the combined state
       const bindMode = this.plugin?.settings?.bindMode ?? 'loopback';
       const customHost = this.plugin?.settings?.customBindHost ?? '';

@@ -20,14 +20,14 @@ describe('FolderScopedIgnoreManager', () => {
   const app = makeApp();
 
   it('excludes everything outside the folder', () => {
-    const m = new FolderScopedIgnoreManager(app, undefined, 'Projects/Blog');
+    const m = new FolderScopedIgnoreManager(app, undefined, [{ folder: 'Projects/Blog' }]);
     for (const p of ['Notes/a.md', 'secret.md', 'Projects/Other/x.md', '.mcpignore']) {
       expect(m.isExcluded(p)).toBe(true);
     }
   });
 
   it('includes the folder itself and everything under it', () => {
-    const m = new FolderScopedIgnoreManager(app, undefined, 'Projects/Blog');
+    const m = new FolderScopedIgnoreManager(app, undefined, [{ folder: 'Projects/Blog' }]);
     for (const p of ['Projects/Blog', 'Projects/Blog/post.md', 'Projects/Blog/assets/img.png']) {
       expect(m.isExcluded(p)).toBe(false);
     }
@@ -36,21 +36,21 @@ describe('FolderScopedIgnoreManager', () => {
   it('does not over-match a sibling folder that shares a prefix', () => {
     // 'Projects' + startsWith would also match 'ProjectsX' without the
     // trailing-separator comparison.
-    const m = new FolderScopedIgnoreManager(app, undefined, 'Projects');
+    const m = new FolderScopedIgnoreManager(app, undefined, [{ folder: 'Projects' }]);
     expect(m.isExcluded('ProjectsX/secret.md')).toBe(true);
     expect(m.isExcluded('ProjectsX')).toBe(true);
     expect(m.isExcluded('Projects/ok.md')).toBe(false);
   });
 
   it('normalizes leading slashes and backslashes before comparing', () => {
-    const m = new FolderScopedIgnoreManager(app, undefined, 'Projects/Blog');
+    const m = new FolderScopedIgnoreManager(app, undefined, [{ folder: 'Projects/Blog' }]);
     expect(m.isExcluded('/Projects/Blog/post.md')).toBe(false);
     expect(m.isExcluded('Projects\\Blog\\post.md')).toBe(false);
     expect(m.isExcluded('/Notes/a.md')).toBe(true);
   });
 
   it('filters path lists', () => {
-    const m = new FolderScopedIgnoreManager(app, undefined, 'Projects');
+    const m = new FolderScopedIgnoreManager(app, undefined, [{ folder: 'Projects' }]);
     expect(m.filterPaths(['Projects/a.md', 'Notes/b.md', 'Projects/sub/c.md']))
       .toEqual(['Projects/a.md', 'Projects/sub/c.md']);
   });
@@ -59,7 +59,7 @@ describe('FolderScopedIgnoreManager', () => {
     // VaultSecurityManager.isPathBlocked gates the exclusion check on
     // getEnabled(); a scope that only filtered enumerations but never blocked
     // a direct path would be a hole.
-    const m = new FolderScopedIgnoreManager(app, undefined, 'Projects');
+    const m = new FolderScopedIgnoreManager(app, undefined, [{ folder: 'Projects' }]);
     expect(m.getEnabled()).toBe(true);
   });
 
@@ -78,7 +78,7 @@ describe('FolderScopedIgnoreManager', () => {
     base.setEnabled(true);
     await new Promise(resolve => setTimeout(resolve, 0)); // let loadIgnoreFile finish
 
-    const m = new FolderScopedIgnoreManager(appWithIgnore, base, 'Projects/Blog');
+    const m = new FolderScopedIgnoreManager(appWithIgnore, base, [{ folder: 'Projects/Blog' }]);
     expect(m.isExcluded('Projects/Blog/draft.md')).toBe(true);
     expect(m.isExcluded('Projects/Blog/post.md')).toBe(false);
     expect(m.isExcluded('Notes/a.md')).toBe(true);
@@ -88,9 +88,61 @@ describe('FolderScopedIgnoreManager', () => {
     const base = new MCPIgnoreManager(app);
     base.setEnabled(false);
 
-    const m = new FolderScopedIgnoreManager(app, base, 'Projects');
+    const m = new FolderScopedIgnoreManager(app, base, [{ folder: 'Projects' }]);
     expect(m.getEnabled()).toBe(true);
     expect(m.isExcluded('Notes/a.md')).toBe(true);
     expect(m.isExcluded('Projects/a.md')).toBe(false);
+  });
+});
+
+describe('multi-scope read set', () => {
+  const app = makeApp();
+
+  it('a path is visible inside any scope folder', () => {
+    const m = new FolderScopedIgnoreManager(app, undefined, [{ folder: 'Projects' }, { folder: 'Notes' }]);
+    expect(m.isExcluded('Projects/a.md')).toBe(false);
+    expect(m.isExcluded('Notes/b.md')).toBe(false);
+    expect(m.isExcluded('secret.md')).toBe(true);
+    expect(m.isExcluded('Elsewhere/x.md')).toBe(true);
+  });
+
+  it('a slash folder entry scopes to the whole vault', () => {
+    const m = new FolderScopedIgnoreManager(app, undefined, [{ folder: '/' }]);
+    expect(m.isExcluded('secret.md')).toBe(false);
+    expect(m.isExcluded('Anywhere/deep/x.md')).toBe(false);
+  });
+
+  it('the resources namespace reads through as a scope entry', () => {
+    const m = new FolderScopedIgnoreManager(app, undefined, [{ folder: 'Projects' }, { folder: 'obsidian://resources/' }]);
+    expect(m.isExcluded('obsidian://resources/view')).toBe(false);
+    expect(m.isExcluded('obsidian://resources/infos/vault')).toBe(false);
+    expect(m.isExcluded('obsidian://snippets/theme.css')).toBe(true);
+  });
+});
+
+describe('per-scope write gate', () => {
+  const app = makeApp();
+
+  it('a read-only scope denies its paths, a writable scope does not', () => {
+    const m = new FolderScopedIgnoreManager(app, undefined, [{ folder: 'Notes', readOnly: true }, { folder: 'Projects' }]);
+    expect(m.isPathReadOnly('Notes/a.md')).toBe(true);
+    expect(m.isPathReadOnly('Projects/a.md')).toBe(false);
+  });
+
+  it('a path outside every scope is read-only: fail closed', () => {
+    const m = new FolderScopedIgnoreManager(app, undefined, [{ folder: 'Projects' }]);
+    expect(m.isPathReadOnly('Elsewhere/x.md')).toBe(true);
+  });
+
+  it('a writable scope wins when scopes overlap', () => {
+    const m = new FolderScopedIgnoreManager(app, undefined, [{ folder: 'Projects', readOnly: true }, { folder: 'Projects/Sub' }]);
+    expect(m.isPathReadOnly('Projects/Sub/x.md')).toBe(false);
+    expect(m.isPathReadOnly('Projects/other.md')).toBe(true);
+  });
+
+  it('a root entry with readOnly denies every path', () => {
+    const m = new FolderScopedIgnoreManager(app, undefined, [{ folder: '/', readOnly: true }]);
+    expect(m.isPathReadOnly('anything/x.md')).toBe(true);
+    expect(m.isPathReadOnly(undefined)).toBe(true);
   });
 });

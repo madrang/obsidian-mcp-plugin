@@ -8,7 +8,6 @@ import { SearchResult } from './advanced-search';
 import { SearchFacade } from './search-facade';
 import { MCPIgnoreManager } from '../security/mcp-ignore-manager';
 import { Minimatch } from 'minimatch';
-import { stringify } from 'yaml';
 import { Debug } from './debug';
 import { BasesAPI } from './bases-api';
 import { BaseYAML, BaseQueryResult as BasesQueryResult } from '../types/bases-yaml';
@@ -38,6 +37,10 @@ import {
 } from './app-config';
 import { isResourceUri } from '../resources/uri';
 import { ResourceError, ResourceService } from '../resources/types';
+import { applyPatchToContent } from './patch-content';
+import * as activeFile from './active-file';
+import { openFile, getCommands, executeCommand } from './workspace-ops';
+import { ensureDirectoryExists, withVaultRetry } from './vault-retry';
 
 /** MCP server info used by ObsidianAPI */
 interface ObsidianAPIMCPServerInfo {
@@ -59,21 +62,6 @@ export interface ObsidianAPIPluginRef {
   ignoreManager?: MCPIgnoreManager;
   mcpServer?: ObsidianAPIMCPServerInfo;
   manifest?: { dir?: string };
-}
-
-/** Internal Obsidian App interface exposing commands */
-interface AppInternal extends App {
-  commands?: {
-    commands?: Record<string, ObsidianCommand>;
-    executeCommandById?(id: string): boolean;
-  };
-}
-
-/** Internal Obsidian command structure */
-interface ObsidianCommand {
-  id: string;
-  name: string;
-  icon?: string;
 }
 
 /** Structured patch parameters for vault file operations */
@@ -205,70 +193,9 @@ export class ObsidianAPI {
 
   // Active file operations
   async getActiveFile(): Promise<ObsidianFile> {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (!activeFile) {
-      throw new Error('No active file');
-    }
-
-    const content = await this.app.vault.read(activeFile);
-
-    // Extract metadata from cache
-    const cache = this.app.metadataCache.getFileCache(activeFile);
-    const tags = cache ? (getAllTags(cache) || []) : [];
-    const frontmatter = cache?.frontmatter ? { ...cache.frontmatter } : {};
-
-    // Remove position metadata from frontmatter (internal Obsidian data)
-    if (frontmatter.position) {
-      delete frontmatter.position;
-    }
-
-    return {
-      path: activeFile.path
-      , content
-      , tags
-      , frontmatter
-    };
+    return activeFile.getActiveFile(this.app);
   }
 
-  async updateActiveFile(content: string) {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (!activeFile) {
-      throw new Error('No active file');
-    }
-
-    await this.app.vault.modify(activeFile, content);
-    return { success: true };
-  }
-
-  async appendToActiveFile(content: string) {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (!activeFile) {
-      throw new Error('No active file');
-    }
-
-    const existingContent = await this.app.vault.read(activeFile);
-    await this.app.vault.modify(activeFile, existingContent + content);
-    return { success: true };
-  }
-
-  async deleteActiveFile() {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (!activeFile) {
-      throw new Error('No active file');
-    }
-
-    await this.app.fileManager.trashFile(activeFile);
-    return { success: true };
-  }
-
-  async patchActiveFile(params: PatchParams) {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (!activeFile) {
-      throw new Error('No active file');
-    }
-
-    return await this.patchVaultFile(activeFile.path, params);
-  }
 
   // Vault file operations
   listFiles(directory?: string): Promise<string[]> {
@@ -638,10 +565,10 @@ export class ObsidianAPI {
     // Ensure directory exists
     const dirPath = path.substring(0, path.lastIndexOf('/'));
     if (dirPath && !this.app.vault.getAbstractFileByPath(dirPath)) {
-      await this.ensureDirectoryExists(dirPath);
+      await ensureDirectoryExists(this.app, dirPath);
     }
 
-    const result = await this.withVaultRetry(
+    const result = await withVaultRetry(
       async () => {
         const file = await this.app.vault.create(path, content);
         return {
@@ -872,7 +799,7 @@ export class ObsidianAPI {
     if (isConfigUri(path)) {
       const key = configKeyFromUri(path);
       const existing = this.readConfigContentOrThrow(path, key);
-      const content = this.applyPatchToContent(existing, params);
+      const content = applyPatchToContent(existing, params);
       const { mtime } = writeConfigText(this.app, path, key, content);
       return { success: true, updated_content: content, mtime, hash: contentHash(content) };
     }
@@ -881,7 +808,7 @@ export class ObsidianAPI {
     if (isSnippetsUri(path)) {
       const fileName = snippetFileNameFromUri(path);
       const existing = await this.readSnippetContentOrThrow(path, fileName);
-      const content = this.applyPatchToContent(existing, params);
+      const content = applyPatchToContent(existing, params);
       const { mtime } = await writeSnippetFile(this.app, fileName, content);
       return { success: true, updated_content: content, mtime, hash: contentHash(content) };
     }
@@ -892,7 +819,7 @@ export class ObsidianAPI {
     }
 
     let content = await this.app.vault.read(file);
-    content = this.applyPatchToContent(content, params);
+    content = applyPatchToContent(content, params);
 
     await this.app.vault.modify(file, content);
     // Post-write stat for write chaining (see updateFile).
@@ -902,30 +829,6 @@ export class ObsidianAPI {
       , mtime: file.stat.mtime
       , hash: contentHash(content)
     };
-  }
-
-  /** The content transformation of patchVaultFile, shared by the vault and
-   * snippet branches. Pure: content in, content out. */
-  private applyPatchToContent(content: string, params: PatchParams): string {
-    // Handle structured targeting (heading, block, frontmatter)
-    if (params.targetType && params.target) {
-      return this.applyStructuredPatch(content, params);
-    }
-    // Handle legacy patch operations
-    if (params.operation === 'replace') {
-      if (params.old_text && params.new_text) {
-        return content.replace(params.old_text, params.new_text);
-      }
-    } else if (params.operation === 'insert') {
-      if (params.position !== undefined) {
-        return content.slice(0, params.position) + (params.text ?? '') + content.slice(params.position);
-      }
-    } else if (params.operation === 'delete') {
-      if (params.start !== undefined && params.end !== undefined) {
-        return content.slice(0, params.start) + content.slice(params.end);
-      }
-    }
-    return content;
   }
 
   /** getFile branch for a snippets URI. Tags and frontmatter do not exist
@@ -965,260 +868,6 @@ export class ObsidianAPI {
       }
       throw error;
     }
-  }
-
-  private applyStructuredPatch(content: string, params: PatchParams): string {
-    const { targetType, target, operation, content: patchContent, value } = params;
-
-    // Without the guard the heading and block switches would silently
-    // no-op on an operation they have no case for.
-    if (operation === 'remove' && targetType !== 'frontmatter') {
-      throw new Error('operation "remove" works on a frontmatter field only');
-    }
-
-    switch (targetType) {
-      case 'heading':
-        return this.patchHeading(content, target ?? '', operation ?? '', patchContent ?? '');
-      case 'block':
-        return this.patchBlock(content, target ?? '', operation ?? '', patchContent ?? '');
-      case 'frontmatter':
-        return this.patchFrontmatter(content, target ?? '', operation ?? '', patchContent ?? '', value);
-      default:
-        throw new Error(`Unknown targetType: ${String(targetType)}`);
-    }
-  }
-
-  private patchHeading(content: string, headingPath: string, operation: string, patchContent: string): string {
-    const lines = content.split('\n');
-    const headingHierarchy = headingPath.split('::').map(h => h.trim());
-    
-    // Find the target heading
-    let currentLevel = 0;
-    let targetLineIndex = -1;
-    let endLineIndex = -1;
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
-      
-      if (headingMatch) {
-        const level = headingMatch[1].length;
-        const headingText = headingMatch[2].trim();
-        
-        // Check if we're at the right level in hierarchy
-        if (currentLevel < headingHierarchy.length && 
-            headingText === headingHierarchy[currentLevel]) {
-          currentLevel++;
-          
-          if (currentLevel === headingHierarchy.length) {
-            targetLineIndex = i;
-            // Find where this section ends
-            for (let j = i + 1; j < lines.length; j++) {
-              const nextHeadingMatch = lines[j].match(/^(#{1,6})\s+/);
-              if (nextHeadingMatch && nextHeadingMatch[1].length <= level) {
-                endLineIndex = j;
-                break;
-              }
-            }
-            if (endLineIndex === -1) {
-              endLineIndex = lines.length;
-            }
-            break;
-          }
-        } else if (level <= currentLevel) {
-          // Reset if we've moved to a different section
-          currentLevel = 0;
-        }
-      }
-    }
-    
-    if (targetLineIndex === -1) {
-      throw new Error(`Heading not found: ${headingPath}`);
-    }
-    
-    // Apply the operation
-    switch (operation) {
-      case 'append': {
-        // Add content at the end of the section
-        // Fix for list continuity - thanks to @that0n3guy (PR #44)
-        const lastLine = endLineIndex > 0 ? lines[endLineIndex - 1] : '';
-        const isLastLineEmpty = lastLine.trim() === '';
-        const listRegex = /^(\s*)([-*+]|\d+\.)\s+/;
-        const isPatchList = listRegex.test(patchContent);
-
-        // Find the last non-empty line to check if it's a list
-        let lastNonEmptyLine = '';
-        for (let i = endLineIndex - 1; i >= targetLineIndex + 1; i--) {
-          if (lines[i].trim() !== '') {
-            lastNonEmptyLine = lines[i];
-            break;
-          }
-        }
-        const isLastNonEmptyLineList = listRegex.test(lastNonEmptyLine);
-
-        if (isLastLineEmpty && isLastNonEmptyLineList && isPatchList) {
-          // Preserve list continuity by replacing empty line
-          lines.splice(endLineIndex - 1, 1, patchContent);
-        } else if (!isLastLineEmpty && isLastNonEmptyLineList && isPatchList) {
-          // Append list item without blank line
-          lines.splice(endLineIndex, 0, patchContent);
-        } else {
-          // Default: add blank line separator (original behavior)
-          lines.splice(endLineIndex, 0, '', patchContent);
-        }
-        break;
-      }
-      case 'prepend':
-        // Add content right after the heading
-        lines.splice(targetLineIndex + 1, 0, '', patchContent);
-        break;
-      case 'replace': {
-        // Replace the entire section content (keeping the heading)
-        const sectionLines = endLineIndex - targetLineIndex - 1;
-        lines.splice(targetLineIndex + 1, sectionLines, '', patchContent);
-        break;
-      }
-    }
-    
-    return lines.join('\n');
-  }
-
-  private patchBlock(content: string, blockId: string, operation: string, patchContent: string): string {
-    const lines = content.split('\n');
-    let blockLineIndex = -1;
-    
-    // Find the block by ID (blocks end with ^blockId)
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].trim().endsWith(`^${blockId}`)) {
-        blockLineIndex = i;
-        break;
-      }
-    }
-    
-    if (blockLineIndex === -1) {
-      throw new Error(`Block not found: ^${blockId}`);
-    }
-    
-    // Apply the operation
-    switch (operation) {
-      case 'append':
-        lines[blockLineIndex] = lines[blockLineIndex].replace(`^${blockId}`, `${patchContent} ^${blockId}`);
-        break;
-      case 'prepend': {
-        const blockContent = lines[blockLineIndex].replace(`^${blockId}`, '').trim();
-        lines[blockLineIndex] = `${patchContent} ${blockContent} ^${blockId}`;
-        break;
-      }
-      case 'replace':
-        lines[blockLineIndex] = `${patchContent} ^${blockId}`;
-        break;
-    }
-    
-    return lines.join('\n');
-  }
-
-  /**
-   * Patch a frontmatter field, field-block aware: the write replaces only
-   * the target field's lines (its `field:` line plus its indented lines),
-   * so untouched keys stay byte-identical.
-   *
-   * Two input paths. `value` (any JSON type) serializes through the yaml
-   * library, so "true" stays a string and arrays and objects round-trip;
-   * it works with operation 'replace' only. The text path keeps the
-   * append/prepend/replace string semantics, but the result is serialized
-   * as YAML instead of written raw, and append/prepend refuse a field
-   * whose current block is multi-line rather than corrupting it.
-   */
-  private patchFrontmatter(content: string, field: string, operation: string, patchContent: string, value?: unknown): string {
-    const lines = content.split('\n');
-    let frontmatterStart = -1;
-    let frontmatterEnd = -1;
-
-    // Find frontmatter boundaries
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].trim() === '---') {
-        if (frontmatterStart === -1) {
-          frontmatterStart = i;
-        } else {
-          frontmatterEnd = i;
-          break;
-        }
-      }
-    }
-
-    const hasValue = value !== undefined;
-    if (hasValue && operation !== 'replace') {
-      throw new Error('The value parameter works with operation "replace". Use newText for append and prepend.');
-    }
-
-    // Serialize one field assignment. lineWidth 0 never folds long scalars.
-    const fieldLines = (val: unknown): string[] =>
-      stringify({ [field]: val }, { lineWidth: 0 }).replace(/\n$/, '').split('\n');
-
-    // A missing frontmatter block: every operation but remove creates it.
-    if (frontmatterStart === -1) {
-      if (operation === 'remove') {
-        throw new Error(`Field not found: ${field}`);
-      }
-      lines.unshift('---', ...(hasValue ? fieldLines(value) : fieldLines(patchContent)), '---', '');
-      return lines.join('\n');
-    }
-
-    // Find the field block: the `field:` line plus its indented lines.
-    let fieldLineIndex = -1;
-    for (let i = frontmatterStart + 1; i < frontmatterEnd; i++) {
-      if (lines[i].startsWith(`${field}:`)) {
-        fieldLineIndex = i;
-        break;
-      }
-    }
-
-    if (fieldLineIndex === -1) {
-      if (operation === 'remove') {
-        throw new Error(`Field not found: ${field}`);
-      }
-      lines.splice(frontmatterEnd, 0, ...(hasValue ? fieldLines(value) : fieldLines(patchContent)));
-      return lines.join('\n');
-    }
-
-    let fieldEnd = fieldLineIndex + 1;
-    while (fieldEnd < frontmatterEnd && (lines[fieldEnd].startsWith(' ') || lines[fieldEnd].startsWith('\t'))) {
-      fieldEnd++;
-    }
-
-    if (operation === 'remove') {
-      lines.splice(fieldLineIndex, fieldEnd - fieldLineIndex);
-      return lines.join('\n');
-    }
-
-    if (hasValue) {
-      lines.splice(fieldLineIndex, fieldEnd - fieldLineIndex, ...fieldLines(value));
-      return lines.join('\n');
-    }
-
-    const currentValue = lines[fieldLineIndex].substring(field.length + 1).trim();
-    if ((operation === 'append' || operation === 'prepend') && fieldEnd > fieldLineIndex + 1) {
-      throw new Error(
-        `Field ${field} holds a multi-line value (an array or object). Use value with operation "replace" to write it.`
-      );
-    }
-
-    let combined: string;
-    switch (operation) {
-      case 'append':
-        combined = currentValue ? `${currentValue} ${patchContent}` : patchContent;
-        break;
-      case 'prepend':
-        combined = currentValue ? `${patchContent} ${currentValue}` : patchContent;
-        break;
-      case 'replace':
-        combined = patchContent;
-        break;
-      default:
-        throw new Error(`Unknown frontmatter operation: ${String(operation)}`);
-    }
-    lines.splice(fieldLineIndex, fieldEnd - fieldLineIndex, ...fieldLines(combined));
-    return lines.join('\n');
   }
 
   /**
@@ -1362,125 +1011,16 @@ export class ObsidianAPI {
     return response;
   }
 
-  // Obsidian integration
   async openFile(path: string) {
-    const file = this.app.vault.getAbstractFileByPath(path);
-    if (!file || !(file instanceof TFile)) {
-      throw new Error(`File not found: ${path}`);
-    }
-
-    const leaf = this.app.workspace.getLeaf(false);
-    await leaf.openFile(file);
-    return { success: true };
+    return openFile(this.app, path);
   }
 
   getCommands(): Command[] {
-    const appInternal = this.app as unknown as AppInternal;
-    const commands = appInternal.commands?.commands;
-    if (!commands) {
-      return [];
-    }
-
-    return Object.values(commands).map((cmd: ObsidianCommand) => ({
-      id: cmd.id
-      , name: cmd.name
-      , icon: cmd.icon
-    }));
+    return getCommands(this.app);
   }
 
-  /**
-   * Run an Obsidian command by id.
-   *
-   * `async` purely so SecureObsidianAPI's override can await validateOperation,
-   * keeping a single gate function rather than adding a synchronous entry point
-   * that cannot validate paths. Nothing calls this yet — only getCommands() is
-   * wired to a tool — so widening the signature costs nothing today.
-   *
-   * It needs the gate because the command palette contains mutators ("Delete
-   * current file", "Move file to…"), making an unguarded executeCommand a write
-   * path around the security layer.
-   */
   async executeCommand(commandId: string) {
-    await Promise.resolve();
-    const appInternal = this.app as unknown as AppInternal;
-    const success = appInternal.commands?.executeCommandById?.(commandId);
-    return {
-      success: !!success
-      , commandId
-    };
-  }
-
-  // Helper methods
-  private async ensureDirectoryExists(dirPath: string) {
-    const parts = dirPath.split('/').filter(part => part);
-    let currentPath = '';
-    
-    for (const part of parts) {
-      currentPath = currentPath ? `${currentPath}/${part}` : part;
-      if (!this.app.vault.getAbstractFileByPath(currentPath)) {
-        await this.createFolderWithRetry(currentPath);
-      }
-    }
-  }
-
-  private async createFolderWithRetry(folderPath: string): Promise<void> {
-    await this.withVaultRetry(
-      async () => {
-        await this.app.vault.createFolder(folderPath);
-      },
-      'folder creation',
-      300 // Base delay for folder operations
-    );
-  }
-
-  /**
-   * Universal retry mechanism for Vault operations that may conflict with sync processes
-   * Handles iCloud Drive, OneDrive, Dropbox, and other sync service timing issues
-   * 
-   * @param operation - Async function to execute with retry logic
-   * @param operationType - Human-readable description for logging
-   * @param baseDelayMs - Base delay in milliseconds (exponentially increased per retry)
-   * @param maxRetries - Maximum number of retry attempts
-   * @returns Result of the operation
-   */
-  private async withVaultRetry<T>(
-    operation: () => Promise<T>,
-    operationType: string,
-    baseDelayMs: number = 500,
-    maxRetries: number = 3
-  ): Promise<T> {
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        return await operation();
-      } catch (error: unknown) {
-        // Check if this is a sync-related conflict error
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        const isSyncConflictError = errorMessage && (
-          errorMessage.includes('already exists') ||
-          errorMessage.includes('file exists') ||
-          errorMessage.includes('folder exists') ||
-          errorMessage.includes('EEXIST') ||
-          errorMessage.includes('ENOENT') || // File disappeared during sync
-          errorMessage.includes('EBUSY') ||  // File locked by sync process
-          errorMessage.includes('EPERM')     // Permission denied during sync
-        );
-
-        if (isSyncConflictError && attempt < maxRetries - 1) {
-          // Exponential backoff: allow time for sync processes to stabilize
-          const delay = Math.pow(2, attempt) * baseDelayMs;
-          Debug.log(`${operationType} failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms... Error: ${errorMessage}`);
-          // Backoff delay; window is aliased to globalThis in the Jest node env.
-          await new Promise(resolve => window.setTimeout(resolve, delay));
-          continue;
-        }
-
-        // If it's the final attempt or not a sync-related error, re-throw
-        throw error;
-      }
-    }
-
-    // This should never be reached due to the loop logic, but TypeScript needs it
-    throw new Error(`Failed ${operationType} after ${maxRetries} attempts`);
+    return executeCommand(this.app, commandId);
   }
 
   // ============================================

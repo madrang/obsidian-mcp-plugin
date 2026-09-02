@@ -16,7 +16,7 @@
  */
 import { SecureObsidianAPI } from '../../src/security';
 import { createTools, getActionsForOperation } from '../../src/tools/tool-factory';
-import { BASELINE_SECURITY_SETTINGS } from '../../src/mcp-server';
+import { BASELINE_SECURITY_SETTINGS } from '../../src/security/baseline-settings';
 import { App, TFile } from 'obsidian';
 
 jest.mock('obsidian');

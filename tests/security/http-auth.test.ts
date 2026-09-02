@@ -194,13 +194,13 @@ describe('authorizeRequest', () => {
 
   /**
    * ADR-110: scoped tokens. Each match must carry the token's identity (for
-   * session binding) and its folder/readOnly restriction (for the scoped
-   * session API). The primary key's decision shape is pinned unchanged.
+   * session binding) and its scope list (for the scoped session API). The
+   * primary key's decision shape is pinned unchanged.
    */
   describe('scoped tokens', () => {
     const SCOPED: ScopedToken[] = [
-      { name: 'blog', token: 'blog-token-aaaa', folder: 'Projects/Blog' },
-      { name: 'reader', token: 'reader-token-bbbb', folder: 'Notes', readOnly: true },
+      { name: 'blog', token: 'blog-token-aaaa', scopes: [{ folder: 'Projects/Blog' }] },
+      { name: 'reader', token: 'reader-token-bbbb', scopes: [{ folder: 'Notes', readOnly: true }] },
       { name: 'full', token: 'full-token-cccc' },
     ];
 
@@ -212,7 +212,7 @@ describe('authorizeRequest', () => {
         allow: true,
         reason: 'authenticated',
         identity: identityForToken('blog-token-aaaa'),
-        folder: 'Projects/Blog',
+        scopes: [{ folder: 'Projects/Blog' }],
       });
     });
 
@@ -224,8 +224,7 @@ describe('authorizeRequest', () => {
         allow: true,
         reason: 'authenticated',
         identity: identityForToken('reader-token-bbbb'),
-        folder: 'Notes',
-        readOnly: true,
+        scopes: [{ folder: 'Notes', readOnly: true }],
       });
     });
 
@@ -248,7 +247,7 @@ describe('authorizeRequest', () => {
         allow: true,
         reason: 'authenticated',
         identity: identityForToken('blog-token-aaaa'),
-        folder: 'Projects/Blog',
+        scopes: [{ folder: 'Projects/Blog' }],
       });
     });
 
@@ -300,13 +299,13 @@ describe('authorizeRequest', () => {
       ])).toEqual([{ name: 'ok', token: 'tok-1' }]);
     });
 
-    it('trims and de-slashes folders, empty becomes unset', () => {
+    it('trims and de-slashes legacy folders, empty becomes unscoped', () => {
       expect(normalizeScopedTokens([
         { name: 'a', token: 't1', folder: ' /Projects/Blog/ ' },
         { name: 'b', token: 't2', folder: '/' },
         { name: 'c', token: 't3', folder: 5 },
       ])).toEqual([
-        { name: 'a', token: 't1', folder: 'Projects/Blog' },
+        { name: 'a', token: 't1', scopes: [{ folder: 'Projects/Blog' }] },
         { name: 'b', token: 't2' },
         { name: 'c', token: 't3' },
       ]);
@@ -317,9 +316,63 @@ describe('authorizeRequest', () => {
         { token: 't1', readOnly: true },
         { token: 't2', readOnly: 'yes' },
       ])).toEqual([
-        { name: '', token: 't1', readOnly: true },
+        { name: '', token: 't1', scopes: [{ folder: '/', readOnly: true }] },
         { name: '', token: 't2' },
       ]);
     });
+  });
+});
+
+describe('multi-scope tokens', () => {
+  const KEY = 'primary-key';
+
+  it('a match carries the token scope list', () => {
+    const decision = authorizeRequest({
+      method: 'POST'
+      , authHeader: 'Bearer multi-token-dddd'
+      , apiKey: KEY
+      , scopedTokens: [{
+        name: 'multi'
+        , token: 'multi-token-dddd'
+        , scopes: [{ folder: 'Projects' }, { folder: 'Notes', readOnly: true }]
+      }] as never
+    });
+    expect(decision).toMatchObject({
+      allow: true
+      , reason: 'authenticated'
+      , scopes: [{ folder: 'Projects' }, { folder: 'Notes', readOnly: true }]
+    });
+  });
+
+  it('normalizeScopedTokens migrates a legacy folder/readOnly token into one scope', () => {
+    const [t] = normalizeScopedTokens([
+      { name: 'legacy', token: 'tok', folder: 'Projects', readOnly: true }
+    ] as never);
+    expect(t.scopes).toEqual([{ folder: 'Projects', readOnly: true }]);
+    expect((t as { folder?: string }).folder).toBeUndefined();
+  });
+
+  it('normalizeScopedTokens migrates a legacy unscoped token to no scopes', () => {
+    const [t] = normalizeScopedTokens([{ name: 'root', token: 'tok', folder: '/' }] as never);
+    expect(t.scopes).toBeUndefined();
+  });
+
+  it('normalizeScopedTokens migrates a legacy root read-only token to one root scope', () => {
+    const [t] = normalizeScopedTokens([{ name: 'ro', token: 'tok', readOnly: true }] as never);
+    expect(t.scopes).toEqual([{ folder: '/', readOnly: true }]);
+  });
+
+  it('normalizeScopedTokens drops scope entries without a folder', () => {
+    const [t] = normalizeScopedTokens([{
+      name: 'j', token: 'tok', scopes: [{ folder: ' /Projects/ ' }, { folder: 5 }, null, {}, { readOnly: true }]
+    }] as never);
+    expect(t.scopes).toEqual([{ folder: 'Projects' }]);
+  });
+
+  it('normalizeScopedTokens keeps a slash entry as the vault root', () => {
+    const [t] = normalizeScopedTokens([{
+      name: 'r', token: 'tok', scopes: [{ folder: ' / ' }, { folder: 'Projects' }]
+    }] as never);
+    expect(t.scopes).toEqual([{ folder: '/' }, { folder: 'Projects' }]);
   });
 });

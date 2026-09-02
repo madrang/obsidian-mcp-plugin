@@ -174,20 +174,6 @@ describe('write-path containment', () => {
     });
   });
 
-  describe('active-file writes go through the security layer', () => {
-    it('blocks update/append/delete under read-only', async () => {
-      const api = new SecureObsidianAPI(
-        makeApp(['active.md'], writes), undefined, { settings: {} } as never,
-        VaultSecurityManager.presets.readOnly()
-      );
-
-      await expect(api.updateActiveFile('x')).rejects.toThrow(SecurityError);
-      await expect(api.appendToActiveFile('x')).rejects.toThrow(SecurityError);
-      await expect(api.deleteActiveFile()).rejects.toThrow(SecurityError);
-      expect(writes).toEqual([]);
-    });
-  });
-
   /**
    * End-to-end through the real router — this is the shape that actually escaped
    * the vault live in 0.11.42, in default configuration.

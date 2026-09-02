@@ -6,6 +6,7 @@ import {
 	SecuritySettings,
 	SecurityLogEntry
 } from './vault-security-manager';
+import { SecurityError } from './path-validator';
 import { MCPIgnoreManager } from './mcp-ignore-manager';
 import { ObsidianConfig, ObsidianFile, ObsidianFileResponse, FileStatResponse } from '../types/obsidian';
 import { BaseYAML } from '../types/bases-yaml';
@@ -24,6 +25,8 @@ interface SecurePluginRef {
 		allowConfigEditing?: boolean;
 	};
 	ignoreManager?: MCPIgnoreManager;
+	/** Scoped sessions: true when the path sits in a read-only scope. */
+	scopeWriteGate?: (path?: string) => boolean;
 	mcpServer?: { isServerRunning(): boolean; getConnectionCount(): number };
 	manifest?: { dir?: string };
 }
@@ -70,7 +73,7 @@ export class SecureObsidianAPI extends ObsidianAPI {
 			);
 		}
 
-		this.security = new VaultSecurityManager(app, settings, ignoreManager, isReadOnly, isSnippetWriteAllowed, isConfigWriteAllowed);
+		this.security = new VaultSecurityManager(app, settings, ignoreManager, isReadOnly, isSnippetWriteAllowed, isConfigWriteAllowed, plugin?.scopeWriteGate);
 		
 		Debug.log('🔐 SecureObsidianAPI initialized with security settings:', this.security.getSettings());
 		Debug.log('🔐 SecureObsidianAPI has ignoreManager:', !!ignoreManager);
@@ -125,13 +128,23 @@ export class SecureObsidianAPI extends ObsidianAPI {
 	async getActiveFile(): Promise<ObsidianFile> {
 		// Validate the active file's path when there is one: an .mcpignore-excluded
 		// or folder-scoped-out note must not leak through the active-file channel
-		// (ADR-110). With no active file the path is undefined, path checks skip,
-		// and the base class throws 'No active file' as before.
-		await this.security.validateOperation({
-			type: OperationType.READ
-			, path: this.getApp().workspace.getActiveFile()?.path
-			, context: { method: 'getActiveFile' }
-		});
+		// (ADR-110). An out-of-scope active file answers as if no file were
+		// open — the same masking an excluded path gets in getFile — so the
+		// refusal names no path and proves no existence. With no active file
+		// the path is undefined, path checks skip, and the base class throws
+		// 'No active file' as before: masked and genuine are indistinguishable.
+		try {
+			await this.security.validateOperation({
+				type: OperationType.READ
+				, path: this.getApp().workspace.getActiveFile()?.path
+				, context: { method: 'getActiveFile' }
+			});
+		} catch (error) {
+			if (error instanceof SecurityError) {
+				throw new Error('No active file');
+			}
+			throw error;
+		}
 
 		return super.getActiveFile();
 	}
@@ -302,43 +315,6 @@ export class SecureObsidianAPI extends ObsidianAPI {
 		});
 
 		return super.exportBase(validated.path!, format, viewName, options);
-	}
-
-	// Active-file writes
-	//
-	// Not currently reachable from the tool surface, but they write via
-	// app.vault.modify / fileManager.trashFile, so an unwrapped version is the
-	// same bug class as createBase waiting for its first caller. patchActiveFile
-	// needs no override — it delegates to the wrapped patchVaultFile.
-
-	async updateActiveFile(content: string): ReturnType<ObsidianAPI['updateActiveFile']> {
-		await this.security.validateOperation({
-			type: OperationType.UPDATE
-			, path: this.getApp().workspace.getActiveFile()?.path
-			, context: { method: 'updateActiveFile', contentSize: content.length }
-		});
-
-		return super.updateActiveFile(content);
-	}
-
-	async appendToActiveFile(content: string): ReturnType<ObsidianAPI['appendToActiveFile']> {
-		await this.security.validateOperation({
-			type: OperationType.UPDATE
-			, path: this.getApp().workspace.getActiveFile()?.path
-			, context: { method: 'appendToActiveFile', contentSize: content.length }
-		});
-
-		return super.appendToActiveFile(content);
-	}
-
-	async deleteActiveFile(): ReturnType<ObsidianAPI['deleteActiveFile']> {
-		await this.security.validateOperation({
-			type: OperationType.DELETE
-			, path: this.getApp().workspace.getActiveFile()?.path
-			, context: { method: 'deleteActiveFile' }
-		});
-
-		return super.deleteActiveFile();
 	}
 
 	// File Operations - OPEN

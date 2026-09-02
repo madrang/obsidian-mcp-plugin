@@ -14,27 +14,32 @@ import { createHash, timingSafeEqual } from 'crypto';
  */
 
 export type AuthDecision =
-  | { allow: true; reason: 'preflight' | 'auth-disabled' | 'no-key-configured' | 'authenticated'; identity?: string; folder?: string; readOnly?: boolean }
+  | { allow: true; reason: 'preflight' | 'auth-disabled' | 'no-key-configured' | 'authenticated'; identity?: string; scopes?: TokenScope[] }
   | { allow: false; status: 401; error: string; reason: 'missing-header' | 'bad-format' | 'bad-key' };
+
+/** One scope entry of a token: a folder (empty = whole vault) plus the
+ * read-only flag for that folder alone. */
+export interface TokenScope {
+  folder?: string;
+  readOnly?: boolean;
+}
 
 /**
  * An additional bearer credential beside the primary apiKey (ADR-110).
- * `folder` restricts the token to one vault folder; `readOnly` denies its
- * writes. Both are optional — a scoped token with neither behaves like the
- * primary key, but keeps its own identity for session binding.
+ * `scopes` lists the folders the token reaches, each with its own read-only
+ * flag. Absent or empty means whole vault with full access — the token keeps
+ * its own identity for session binding either way.
  */
 export interface ScopedToken {
   name: string;
   token: string;
-  folder?: string;
-  readOnly?: boolean;
+  scopes?: TokenScope[];
 }
 
 /** The scope a matched scoped token carries into session creation (ADR-110). */
 export interface AuthScope {
   identity: string;
-  folder?: string;
-  readOnly?: boolean;
+  scopes?: TokenScope[];
 }
 
 /**
@@ -48,25 +53,62 @@ export function identityForToken(token: string): string {
 
 /**
  * Normalize the scopedTokens setting loaded from data.json. Entries without a
- * token string are dropped; the folder is trimmed and stripped of slashes, so
- * "Projects/Blog/" and "/Projects/Blog" both mean "Projects/Blog". A folder
- * that matches nothing fails closed: every vault path falls outside it.
+ * token string are dropped. Every scope entry carries a folder: trimmed and
+ * stripped of slashes, so "Projects/Blog/" and "/Projects/Blog" both mean
+ * "Projects/Blog", and a folder of only slashes canonicalizes to "/", the
+ * vault root. An entry without a usable folder is dropped — a root scope is
+ * spelled `{ folder: '/' }`, never an empty folder. A folder that matches
+ * nothing fails closed: every vault path falls outside it.
  */
 export function normalizeScopedTokens(raw: unknown): ScopedToken[] {
   if (!Array.isArray(raw)) return [];
   const out: ScopedToken[] = [];
   for (const entry of raw) {
     if (!entry || typeof entry !== 'object') continue;
-    const e = entry as Partial<ScopedToken>;
+    const e = entry as Partial<ScopedToken> & { folder?: unknown; readOnly?: unknown; scopes?: unknown };
     if (typeof e.token !== 'string' || !e.token) continue;
-    const folder = typeof e.folder === 'string'
-      ? e.folder.trim().replace(/^\/+|\/+$/g, '')
-      : '';
+
+    /** Trimmed folder, "/" for the vault root, undefined when unusable. */
+    const trimFolder = (f: unknown): string | undefined => {
+      if (typeof f !== 'string') return undefined;
+      const trimmed = f.trim();
+      if (trimmed === '') return undefined;
+      const stripped = trimmed.replace(/^\/+|\/+$/g, '');
+      return stripped === '' ? '/' : stripped;
+    };
+
+    let scopes: TokenScope[] | undefined;
+    if (Array.isArray(e.scopes)) {
+      // New shape: every entry needs a folder; folderless entries are junk
+      // and drop.
+      scopes = [];
+      for (const scope of e.scopes) {
+        if (!scope || typeof scope !== 'object') continue;
+        const sc = scope as Partial<TokenScope>;
+        const folder = trimFolder(sc.folder);
+        if (folder === undefined) continue;
+        const ro = sc.readOnly === true;
+        scopes.push({ folder, ...(ro ? { readOnly: true } : {}) });
+      }
+      if (scopes.length === 0) scopes = undefined;
+    } else {
+      // Legacy single-folder shape migrates into one scope entry. A legacy
+      // "/" folder (or none) with readOnly was a whole-vault read-only
+      // token: it becomes the root scope. The same without readOnly was an
+      // unscoped token and stays unscoped.
+      const folder = trimFolder(e.folder);
+      const ro = e.readOnly === true;
+      if (folder && folder !== '/') {
+        scopes = [{ folder, ...(ro ? { readOnly: true } : {}) }];
+      } else if (ro) {
+        scopes = [{ folder: '/', readOnly: true }];
+      }
+    }
+
     out.push({
       name: typeof e.name === 'string' ? e.name : ''
       , token: e.token
-      , ...(folder ? { folder } : {})
-      , ...(e.readOnly === true ? { readOnly: true } : {})
+      , ...(scopes ? { scopes } : {})
     });
   }
   return out;
@@ -125,8 +167,7 @@ function scopedDecision(token: ScopedToken): AuthDecision {
     allow: true
     , reason: 'authenticated'
     , identity: identityForToken(token.token)
-    , ...(token.folder ? { folder: token.folder } : {})
-    , ...(token.readOnly === true ? { readOnly: true } : {})
+    , ...(token.scopes ? { scopes: token.scopes } : {})
   };
 }
 

@@ -6,7 +6,7 @@
 import { CertificateConfig } from '../utils/certificate-manager';
 import { ValidationConfig } from '../validation/input-validator';
 import { BindMode } from '../utils/network-classifier';
-import { ScopedToken } from '../security/http-auth';
+import { ScopedToken, normalizeScopedTokens } from '../security/http-auth';
 
 export interface MCPPluginSettings {
 	httpEnabled: boolean;
@@ -109,3 +109,38 @@ export const DEFAULT_SETTINGS: MCPPluginSettings = {
 	}
 	, toolVisibility: {} // Empty = all tools enabled (missing keys default to true)
 };
+
+/**
+ * Coerce the security-relevant fields of a settings object loaded from
+ * data.json. loadData() returns whatever is on disk, and data.json is
+ * hand-editable. The security predicates test `=== true` while the settings
+ * toggle renders with truthiness, so a string "true" would show the toggle
+ * ON while the gate was NOT enforced — belief diverging from reality, which
+ * is the exact shape of the bug this hardening came out of. Normalising
+ * here means UI and enforcement read one value.
+ */
+export function normalizeLoadedSettings(settings: MCPPluginSettings): MCPPluginSettings {
+	settings.readOnlyMode = settings.readOnlyMode === true;
+	settings.dangerouslyDisableAuth = settings.dangerouslyDisableAuth === true;
+	settings.enableWebFetch = settings.enableWebFetch === true;
+	settings.allowCreateOverwrite = settings.allowCreateOverwrite === true;
+	// ADR-113: both managed-namespace write gates fail closed on
+	// hand-edited values. No migration code: a missing key takes the
+	// false default.
+	settings.allowSnippetEditing = settings.allowSnippetEditing === true;
+	settings.allowConfigEditing = settings.allowConfigEditing === true;
+
+	// ADR-110: drop malformed scoped tokens and normalize folders.
+	settings.scopedTokens = normalizeScopedTokens(settings.scopedTokens);
+
+	// ADR-111: session lifetime policy. Both fail closed on hand-edited
+	// values: an invalid timespan means never expire, an invalid cap means 1.
+	settings.sessionTimeoutMs = typeof settings.sessionTimeoutMs === 'number' && settings.sessionTimeoutMs >= 0
+		? settings.sessionTimeoutMs
+		: 0;
+	settings.sessionsPerToken = typeof settings.sessionsPerToken === 'number' && settings.sessionsPerToken >= 1
+		? Math.floor(settings.sessionsPerToken)
+		: 1;
+
+	return settings;
+}
