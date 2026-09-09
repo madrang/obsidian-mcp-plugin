@@ -104,10 +104,9 @@ Sophisticated traversal with multiple search queries and strategies.
 ```json
 {
   "action": "advanced-traverse",
-  "sourcePath": "projects/thesis.md",
   "searchQueries": ["methodology", "results", "conclusion"],
-  "strategy": "best-first",  // breadth-first, best-first, beam-search
-  "beamWidth": 5,  // For beam-search
+  "strategy": "best-first",  // breadth-first, best-first, beam-search (see warning below)
+  "beamWidth": 5,  // For beam-search (see warning below)
   "maxDepth": 4
 }
 ```
@@ -117,8 +116,8 @@ Navigate through tag connections.
 ```json
 {
   "action": "tag-traverse",
-  "sourcePath": "daily/2024-01-15.md",
-  "tagFilter": ["#project", "#important"],
+  "startPath": "daily/2024-01-15.md",
+  "searchQuery": "standup notes",
   "maxDepth": 3
 }
 ```
@@ -128,7 +127,7 @@ Analyze tag relationships and co-occurrences.
 ```json
 {
   "action": "tag-analysis",
-  "sourcePath": "index.md"  // Optional
+  "startPath": "index.md"  // Required
 }
 ```
 
@@ -137,12 +136,15 @@ Find notes sharing tags with a source note.
 ```json
 {
   "action": "shared-tags",
-  "sourcePath": "research/paper-1.md",
-  "minSharedTags": 2  // Minimum tags in common
+  "startPath": "research/paper-1.md",
+  "targetPath": "research/paper-2.md"
 }
 ```
 
 ## Traversal Strategies
+
+> [!warning] `strategy` and `beamWidth` are accepted but unwired
+> The traversal is breadth-first whatever `strategy` says, and `strategy` is only echoed into a response label. Do not rely on the two parameters.
 
 ### Breadth-First
 Explores all nodes at current depth before going deeper.
@@ -197,8 +199,7 @@ Find all content related to a research topic across connected notes:
   "action": "search-traverse",
   "startPath": "research/main-topic.md",
   "searchQuery": "key finding",
-  "maxDepth": 3,
-  "strategy": "best-first"
+  "maxDepth": 3
 }
 ```
 
@@ -218,8 +219,8 @@ Find potential connections between unlinked notes:
 ```json
 {
   "action": "shared-tags",
-  "sourcePath": "ideas/new-idea.md",
-  "minSharedTags": 3
+  "startPath": "ideas/new-idea.md",
+  "targetPath": "ideas/related-idea.md"
 }
 ```
 

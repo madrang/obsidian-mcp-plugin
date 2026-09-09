@@ -65,6 +65,7 @@ Built-in: Average, Min, Max, Sum, Range, Median, Stddev, Earliest, Latest, Check
 
 ## Gotchas
 
+- Two engines read one format. The Obsidian app renders the full native function set above. The \`bases\` tool's query runs a sandboxed subset: the globals \`if()\`, \`date()\`, \`now()\`, \`today()\`, \`number()\`, \`string()\`, \`min()\`, \`max()\`, \`abs()\`, \`round()\`, \`list()\`; the file helpers; the value methods; and the operators. The rest of the native set — \`duration()\`, \`link()\`, \`lower()\`, \`format()\`, the list transforms, date-duration arithmetic — fails the filter, or evaluates a formula to null.
 - A base covers the whole vault by default. There is no \`from\` or \`source\`. Narrow with filters.
 - Formulas are always quoted strings. Their output type comes from the data.
 - \`file.backlinks\` and \`file.properties\` do not refresh automatically and cost performance.

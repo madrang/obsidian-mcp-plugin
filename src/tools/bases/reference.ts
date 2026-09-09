@@ -7,11 +7,11 @@
 export function generateBasesReference(): string {
   return `# bases
 
-Manage \`.\`base files — YAML configs that query vault notes with expression-based filters. The tool writes no file.
+Manage \`.base\` files — YAML configs that query vault notes with expression-based filters. The tool writes no file.
 
 ## Actions
 
-- **list** — all \`.\`base files. No parameters.
+- **list** — all \`.base\` files. No parameters.
 - **read** — the YAML config of one base. \`path\` required.
 - **query** — run a base on vault notes. \`path\` required. Optional: \`viewName\`, \`filters\`, \`sortBy\`, \`sortOrder\`, \`page\`, \`pageSize\`, \`properties\`. Add \`format\` ("csv", "json", or "markdown") and the result comes back as a formatted string. In csv and markdown, the columns come from the view \`order:\` key.
 
@@ -40,7 +40,7 @@ A filter property is a frontmatter key, \`file.*\` metadata, or \`formula.NAME\`
 ## Expressions
 
 - Expressions use \`&&\` and \`||\`. YAML \`and:\` or \`or:\` keys combine them.
-- Formulas use the native Bases function set, for example \`if()\`. A formula that errors, or calls an unknown function, evaluates to null.
+- Through this server, filters and formulas run in the plugin sandbox, a subset of the native Bases function set. Globals: \`if()\`, \`date()\`, \`now()\`, \`today()\`, \`number()\`, \`string()\`, \`min()\`, \`max()\`, \`abs()\`, \`round()\`, \`list()\`. File helpers: \`file.hasTag()\`, \`file.inFolder()\`, \`file.hasLink()\`, \`file.hasProperty()\`. Value methods: \`isEmpty()\`, \`contains()\`, \`containsAll()\`, \`containsAny()\`, \`startsWith()\`, \`endsWith()\`. Plus the comparison, arithmetic, and logic operators. A formula that errors, or calls a function outside the subset, evaluates to null. Date-duration arithmetic, for example \`now() - "1 week"\`, is refused: it evaluates to NaN in the sandbox. The full native set renders in the app: see \`obsidian://resources/syntax/bases\`.
 - A formula whose YAML value is not a string fails the whole query with the key named.
 - A filter that errors — malformed syntax, unknown function, blocked escape — fails the whole query with the cause and the expression.
 - A filter whose arithmetic evaluates to NaN, for example date-duration math, fails the query the same way instead of returning an empty set.

@@ -23,21 +23,40 @@ Read the links between notes. Start broad, then narrow. Every action is a read.
 - **tag-analysis** — the tags of one note and the other files that share them. \`startPath\` required.
 - **shared-tags** — the tags shared by two files. \`startPath\` and \`targetPath\` required.
 
+## Filters
+
+The standard actions (traverse, neighbors, backlinks, forwardlinks) accept three global filters. They compose, and on traverse the filter gates the walk itself, the root note included:
+
+- \`fileFilter\` — a regex on the vault-relative path. Plain JavaScript syntax, case-sensitive.
+- \`folderFilter\` — a folder and its subfolders.
+- \`tagFilter\` — an array of strings. Only files that carry every listed tag pass. A leading \`#\` is optional, and matching ignores case. Tags come from both sources: inline \`#tags\` and frontmatter \`tags\`.
+
+The search and tag actions (search-traverse, advanced-traverse, tag-traverse) take \`followTags\`, \`includeOrphans\`, and \`filePattern\` instead.
+
 ## Parameters
 
 | Param | Type | Actions | Default |
 |---|---|---|---|
 | sourcePath | string, required | neighbors, traverse, path, backlinks, forwardlinks. Optional on statistics | — |
 | targetPath | string, required | path, shared-tags | — |
-| startPath | string, required | tag-traverse, tag-analysis, shared-tags. Optional on search-traverse | — |
+| startPath | string, required | tag-traverse, tag-analysis, shared-tags. Optional on search-traverse and advanced-traverse | — |
 | searchQuery | string, required | search-traverse, tag-traverse | — |
 | searchQueries | array of strings, required | advanced-traverse | — |
 | maxDepth | number | traverse, search-traverse, advanced-traverse, tag-traverse | 3 |
 | maxNodes | number | traverse | 100 |
+| followBacklinks | boolean | traverse | true |
+| followForwardLinks | boolean | traverse | true |
+| followTags | boolean | traverse, search-traverse, advanced-traverse, tag-traverse | false |
+| includeUnresolved | boolean | forwardlinks | false |
+| includeOrphans | boolean | search-traverse, advanced-traverse, tag-traverse | false |
+| tagWeight | number | tag-traverse. tag-analysis and shared-tags ignore it | 0.8 |
 | strategy | string ("breadth-first" \\| "best-first" \\| "beam-search") | advanced-traverse | — |
 | beamWidth | number | advanced-traverse | — |
 | maxSnippetsPerNode | number | search-traverse, tag-traverse | 2 |
 | scoreThreshold | number | search-traverse, tag-traverse | 0.5 |
+| fileFilter | string, regex on the vault-relative path | traverse, neighbors, backlinks, forwardlinks | — |
+| folderFilter | string, folder and subfolders | traverse, neighbors, backlinks, forwardlinks | — |
+| tagFilter | array of strings, every tag must be present | traverse, neighbors, backlinks, forwardlinks | — |
 | filePattern | string, regex on the vault-relative path | search-traverse, advanced-traverse, tag-traverse | — |
 
 ## Rules

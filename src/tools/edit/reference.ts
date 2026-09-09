@@ -11,7 +11,7 @@ Content edits on one file at a time. Each action takes an \`action\` string plus
 
 ## Actions
 
-- **replace** — count-guarded find and replace. The surgical edit tool. Exact matching tolerates the quote classes: typographic and ASCII apostrophes, quotes, and dashes match each other, and the write splices only the matched span. Fuzzy matching applies when the exact text is absent and \`expected\` was omitted.
+- **replace** — count-guarded find and replace. The surgical edit tool. Exact matching tolerates the quote classes: typographic and ASCII apostrophes, quotes, and dashes match each other, and the write splices only the matched span. Fuzzy matching applies when the exact text is absent and \`expected\` was omitted: a single fuzzy match replaces that line, and multiple matches are listed with line numbers instead of written.
 - **append** — add to the end of the file.
 - **patch** — structural edit of a heading, a block, or a frontmatter field. For headings, \`target\` is the full path from the top-level H1, joined by \`::\`, for example \`H1::Section::Subsection\`. The match is case-sensitive. On a frontmatter field, \`value\` writes any type serialized as YAML, and \`operation: "remove"\` deletes the field.
 - **at_line** — insert before, insert after, or replace one line. The line text rides \`newText\`. An empty \`newText\` blanks the line. Omit \`newText\` to reuse the buffered replacement.

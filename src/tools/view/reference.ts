@@ -34,6 +34,7 @@ Reads only. Every action is a read. Each action takes an \`action\` string plus 
 | pageSize | number | paginated actions | 50000 |
 | limit | number | paginated actions | — |
 | query | string, required | search | — |
+| ranked | boolean | search | — |
 | strategy | string | read, fragments, search | auto |
 | returnFullFile | boolean | read | false |
 | pattern | string | folder glob, grep regex | — |

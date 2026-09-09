@@ -10,6 +10,19 @@
 export function generateDataviewReference(): string {
   return `# Dataview Query Language (DQL) Reference
 
+## The dataview tool
+
+Registered only when the Dataview plugin is installed. Actions: \`query\` (run DQL or JS), \`list\` (pages, with an optional \`source\` filter), \`metadata\` (the metadata of one file), \`validate\` (a DQL dry-run), \`status\` (plugin availability, no parameters).
+
+| Param | Type | Actions | Default |
+|---|---|---|---|
+| query | string, required | query, validate | — |
+| format | string ("dql" \\| "js") | query | dql |
+| source | string | list | — |
+| path | string, required | metadata | — |
+
+The schema enum advertises only \`dql\`, but the handler also accepts \`js\`. The rest of this page is the DQL language reference.
+
 ## Query Types
 
 ### LIST
