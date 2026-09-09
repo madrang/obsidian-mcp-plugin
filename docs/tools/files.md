@@ -19,6 +19,7 @@ Create a new file. Raw text by default.
 - Missing parent folders are created.
 - If the file exists, the call fails. Set `overwrite: true` to replace the whole content. Overwriting is charged UPDATE, and requires the **Allow overwrite** setting.
 - With `format: "base"`, `content` is the Bases configuration object (name, source, properties, views) and the file is created as a schema-validated Obsidian Bases view.
+- With `format: "folder"`, create a directory at `path`, with any missing parents. A path that already exists is refused. `content` must be omitted or empty: a non-empty value fails the call and nothing is created.
 
 ### `delete`
 Move a file to the trash.

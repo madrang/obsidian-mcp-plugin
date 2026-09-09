@@ -54,6 +54,7 @@ function makeApp(existing: string[], writes: Write[]): App {
       cachedRead: async () => 'body\n',
       modify: async (f: TFile, _c: string) => { writes.push({ op: 'modify', path: f.path }); },
       create: async (p: string, _c: string) => { writes.push({ op: 'create', path: p }); return mkFile(p); },
+      createFolder: async (p: string) => { writes.push({ op: 'mkdir', path: p }); },
       getFiles: () => existing.map(mkFile),
     },
     fileManager: {
@@ -103,6 +104,49 @@ describe('write-path containment', () => {
 
       await api.createBase('views/ok.base', { views: [{ type: 'table', name: 'v' }] } as never);
       expect(writes).toEqual([{ op: 'create', path: 'views/ok.base' }]);
+    });
+  });
+
+  describe('createFolder goes through the security layer', () => {
+    it('is blocked by read-only mode', async () => {
+      const api = new SecureObsidianAPI(
+        makeApp(['note.md'], writes), undefined, { settings: {} } as never,
+        VaultSecurityManager.presets.readOnly()
+      );
+
+      await expect(api.createFolder('newdir')).rejects.toThrow(SecurityError);
+      expect(writes).toEqual([]);
+    });
+
+    it('rejects a traversal path even with writes permitted', async () => {
+      const api = new SecureObsidianAPI(
+        makeApp(['note.md'], writes), undefined, { settings: {} } as never, PERMISSIVE
+      );
+
+      await expect(api.createFolder('../escaped')).rejects.toThrow(SecurityError);
+      expect(writes).toEqual([]);
+    });
+
+    it('refuses a path that already exists, without writing', async () => {
+      const api = new SecureObsidianAPI(
+        makeApp(['note.md'], writes), undefined, { settings: {} } as never, PERMISSIVE
+      );
+
+      await expect(api.createFolder('note.md')).rejects.toThrow('Folder already exists');
+      expect(writes).toEqual([]);
+    });
+
+    it('still creates a folder and its missing parents', async () => {
+      const api = new SecureObsidianAPI(
+        makeApp(['note.md'], writes), undefined, { settings: {} } as never, PERMISSIVE
+      );
+
+      const result = await api.createFolder('views/nested');
+      expect(result).toEqual({ success: true, path: 'views/nested', folder: true });
+      expect(writes).toEqual([
+        { op: 'mkdir', path: 'views' }
+        , { op: 'mkdir', path: 'views/nested' },
+      ]);
     });
   });
 
@@ -233,6 +277,53 @@ describe('write-path containment', () => {
           format: 'base',
           content: { views: [{ type: 'table', name: 'v' }] },
         },
+      });
+
+      expect(writes).toEqual([]);
+      expect(JSON.stringify(res)).toMatch(/PERMISSION_DENIED/);
+    });
+
+    it('files.create with format=folder creates the directory', async () => {
+      const r = router(['note.md']);
+
+      const res = await r.route({
+        operation: 'files',
+        action: 'create',
+        params: { path: 'assets/icons', format: 'folder' },
+      });
+
+      expect(JSON.stringify(res)).toContain('"folder":true');
+      expect(writes).toEqual([
+        { op: 'mkdir', path: 'assets' }
+        , { op: 'mkdir', path: 'assets/icons' },
+      ]);
+    });
+
+    it('files.create with format=folder refuses non-empty content without writing', async () => {
+      const r = router(['note.md']);
+
+      const res = await r.route({
+        operation: 'files',
+        action: 'create',
+        params: { path: 'assets/icons', format: 'folder', content: 'nope' },
+      });
+
+      expect(writes).toEqual([]);
+      expect(JSON.stringify(res)).toMatch(/takes no content/);
+    });
+
+    it('files.create with format=folder is denied under read-only', async () => {
+      const app = makeApp(['note.md'], writes);
+      const api = new SecureObsidianAPI(
+        app, undefined, { settings: {} } as never,
+        VaultSecurityManager.presets.readOnly(),
+      );
+      const r = new VaultRouter(api, app);
+
+      const res = await r.route({
+        operation: 'files',
+        action: 'create',
+        params: { path: 'assets/icons', format: 'folder' },
       });
 
       expect(writes).toEqual([]);

@@ -164,8 +164,15 @@ export class SecureObsidianAPI extends ObsidianAPI {
 		return super.createFile(validated.path!, content);
 	}
 
-	// Note: createFolder doesn't exist in base ObsidianAPI
-	// Folders are created automatically when creating files
+	async createFolder(path: string): ReturnType<ObsidianAPI['createFolder']> {
+		const validated = await this.security.validateOperation({
+			type: OperationType.CREATE
+			, path: path
+			, context: { method: 'createFolder' }
+		});
+
+		return super.createFolder(validated.path!);
+	}
 
 	// File Operations - UPDATE
 

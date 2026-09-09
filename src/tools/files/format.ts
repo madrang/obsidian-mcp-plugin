@@ -381,6 +381,31 @@ export function formatFileWrite(response: FileWriteResponse, action: 'create' | 
 }
 
 /**
+ * Format folder-create response. files.create with format "folder" answers
+ * with folder: true and no file stat — no size, no mtime.
+ */
+export interface FolderCreateResponse {
+  path: string;
+  success: boolean;
+  folder?: boolean;
+}
+
+export function formatFolderCreate(response: FolderCreateResponse): string {
+  const lines: string[] = [];
+
+  const icon = response.success ? '✓' : '✗';
+  lines.push(header(1, `${icon} Created folder: ${response.path}`));
+  lines.push('');
+
+  lines.push(response.success ? 'Folder created.' : 'Failed to create folder.');
+  lines.push(divider());
+  lines.push(tip('Use `view.folder(path)` to list the folder contents'));
+  lines.push(summaryFooter());
+
+  return joinLines(lines);
+}
+
+/**
  * Format file delete response
  * Note: path may not be in result, just success status
  */
@@ -634,8 +659,12 @@ export function formatFilesResponse(action: string, response: unknown): string |
     case 'search':
     case 'fragments':
       return formatSearchResponse(action, normalized);
-    case 'create':
-      return formatFileWrite(normalized as FileWriteResponse, 'create');
+    case 'create': {
+      const writeResp = normalized as FileWriteResponse & FolderCreateResponse;
+      return writeResp.folder === true
+        ? formatFolderCreate(writeResp)
+        : formatFileWrite(writeResp, 'create');
+    }
     case 'delete':
       return formatFileDelete(normalized as FileDeleteResponse);
     case 'move':

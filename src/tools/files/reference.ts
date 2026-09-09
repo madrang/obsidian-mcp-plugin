@@ -11,7 +11,7 @@ Every action on this tool writes. The read-side actions live on the view tool. E
 
 ## Actions
 
-- **create** — new file. Raw text, or with \`format: "base"\` an Obsidian Bases view. Refuses to overwrite unless the gated \`overwrite\` flag is on.
+- **create** — new file. Raw text, or with \`format: "base"\` an Obsidian Bases view, or with \`format: "folder"\` a directory (no content). Refuses to overwrite unless the gated \`overwrite\` flag is on.
 - **delete** — remove a file. The vault trash applies when the app trash option is set.
 - **move** — move, or rename in place when \`destination\` has no directory part. The extension carries over on an in-place rename without one: "note.md" to "renamed" gives "renamed.md". A destination with a directory is used exactly as given, like copy and concat. Without \`overwrite\`, an existing destination is refused. Preserves history and rewrites inbound links.
 - **copy** — duplicate a file.
@@ -28,7 +28,7 @@ A tool-visibility setting can hide any action from the enum.
 | content | string | create | — |
 | destination | string, required | move, copy, concat | — |
 | overwrite | boolean | create, move, copy, concat | false, gated |
-| format | string ("base") | create | — |
+| format | string ("base" \\| "folder") | create | — |
 | splitBy | string ("heading" \\| "delimiter" \\| "lines" \\| "size"), required | split | — |
 | level | number | split | 1 |
 | delimiter | string | split | --- |

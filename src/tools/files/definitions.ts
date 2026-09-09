@@ -3,11 +3,8 @@
  * concat). Registers itself into the tool registry at import time.
  */
 import { registerOperation, pathParam } from '../tool-registry';
-import { executeFilesOperation, FILES_ACTIONS } from './operations';
-import { executeConcat } from './concat';
-import { executeBasesOperation } from '../bases/operations';
+import { executeFilesOperation } from './operations';
 import { formatFilesResponse } from './format';
-import { paramStr } from '../shared';
 
 registerOperation({
   name: 'files'
@@ -16,7 +13,7 @@ registerOperation({
     'Create, delete, move, copy, split, and join files. Every `files` action writes.'
     , ''
     , '## Actions'
-    , { when: 'files.create', text: '- `create` — Write a new file. It refuses a path that already exists. Omit `content` for an empty file. Missing parent folders are created.' }
+    , { when: 'files.create', text: '- `create` — Write a new file. It refuses a path that already exists. Missing parent folders are created.' }
     , { when: 'files.delete', text: '- `delete` — Delete a file. It moves to the Obsidian trash.' }
     , { when: 'files.move', text: '- `move` — Move or rename a file.' }
     , { when: 'files.copy', text: '- `copy` — Copy a file to a new path.' }
@@ -35,33 +32,18 @@ registerOperation({
   , annotations: {
     readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false
   }
-  , execute: (ctx, action, params) => {
-    // The files tool owns only the write actions. The shared read-side cases
-    // in the sibling operations modules are reached through the view tool.
-    if (!(FILES_ACTIONS as readonly string[]).includes(action)) {
-      throw new Error(`Unknown files action: ${action}`);
-    }
-    if (action === 'concat') {
-      return executeConcat(ctx, params);
-    }
-    // format "base" creates a structured, schema-validated Bases view file.
-    // Anything else is a raw text file create.
-    if (action === 'create' && paramStr(params, 'format') === 'base') {
-      return executeBasesOperation(ctx, 'create', params);
-    }
-    return executeFilesOperation(ctx, action, params);
-  }
+  , execute: executeFilesOperation
   , format: formatFilesResponse
   , parameters: {
     ...pathParam
     , content: {
       type: ['string', 'object']
-      , description: 'create: the text content to write. With format "base": the Bases configuration object — filters, formulas, properties, and views. `views` is required, at least one. Copy a `bases.read` result and edit it'
+      , description: 'create: the text content to write. Omit it for an empty file. With format "base": the Bases configuration object — filters, formulas, properties, and views. `views` is required, at least one. Copy a `bases.read` result and edit it. With format "folder": omit it; a folder takes no content'
     }
     , format: {
       type: 'string'
-      , enum: ['base']
-      , description: 'create: the file format. Omit it for raw text. "base" creates an Obsidian Bases view file from the content object, with schema validation'
+      , enum: ['base', 'folder']
+      , description: 'create: what to write. Omit it for a raw text file. "base" creates an Obsidian Bases view file from the content object, with schema validation. "folder" creates a directory at path, with any missing parents; a non-empty content is refused'
     }
     , destination: {
       type: 'string'

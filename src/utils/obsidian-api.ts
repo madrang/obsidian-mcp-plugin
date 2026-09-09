@@ -585,6 +585,27 @@ export class ObsidianAPI {
     return result;
   }
 
+  /**
+   * Create a folder at path, with any missing parents (files.create with
+   * format "folder"). A path that already exists — file or folder — is
+   * refused, mirroring createFile's refusal of an existing file.
+   */
+  async createFolder(path: string) {
+    this.refuseResourceWrite(path);
+
+    // Check if path is excluded
+    if (this.ignoreManager && this.ignoreManager.isExcluded(path)) {
+      throw new Error(`Access denied: ${path}`);
+    }
+
+    if (this.app.vault.getAbstractFileByPath(path)) {
+      throw new Error(`Folder already exists: ${path}`);
+    }
+
+    await ensureDirectoryExists(this.app, path);
+    return { success: true, path, folder: true };
+  }
+
   async updateFile(path: string, content: string) {
     this.refuseResourceWrite(path);
     // Config namespace: parse the edited JSON and apply it with setConfig

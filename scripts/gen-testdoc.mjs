@@ -48,6 +48,7 @@ const SUITE_CATEGORY = {
   , 'tests/fragments-path-scope.test.ts': 'View and read'
   , 'tests/fuzzy-match.test.ts': 'Search'
   , 'tests/files-concat-router.test.ts': 'Files operations'
+  , 'tests/files-create-folder.test.ts': 'Files operations'
   , 'tests/files-move-extension.test.ts': 'Files operations'
   , 'tests/files-split.test.ts': 'Files operations'
   , 'tests/files-split-preflight.test.ts': 'Files operations'
