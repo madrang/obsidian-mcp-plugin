@@ -44,6 +44,7 @@ const SUITE_CATEGORY = {
   , 'tests/resources-via-api.test.ts': 'View and read'
   , 'tests/tag-flags.test.ts': 'View and read'
   , 'tests/link-flags.test.ts': 'View and read'
+  , 'tests/svg-text-files.test.ts': 'View and read'
   , 'tests/snippets-config-access.test.ts': 'Files operations'
   , 'tests/fragments-path-scope.test.ts': 'View and read'
   , 'tests/fuzzy-match.test.ts': 'Search'

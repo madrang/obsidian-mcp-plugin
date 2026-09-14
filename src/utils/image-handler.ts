@@ -13,8 +13,10 @@ export interface ImageProcessingConfig {
   quality?: number;
 }
 
+// SVG is absent on purpose: it is XML text. It reads through the text path,
+// so the edit tool works on it like any other text file.
 export const IMAGE_EXTENSIONS = [
-  '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg' 
+  '.png', '.jpg', '.jpeg', '.gif', '.bmp'
   , '.webp', '.ico', '.tiff', '.tif', '.avif'
 ];
 
