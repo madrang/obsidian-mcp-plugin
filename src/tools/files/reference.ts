@@ -13,7 +13,7 @@ Every action on this tool writes. The read-side actions live on the view tool. E
 
 - **create** — new file. Raw text, or with \`format: "base"\` an Obsidian Bases view, or with \`format: "folder"\` a directory (no content). Refuses to overwrite unless the gated \`overwrite\` flag is on.
 - **delete** — remove a file. The vault trash applies when the app trash option is set.
-- **move** — move, or rename in place when \`destination\` has no directory part. The extension carries over on an in-place rename without one: "note.md" to "renamed" gives "renamed.md". A destination with a directory is used exactly as given, like copy and concat. Without \`overwrite\`, an existing destination is refused. Preserves history and rewrites inbound links.
+- **move** — moves a file like the shell move command. A bare name renames in place: "note.md" to "renamed" gives "renamed.md". A trailing slash moves into that folder under the file's own name: "note.md" to "archive/" gives "archive/note.md". Any other destination is the exact target. Without \`overwrite\`, an existing destination is refused. Preserves history and rewrites inbound links.
 - **copy** — duplicate a file.
 - **split** — one file to several, by \`splitBy\` (heading, delimiter, lines, or size).
 - **concat** — many files to one, in \`paths\` order.

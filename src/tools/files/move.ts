@@ -1,7 +1,8 @@
 /**
  * files move. A destination without a directory renames in place, one with a
  * directory relocates (vault-root-relative, with or without a leading
- * slash) — one parameter covers both.
+ * slash), and one ending in a slash moves the file into that folder under
+ * its own name — one parameter covers all three forms.
  */
 import { RouterContext } from '../router-context';
 import { Params, paramStr, paramBool } from '../shared';
@@ -43,6 +44,16 @@ export async function handleMove(ctx: RouterContext, params: Params): Promise<un
     const dir = lastSlash >= 0 ? path.substring(0, lastSlash) : '';
     const resolvedName = extensionOf(destination) ? destination : `${destination}${extensionOf(path)}`;
     destination = dir ? `${dir}/${resolvedName}` : resolvedName;
+  }
+
+  // A trailing-slash destination names the target folder: the file moves
+  // into it under its own name. Stray slashes collapse, and a bare '/'
+  // targets the vault root. The join must land before the existence check
+  // so the refusal tests the real target, not the folder.
+  if (destination.endsWith('/')) {
+    const folder = destination.replace(/^\/+|\/+$/g, '');
+    const name = path.substring(path.lastIndexOf('/') + 1);
+    destination = folder ? `${folder}/${name}` : name;
   }
 
   // Check if destination already exists. The refusal throw must stay

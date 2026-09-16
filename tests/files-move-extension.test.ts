@@ -10,6 +10,9 @@
  * and the write goes through ObsidianAPI.moveFile (so the security layer can
  * validate the destination) rather than reaching for app.fileManager directly.
  *
+ * The directory destination form (trailing slash, the source name joins the
+ * folder) lives here too: same handler, same harness.
+ *
  * The API and the app must share one App instance, as they do in production.
  */
 import { VaultRouter } from '../src/tools/router';
@@ -53,8 +56,12 @@ function fakeApp(existing: Set<string>, renamed: string[]): App {
   } as unknown as App;
 }
 
-async function rename(source: string, dest: string): Promise<{ result: RenameResult; renamed: string[] }> {
-  const existing = new Set([source]);
+async function rename(
+  source: string,
+  dest: string,
+  preExisting: string[] = []
+): Promise<{ result: RenameResult; renamed: string[]; error: unknown }> {
+  const existing = new Set([source, ...preExisting]);
   const renamed: string[] = [];
   const app = fakeApp(existing, renamed);
   const router = new VaultRouter(new MockObsidianAPI(existing, app), app);
@@ -65,7 +72,7 @@ async function rename(source: string, dest: string): Promise<{ result: RenameRes
     params: { path: source, destination: dest }
   });
 
-  return { result: response.result as unknown as RenameResult, renamed };
+  return { result: response.result as unknown as RenameResult, renamed, error: response.error };
 }
 
 describe('files move with a bare destination — extension handling (#253)', () => {
@@ -105,5 +112,34 @@ describe('files move with a bare destination — extension handling (#253)', () 
     const { result } = await rename('work/LICENSE', 'COPYING');
 
     expect(result.newPath).toBe('work/COPYING');
+  });
+});
+
+describe('files move with a directory destination — the source name joins the folder', () => {
+  it('moves the file into the folder under its own name', async () => {
+    const { result, renamed } = await rename('work/my-note.md', 'archive/');
+
+    expect(result.newPath).toBe('archive/my-note.md');
+    expect(renamed).toEqual(['archive/my-note.md']);
+  });
+
+  it('collapses stray slashes and a leading slash', async () => {
+    const { result } = await rename('work/my-note.md', '//archive//');
+
+    expect(result.newPath).toBe('archive/my-note.md');
+  });
+
+  it('targets the vault root from a bare slash', async () => {
+    const { result } = await rename('work/my-note.md', '/');
+
+    expect(result.newPath).toBe('my-note.md');
+  });
+
+  it('refuses without overwrite when the joined target already exists', async () => {
+    const { result, renamed, error } = await rename('work/my-note.md', 'archive/', ['archive/my-note.md']);
+
+    expect(result).toBeNull();
+    expect(renamed).toEqual([]);
+    expect((error as { message?: string }).message).toContain('Destination already exists: archive/my-note.md');
   });
 });

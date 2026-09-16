@@ -47,7 +47,7 @@ registerOperation({
     }
     , destination: {
       type: 'string'
-      , description: 'The destination path for move, copy, and concat. A destination with a directory is used exactly as given, for all three actions. For move only: a destination without a directory renames the file in place, and the source extension is appended when the destination carries none. Copy and concat create missing destination folders. A move needs an existing target folder'
+      , description: 'The destination for move, copy, and concat. Move works like the shell move command: a bare name renames in place, a trailing slash moves the file into that folder under its own name, any other destination is the exact target. The source extension is appended when a bare rename carries none. Copy and concat create missing destination folders. A move needs an existing target folder'
     }
     , overwrite: {
       type: 'boolean'
