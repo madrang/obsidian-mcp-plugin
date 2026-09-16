@@ -4,6 +4,8 @@ import {
   CallToolRequestSchema,
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
+  McpError,
+  ErrorCode,
   type CallToolResult
 } from '@modelcontextprotocol/sdk/types.js';
 import { EventEmitter } from 'events';
@@ -12,7 +14,7 @@ import { ObsidianAPI } from './obsidian-api';
 import { SecureObsidianAPI } from '../security/secure-obsidian-api';
 import { createTools } from '../tools/tool-factory';
 import { buildResourceList, createResourceService, readResource } from '../resources/registry';
-import type { ResourceDeps } from '../resources/types';
+import { ResourceError, type ResourceDeps } from '../resources/types';
 import { getVersion } from '../version';
 import type { SessionManager } from './session-manager';
 import type { ConnectionPool } from './connection-pool';
@@ -423,15 +425,25 @@ export class MCPServerPool extends EventEmitter {
     });
 
     // Read resource handler. The MCP protocol requires a URI on this
-    // request, so the canonical obsidian://resources/<name> form is the
-    // only one the registry serves.
+    // request; the registry serves the canonical obsidian://resources/<name>
+    // form plus the tolerated aliases. An unknown resource answers with the
+    // spec's resource-not-found code (-32002). The installed SDK predates
+    // that code in its ErrorCode enum, so the constant stands in.
+    const RESOURCE_NOT_FOUND = -32002 as ErrorCode;
     server.setRequestHandler(ReadResourceRequestSchema, (request) => {
       const { uri } = request.params;
       Debug.log(`📖 [Session ${sessionId}] Reading resource: ${uri}`);
 
-      return {
-        contents: [readResource(uri, this.resourceDeps(sessionId))]
-      };
+      try {
+        return {
+          contents: [readResource(uri, this.resourceDeps(sessionId))]
+        };
+      } catch (error) {
+        if (error instanceof ResourceError) {
+          throw new McpError(RESOURCE_NOT_FOUND, error.message, { uri });
+        }
+        throw error;
+      }
     });
 
     return mcpServer;

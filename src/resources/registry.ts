@@ -7,10 +7,12 @@
  *
  * Every caller — the protocol handlers and the tool actions alike — names
  * the canonical URI (obsidian://resources/<name>). The MCP resources/read
- * request requires a URI field, so no shorter form exists to serve.
- * Resolution is an exact match against the registered names, so an
- * unregistered URI — including a future namespace such as snippets — is
- * never swallowed here.
+ * request requires a URI field, so no shorter form exists to serve. Read
+ * resolution also tolerates the fabricated shapes agents send in practice
+ * (a bare name, a file:// address, an .md suffix); see readResource and
+ * resourceUriToName. Every candidate still matches a registered name
+ * exactly, so an unregistered URI — including a future namespace such as
+ * snippets — is never swallowed here.
  */
 import { DataviewTool, isDataviewToolAvailable } from '../tools/dataview/tool';
 import { generateFilesReference } from '../tools/files/reference';
@@ -21,6 +23,8 @@ import { generateBasesReference } from '../tools/bases/reference';
 import { generateSystemReference } from '../tools/system/reference';
 import { buildVaultInfo } from './vault-info';
 import { buildSessionInfo } from './session-info';
+import { generateAgentsReference } from './agents';
+import { generateVersionCheckReference } from './version-check';
 import { generateMarkdownSyntaxReference } from './syntax/markdown';
 import { generateInternalLinksReference } from './syntax/internal-links';
 import { generateCalloutsReference } from './syntax/callouts';
@@ -35,8 +39,8 @@ import { ResourceBody, ResourceContent, ResourceDeps, ResourceError, ResourceLis
 // The prefix and matcher live in the leaf ./uri module so the API layer and
 // the security layer can name the namespace without importing the registry
 // (and, through it, every reference builder).
-export { RESOURCES_URI_PREFIX, isResourceUri } from './uri';
-import { RESOURCES_URI_PREFIX } from './uri';
+export { RESOURCES_URI_PREFIX, isResourceUri, resourceUriToName } from './uri';
+import { RESOURCES_URI_PREFIX, resourceUriToName } from './uri';
 
 interface ResourceSpec {
   name: string;
@@ -46,10 +50,33 @@ interface ResourceSpec {
 }
 
 const RESOURCE_SPECS: ResourceSpec[] = [
+  // Session-start pages: what a connecting agent reads before work. The
+  // AGENTS page carries the session and vault access rules in served
+  // form, and the version-check page holds the GitHub comparison steps.
+  {
+    name: 'AGENTS'
+    , listEntry: {
+      name: 'AGENTS'
+      , description: 'Session-start rules for connecting agents: session sync, vault access, and the version check pointer'
+      , mimeType: 'text/markdown'
+    }
+    , isAvailable: () => true
+    , build: () => ({ mimeType: 'text/markdown', text: generateAgentsReference() })
+  }
+  , {
+    name: 'version-check'
+    , listEntry: {
+      name: 'Version Check'
+      , description: 'Steps to compare the installed plugin version from system info against the latest GitHub release'
+      , mimeType: 'text/markdown'
+    }
+    , isAvailable: () => true
+    , build: () => ({ mimeType: 'text/markdown', text: generateVersionCheckReference() })
+  }
   // Tool reference pages: static curated markdown, one per tool, in the
   // shape of the Dataview reference below. The content lives in each
   // tool family's reference.ts, not in any vault.
-  {
+  , {
     name: 'files'
     , listEntry: {
       name: 'files Reference'
@@ -264,17 +291,25 @@ export function buildResourceList(deps: ResourceDeps): ResourceListEntry[] {
 /**
  * Read one resource by its canonical URI. The tool actions and the
  * resources/read handler both use this entry.
+ *
+ * The canonical form (obsidian://resources/<name>) resolves directly. The
+ * shapes agents fabricate in practice resolve through the same tolerance
+ * rules as resourceUriToName: a bare name, a file:// address, a bare
+ * obsidian:// scheme, and an optional .md suffix on the name. The answer
+ * always carries the canonical URI, so a client that sent a tolerated form
+ * learns the listed one. resources/list stays canonical-only.
  */
 export function readResource(uri: string, deps: ResourceDeps): ResourceContent {
-  if (!uri.startsWith(RESOURCES_URI_PREFIX)) {
-    throw new ResourceError(`Unknown resource: ${uri}`);
-  }
-  const name = uri.slice(RESOURCES_URI_PREFIX.length);
+  const requested = resourceUriToName(uri);
   const spec = RESOURCE_SPECS.find(
-    (spec) => spec.name === name && spec.isAvailable(deps)
+    (spec) => spec.isAvailable(deps)
+      && (spec.name === requested
+        || spec.name === requested.replace(/\.md$/, ''))
   );
   if (!spec) {
-    throw new ResourceError(`Unknown resource: ${uri}`);
+    throw new ResourceError(
+      `Unknown resource: ${uri}. Use a canonical URI from resources/list: ${RESOURCES_URI_PREFIX}<name>`
+    );
   }
   return {
     uri: RESOURCES_URI_PREFIX + spec.name

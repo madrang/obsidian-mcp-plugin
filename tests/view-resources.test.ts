@@ -194,7 +194,9 @@ describe('view.folder walks the resources tree', () => {
     expect(byPath.get(`${RESOURCES_URI_PREFIX}syntax`)?.isFolder).toBe(true);
     expect(result.files.map(f => f.path)).not.toContain(`${RESOURCES_URI_PREFIX}infos/vault`);
     expect(result.files.map(f => f.path)).not.toContain(`${RESOURCES_URI_PREFIX}syntax/markdown`);
-    expect(result.totalFiles).toBe(6);
+    expect(byPath.get(`${RESOURCES_URI_PREFIX}AGENTS`)?.isFolder).toBe(false);
+    expect(byPath.get(`${RESOURCES_URI_PREFIX}version-check`)?.isFolder).toBe(false);
+    expect(result.totalFiles).toBe(8);
     expect(result.totalFolders).toBe(2);
     expect(api.getFileCalls).toEqual([]);
   });

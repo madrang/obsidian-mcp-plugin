@@ -71,7 +71,9 @@ describe('buildResourceList', () => {
   it('lists the tool reference pages, syntax pages, infos, and session with a session manager', () => {
     const entries = buildResourceList(makeDeps({ sessionManager: makeSessionManager(['s1']) }));
     expect(entries.map(e => e.uri)).toEqual([
-      `${RESOURCES_URI_PREFIX}files`
+      `${RESOURCES_URI_PREFIX}AGENTS`
+      , `${RESOURCES_URI_PREFIX}version-check`
+      , `${RESOURCES_URI_PREFIX}files`
       , `${RESOURCES_URI_PREFIX}edit`
       , `${RESOURCES_URI_PREFIX}view`
       , `${RESOURCES_URI_PREFIX}graph`
@@ -170,6 +172,19 @@ describe('readResource: tool reference pages', () => {
     expect(content.text).toContain('"absolute"');
   });
 
+  it('serves the AGENTS rules page and the version-check steps page', () => {
+    const agents = readResource(`${RESOURCES_URI_PREFIX}AGENTS`, makeDeps());
+    expect(agents.mimeType).toBe('text/markdown');
+    expect(agents.text).toContain('## Session sync');
+    expect(agents.text).toContain('## Vault access');
+    expect(agents.text).toContain(`${RESOURCES_URI_PREFIX}version-check`);
+
+    const versionCheck = readResource(`${RESOURCES_URI_PREFIX}version-check`, makeDeps());
+    expect(versionCheck.mimeType).toBe('text/markdown');
+    expect(versionCheck.text).toContain('versions.self');
+    expect(versionCheck.text).toContain('https://github.com/madrang/obsidian-mcp-plugin/releases/latest/download/manifest.json');
+  });
+
   it('serves the dataview reference as markdown when dataview is ready', () => {
     const deps = makeDeps({ obsidianAPI: makeAPI(true) });
     const content = readResource(`${RESOURCES_URI_PREFIX}dataview`, deps);
@@ -205,5 +220,50 @@ describe('readResource: refusals', () => {
 
   it('refuses a non-obsidian path outright', () => {
     expect(() => readResource('notes/a.md', makeDeps())).toThrow(ResourceError);
+  });
+});
+
+describe('readResource: tolerated request shapes', () => {
+  it('serves AGENTS from the fabricated forms agents send, canonical URI echoed', () => {
+    const forms = [
+      'AGENTS.md'
+      , 'AGENTS'
+      , './AGENTS.md'
+      , '/AGENTS.md'
+      , 'file://AGENTS.md'
+      , 'file:///AGENTS.md'
+      , 'obsidian://AGENTS.md'
+    ];
+    for (const form of forms) {
+      const content = readResource(form, makeDeps());
+      expect(content.uri).toBe(`${RESOURCES_URI_PREFIX}AGENTS`);
+      expect(content.text).toContain('## Session sync');
+    }
+  });
+
+  it('serves version-check from a bare name and strips the .md suffix', () => {
+    const content = readResource('version-check.md', makeDeps());
+    expect(content.uri).toBe(`${RESOURCES_URI_PREFIX}version-check`);
+    expect(content.text).toContain('versions.self');
+  });
+
+  it('keeps foreign addresses refused: no filesystem, no other namespace, no case folding', () => {
+    for (const form of [
+      'file:///etc/passwd'
+      , 'obsidian://config/cssTheme'
+      , 'obsidian://snippets/theme.css'
+      , 'AGENTS.txt'
+      , 'agents.md'
+      , '../AGENTS.md'
+    ]) {
+      try {
+        readResource(form, makeDeps());
+        throw new Error(`expected UNKNOWN_RESOURCE for ${form}`);
+      } catch (e) {
+        expect(e).toBeInstanceOf(ResourceError);
+        expect((e as ResourceError).code).toBe('UNKNOWN_RESOURCE');
+        expect((e as ResourceError).message).toContain('obsidian://resources/<name>');
+      }
+    }
   });
 });
