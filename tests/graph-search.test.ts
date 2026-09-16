@@ -1,5 +1,6 @@
 import { App, TFile } from 'obsidian';
 import { GraphSearchTool } from '../src/tools/graph/search';
+import { formatGraphResponse } from '../src/tools/graph/format';
 import { ObsidianAPI } from '../src/utils/obsidian-api';
 
 function makeFile(path: string): TFile {
@@ -66,5 +67,44 @@ describe('GraphSearchTool', () => {
       expect.objectContaining({ path: 'resolved.md', title: 'resolved' })
     ]);
     expect(result.message).toBe('Found 2 files linked from this file');
+  });
+});
+
+describe('GraphSearchTool traverse depth', () => {
+  // Chain a.md -> b.md -> c.md: one hop per depth level.
+  function chainTool(): GraphSearchTool {
+    const files = ['a.md', 'b.md', 'c.md'];
+    const app = new App();
+    (app as any).metadataCache = {
+      resolvedLinks: { 'a.md': { 'b.md': 1 }, 'b.md': { 'c.md': 1 } }
+      , unresolvedLinks: {}
+      , getFileCache: jest.fn().mockReturnValue({ tags: [] })
+    };
+    app.vault.getAbstractFileByPath = jest.fn((path: string) =>
+      files.includes(path) ? makeFile(path) : null
+    );
+    return new GraphSearchTool({ getIgnoreManager: () => undefined } as unknown as ObsidianAPI, app);
+  }
+
+  it('carries per-node depth through the raw response', () => {
+    const result = chainTool().search({ operation: 'traverse', sourcePath: 'a.md' });
+
+    const depths = new Map((result.nodes ?? []).map(n => [n.path, n.depth]));
+    expect(depths.get('a.md')).toBe(0);
+    expect(depths.get('b.md')).toBe(1);
+    expect(depths.get('c.md')).toBe(2);
+  });
+
+  it('renders one section per depth, in order', () => {
+    const raw = chainTool().search({ operation: 'traverse', sourcePath: 'a.md' });
+    const formatted = formatGraphResponse('traverse', raw) as string;
+
+    const first = formatted.indexOf('## Depth 0');
+    const second = formatted.indexOf('## Depth 1');
+    const third = formatted.indexOf('## Depth 2');
+    expect(first).toBeGreaterThanOrEqual(0);
+    expect(second).toBeGreaterThan(first);
+    expect(third).toBeGreaterThan(second);
+    expect(formatted).not.toContain('## Depth 3');
   });
 });

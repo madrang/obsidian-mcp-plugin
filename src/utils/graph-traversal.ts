@@ -9,6 +9,7 @@ export interface GraphNode {
   path: string;
   title: string;
   metadata?: CachedMetadata;
+  depth?: number; // distance from the start, set by breadthFirstTraversal
 }
 
 /**
@@ -288,6 +289,7 @@ export class GraphTraversal {
         , path: file.path
         , title: this.getNodeTitle(file)
         , metadata: this.app.metadataCache.getFileCache(file) || undefined
+        , depth
       };
 
       if (nodeFilter && !nodeFilter(node)) continue;

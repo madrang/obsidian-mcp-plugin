@@ -41,6 +41,7 @@ export function performTraversal(traversal: GraphTraversal, app: App, params: Gr
     path: node.path
     , title: node.title
     , type: 'file' as const
+    , depth: node.depth ?? 0
     , tags: nodeTags(node.metadata)
     , links: {
       forward: traversal.getForwardLinks(node.path).length

@@ -24,7 +24,7 @@ export function normalizeGraphResponse(action: string, response: unknown): unkno
             return {
               path: n.path
               , title: n.title
-              , depth: 0 // depth per node not tracked in this response shape
+              , depth: (n.depth as number) ?? 0
               , links: outgoing.length > 0 ? outgoing : undefined
               , tags: n.tags
             };

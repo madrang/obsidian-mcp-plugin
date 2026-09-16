@@ -42,6 +42,7 @@ export interface GraphSearchResult {
     path: string;
     title: string;
     type: 'file';
+    depth?: number;
     tags?: string[];
     links?: {
       forward: number;
