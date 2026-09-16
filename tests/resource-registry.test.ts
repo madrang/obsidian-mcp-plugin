@@ -175,8 +175,10 @@ describe('readResource: tool reference pages', () => {
   it('serves the AGENTS rules page and the version-check steps page', () => {
     const agents = readResource(`${RESOURCES_URI_PREFIX}AGENTS`, makeDeps());
     expect(agents.mimeType).toBe('text/markdown');
-    expect(agents.text).toContain('## Session sync');
-    expect(agents.text).toContain('## Vault access');
+    expect(agents.text).toContain('# Session sync');
+    expect(agents.text).toContain('There is nothing to sync');
+    expect(agents.text).toContain('# Vault access');
+    expect(agents.text).toContain('view');
     expect(agents.text).toContain(`${RESOURCES_URI_PREFIX}version-check`);
 
     const versionCheck = readResource(`${RESOURCES_URI_PREFIX}version-check`, makeDeps());
@@ -237,7 +239,7 @@ describe('readResource: tolerated request shapes', () => {
     for (const form of forms) {
       const content = readResource(form, makeDeps());
       expect(content.uri).toBe(`${RESOURCES_URI_PREFIX}AGENTS`);
-      expect(content.text).toContain('## Session sync');
+      expect(content.text).toContain('# Session sync');
     }
   });
 

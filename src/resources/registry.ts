@@ -50,14 +50,15 @@ interface ResourceSpec {
 }
 
 const RESOURCE_SPECS: ResourceSpec[] = [
-  // Session-start pages: what a connecting agent reads before work. The
-  // AGENTS page carries the session and vault access rules in served
-  // form, and the version-check page holds the GitHub comparison steps.
+  // Rules pages for connecting agents. The AGENTS page explains the
+  // session process around the vault root AGENTS.md and holds the vault
+  // access limits; the version-check page holds the GitHub comparison
+  // steps.
   {
     name: 'AGENTS'
     , listEntry: {
       name: 'AGENTS'
-      , description: 'Session-start rules for connecting agents: session sync, vault access, and the version check pointer'
+      , description: 'The AGENTS entry point for connecting agents: session sync, vault access, and the version check pointer'
       , mimeType: 'text/markdown'
     }
     , isAvailable: () => true
