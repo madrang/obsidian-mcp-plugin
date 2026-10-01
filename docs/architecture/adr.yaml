@@ -29,7 +29,7 @@ statuses:
   - Deprecated
 
 defaults:
-  deciders: [aaronsb]
+  deciders: [madrang]
   status: Draft
 
 legacy:

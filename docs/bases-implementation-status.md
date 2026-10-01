@@ -159,8 +159,8 @@ src/
 - [Functions Reference](https://help.obsidian.md/Plugins/Bases/Functions)
 
 ## Contact & Support
-- GitHub Issues: [obsidian-mcp-plugin](https://github.com/aaronsb/obsidian-mcp-plugin)
-- Main Developer: @aaronsb
+- GitHub Issues: [obsidian-mcp-plugin](https://github.com/madrang/obsidian-mcp-plugin)
+- Main Developer: @madrang
 
 ---
 
