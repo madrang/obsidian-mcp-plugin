@@ -56,7 +56,7 @@ Keep them clear and descriptive:
 
 ## Current Focus Areas
 
-Check our [GitHub Issues](https://github.com/aaronsb/obsidian-mcp-plugin/issues) for:
+Check our [GitHub Issues](https://github.com/madrang/obsidian-mcp-plugin/issues) for:
 - 🔴 Security vulnerabilities (highest priority)
 - 🟠 Input validation improvements
 - 🟡 Code quality refactoring
