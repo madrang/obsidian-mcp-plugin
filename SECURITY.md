@@ -5,8 +5,8 @@
 We take security seriously. If you discover a security vulnerability, please:
 
 1. **DO NOT** open a public issue
-2. **DO** report it via GitHub Security Advisories: [Report a vulnerability](https://github.com/aaronsb/obsidian-mcp-plugin/security/advisories/new)
-3. **OR** email details to the maintainer (check commit history for email)
+2. **DO** report it via GitHub Security Advisories: [Report a vulnerability](https://github.com/madrang/obsidian-mcp-plugin/security/advisories/new)
+3. **OR** email details to the maintainer at madrang@gmail.com
 
 ## What to Include
 
@@ -15,24 +15,23 @@ We take security seriously. If you discover a security vulnerability, please:
 - Potential impact
 - Suggested fix (if any)
 
-## Known Security Issues
+## Security Controls
 
-We're actively working on fixing these security vulnerabilities:
+The vulnerabilities tracked in the old issue list are all fixed. What shipped:
 
-| Issue | Status | Priority |
-|-------|---------|----------|
-| No authentication on MCP server | ✅ Done | CRITICAL |
-| Path traversal in file operations | 📋 Planned | CRITICAL |
-| Missing input validation | 📋 Planned | HIGH |
-| Insecure session management | 📋 Planned | HIGH |
-
-See our [security issues](https://github.com/aaronsb/obsidian-mcp-plugin/issues?q=is%3Aissue+is%3Aopen+label%3Asecurity) for details.
+| Control | Status |
+|---------|--------|
+| API key authentication, scoped bearer tokens with per-scope read-only (ADR-110) | ✅ Shipped |
+| Path validation with vault-boundary enforcement | ✅ Shipped |
+| Input validation on every action | ✅ Shipped |
+| Per-token session limits and session expiry | ✅ Shipped |
+| Opt-in rate limiting per credential (ADR-112) | ✅ Shipped |
+| Security audit log | ✅ Shipped |
+| HTTPS with self-signed or user certificates (ADR-103) | ✅ Shipped |
 
 ## Security Best Practices
 
-Until security improvements are complete:
-
-1. **Only use on trusted networks** (localhost only)
+1. **Keep the server on localhost** — the default network mode listens on localhost only
 2. **Don't expose the MCP port** to the internet
 3. **Monitor vault access** for unexpected changes
 4. **Keep backups** of your vault
@@ -40,23 +39,21 @@ Until security improvements are complete:
 
 ## Secure Configuration
 
+Setting names as they appear in the plugin settings (and in `data.json`):
+
 ```json
 {
   "httpEnabled": true,
-  "httpPort": 3001,  // Change from default
+  "httpPort": 3011,
+  "httpsEnabled": false,
+  "httpsPort": 3444,
   "autoDetectPortConflicts": true,
-  "debugLogging": false  // Disable in production
+  "rateLimitPerMinute": 0,
+  "debugLogging": false
 }
 ```
 
-## Future Security Enhancements
-
-- [x] API key authentication
-- [ ] Path validation framework
-- [ ] Input sanitization
-- [ ] Rate limiting
-- [ ] Audit logging
-- [ ] Encrypted sessions
+`rateLimitPerMinute` is `0` until you set one: no limit by default. Enable HTTPS in the settings to serve over TLS.
 
 ## Acknowledgments
 
