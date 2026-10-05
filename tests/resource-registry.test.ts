@@ -89,6 +89,7 @@ describe('buildResourceList', () => {
       , `${RESOURCES_URI_PREFIX}syntax/search`
       , `${RESOURCES_URI_PREFIX}syntax/properties`
       , `${RESOURCES_URI_PREFIX}syntax/tags`
+      , `${RESOURCES_URI_PREFIX}recipes/recent-activity`
       , `${RESOURCES_URI_PREFIX}infos/vault`
       , `${RESOURCES_URI_PREFIX}infos/session`
     ]);
@@ -164,6 +165,17 @@ describe('readResource: tool reference pages', () => {
       expect(content.text.startsWith(heading)).toBe(true);
       expect(content.text.length).toBeGreaterThan(500);
     }
+  });
+
+  it('serves the recent activity recipe page', () => {
+    const content = readResource(`${RESOURCES_URI_PREFIX}recipes/recent-activity`, makeDeps());
+    expect(content.uri).toBe(`${RESOURCES_URI_PREFIX}recipes/recent-activity`);
+    expect(content.mimeType).toBe('text/markdown');
+    expect(content.text.startsWith('# Recent activity recipe')).toBe(true);
+    expect(content.text).toContain('Recent activity');
+    expect(content.text).toContain('file.mtime');
+    expect(content.text).toContain('formula.last_edit_days');
+    expect(content.text.length).toBeGreaterThan(500);
   });
 
   it('the internal-links page documents the link format settings check', () => {

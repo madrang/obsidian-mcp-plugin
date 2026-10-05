@@ -35,6 +35,7 @@ import { generateCustomCssReference } from './syntax/custom-css';
 import { generateSearchReference } from './syntax/search';
 import { generatePropertiesReference } from './syntax/properties';
 import { generateTagsReference } from './syntax/tags';
+import { generateRecentActivityRecipe } from './recipes/recent-activity';
 import { ResourceBody, ResourceContent, ResourceDeps, ResourceError, ResourceListEntry, ResourceService } from './types';
 // The prefix and matcher live in the leaf ./uri module so the API layer and
 // the security layer can name the namespace without importing the registry
@@ -238,6 +239,18 @@ const RESOURCE_SPECS: ResourceSpec[] = [
     }
     , isAvailable: () => true
     , build: () => ({ mimeType: 'text/markdown', text: generateTagsReference() })
+  }
+  // Applied recipes: task-shaped pages built from the tool and syntax
+  // references, same static-content shape.
+  , {
+    name: 'recipes/recent-activity'
+    , listEntry: {
+      name: 'Recent Activity Recipe'
+      , description: 'Track vault changes through a .base file: a Recent activity view over file.mtime, created with files and queried with bases'
+      , mimeType: 'text/markdown'
+    }
+    , isAvailable: () => true
+    , build: () => ({ mimeType: 'text/markdown', text: generateRecentActivityRecipe() })
   }
   , {
     name: 'infos/vault'

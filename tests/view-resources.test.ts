@@ -172,7 +172,7 @@ describe('view actions on resource URIs', () => {
 });
 
 describe('view.folder walks the resources tree', () => {
-  it('the root lists the tool pages and the infos folder', async () => {
+  it('the root lists the tool pages and the folders', async () => {
     const { api, router } = setup();
     const response = await router.route({
       operation: 'view'
@@ -192,12 +192,13 @@ describe('view.folder walks the resources tree', () => {
     expect(byPath.get(`${RESOURCES_URI_PREFIX}view`)?.isFolder).toBe(false);
     expect(byPath.get(`${RESOURCES_URI_PREFIX}infos`)?.isFolder).toBe(true);
     expect(byPath.get(`${RESOURCES_URI_PREFIX}syntax`)?.isFolder).toBe(true);
+    expect(byPath.get(`${RESOURCES_URI_PREFIX}recipes`)?.isFolder).toBe(true);
     expect(result.files.map(f => f.path)).not.toContain(`${RESOURCES_URI_PREFIX}infos/vault`);
     expect(result.files.map(f => f.path)).not.toContain(`${RESOURCES_URI_PREFIX}syntax/markdown`);
     expect(byPath.get(`${RESOURCES_URI_PREFIX}AGENTS`)?.isFolder).toBe(false);
     expect(byPath.get(`${RESOURCES_URI_PREFIX}version-check`)?.isFolder).toBe(false);
     expect(result.totalFiles).toBe(8);
-    expect(result.totalFolders).toBe(2);
+    expect(result.totalFolders).toBe(3);
     expect(api.getFileCalls).toEqual([]);
   });
 
@@ -215,6 +216,22 @@ describe('view.folder walks the resources tree', () => {
     expect(result.files).toHaveLength(10);
     expect(result.files.every(f => f.isFolder === false)).toBe(true);
     expect(result.files.map(f => f.path)).toContain(`${RESOURCES_URI_PREFIX}syntax/internal-links`);
+  });
+
+  it('the recipes folder lists the recipe pages', async () => {
+    const { router } = setup();
+    const response = await router.route({
+      operation: 'view'
+      , action: 'folder'
+      , params: { path: `${RESOURCES_URI_PREFIX}recipes/` }
+    });
+
+    expect(response.error).toBeUndefined();
+    const result = response.result as { directory: string, files: Array<{ path: string; isFolder: boolean }> };
+    expect(result.directory).toBe(`${RESOURCES_URI_PREFIX}recipes/`);
+    expect(result.files).toHaveLength(1);
+    expect(result.files.every(f => f.isFolder === false)).toBe(true);
+    expect(result.files.map(f => f.path)).toContain(`${RESOURCES_URI_PREFIX}recipes/recent-activity`);
   });
 
   it('the infos folder lists the info resources', async () => {
