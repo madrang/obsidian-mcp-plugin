@@ -25,6 +25,7 @@ const SUITE_CATEGORY = {
   , 'tests/dispatch-param-guards.test.ts': 'Surface and dispatch'
   , 'tests/settings-ui.test.ts': 'Surface and dispatch'
   , 'tests/edit-preconditions.test.ts': 'Edit tool'
+  , 'tests/edit-at-line.test.ts': 'Edit tool'
   , 'tests/edit-multi.test.ts': 'Edit tool'
   , 'tests/edit-replace-count.test.ts': 'Edit tool'
   , 'tests/edit-replace-behavior.test.ts': 'Edit tool'
