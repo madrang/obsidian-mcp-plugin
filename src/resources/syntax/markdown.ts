@@ -40,6 +40,7 @@ Obsidian supports CommonMark plus GitHub Flavored Markdown plus LaTeX, and its o
 
 \`\`\`md
 ==highlighted==              yellow highlight
+==🔴 highlighted==           a color emoji first picks the color: 🔴 🟠 🟢 🔵 🟣 (1.14.0)
 ~~struck out~~
 %%hidden comment%%           visible only in source, not rendered
 - [ ] todo item

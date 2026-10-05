@@ -22,7 +22,7 @@ properties:         # display configuration per property
   status:
     displayName: "Project Status"
 views:
-  - type: table     # table or cards (1.9), list or map (1.10)
+  - type: table     # table or cards (1.9), list or map (1.10), kanban (1.14, grouped by defines columns)
     name: "Active Projects"
     limit: 10
     filters:        # view-level, AND-ed with the global ones
