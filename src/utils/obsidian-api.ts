@@ -291,6 +291,13 @@ export class ObsidianAPI {
       files = vault.getAllLoadedFiles();
     }
 
+    // Same ignore-manager pass as listFiles: a scoped token or .mcpignore
+    // must not leak entries through the paginated channel. Folders filter
+    // too — an excluded folder name is itself a path disclosure.
+    if (this.ignoreManager) {
+      files = files.filter(file => !this.ignoreManager!.isExcluded(file.path));
+    }
+
     // Create detailed file objects
     let fileObjects: FileDetailObject[] = files.map(file => {
       const isFile = file instanceof TFile;
