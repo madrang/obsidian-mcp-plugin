@@ -127,7 +127,7 @@ describe('validateOutboundUrl', () => {
       ]);
       const target = await validateOutboundUrl('https://example.com/page', ENABLED);
       expect(target.address).toBe('93.184.216.34');
-      expect(lookupSpy).toHaveBeenCalledWith('example.com', { all: true, verbatim: true });
+      expect(lookupSpy).toHaveBeenCalledWith('example.com', { all: true, order: 'verbatim' });
     });
 
     it('refuses a name if ANY record lands in a blocked range', async () => {

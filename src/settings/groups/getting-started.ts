@@ -18,7 +18,7 @@ export function gettingStartedGroup(host: SettingsUIHost): Group {
 
         if (s.dangerouslyDisableAuth) {
           block.createDiv({
-            text: '⚠️ warning: authentication is disabled. Your vault is accessible without credentials!'
+            text: '⚠️ Warning: authentication is disabled. Your vault is accessible without credentials!'
             , cls: 'mcp-warning-box'
           });
         }
@@ -44,7 +44,7 @@ export function gettingStartedGroup(host: SettingsUIHost): Group {
           const li = toolsListEl.createEl('li', { text: `${entry.emoji} ${entry.name} - ${entry.desc}` });
           if (isDisabled) {
             li.addClass('mcp-tool-disabled');
-            li.createSpan({ text: ' (hidden)', cls: 'mcp-tool-count' });
+            li.createSpan({ text: ' (Hidden)', cls: 'mcp-tool-count' });
           } else if (enabledActions.length < actions.length) {
             li.createSpan({ text: ` (${enabledActions.length}/${actions.length} actions)`, cls: 'mcp-tool-count' });
           }

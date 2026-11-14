@@ -13,7 +13,7 @@ export async function checkPortConflict(port: number, isOwnServer: (port: number
     }
 
     // Try to create a temporary server to test port availability
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- Dynamic require needed for Node.js http module in Obsidian desktop environment
+     
     const http = require('http') as typeof import('http');
     const testServer = http.createServer();
     return new Promise((resolve) => {

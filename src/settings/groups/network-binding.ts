@@ -29,7 +29,7 @@ export function networkBindingGroup(host: SettingsUIHost): Group {
           if (verdict.class === 'jail') {
             badgeEl.createEl('br');
             badgeEl.createSpan({
-              text: 'Reconfigure: switch the bind address below to Loopback, or enable HTTPS.'
+              text: 'Reconfigure: switch the bind address below to loopback, or enable HTTPS.'
               , cls: 'mcp-network-badge-hint'
             });
           }
