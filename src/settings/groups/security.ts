@@ -82,10 +82,10 @@ export function securityGroup(host: SettingsUIHost): Group {
               }
               const adapter = host.app.vault.adapter;
               const basePath = adapter instanceof FileSystemAdapter ? adapter.getBasePath() : '';
-              // eslint-disable-next-line @typescript-eslint/no-require-imports -- Dynamic require needed for Node.js path module in Obsidian desktop environment
+               
               const nodePath = require('path') as typeof import('path');
               const fullPath = nodePath.join(basePath, stats.filePath);
-              // eslint-disable-next-line @typescript-eslint/no-require-imports -- Dynamic require needed for Electron shell API in Obsidian desktop environment
+               
               const electron = require('electron') as { shell?: { openPath: (path: string) => Promise<string>; showItemInFolder: (path: string) => void } };
               if (electron?.shell) {
                 await open(electron.shell, fullPath);

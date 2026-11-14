@@ -151,7 +151,7 @@ export async function validateOutboundUrl(rawUrl: string, isEnabled: () => boole
 	// connection is then pinned to one validated address.
 	let records: { address: string; family: number }[];
 	try {
-		records = await dns.promises.lookup(hostname, { all: true, verbatim: true });
+		records = await dns.promises.lookup(hostname, { all: true, order: 'verbatim' });
 	} catch {
 		throw new OutboundFetchError(`DNS resolution failed for ${hostname}`, 'DNS_FAILURE');
 	}

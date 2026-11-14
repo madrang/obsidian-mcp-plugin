@@ -305,7 +305,7 @@ export class MCPSettingTab extends PluginSettingTab {
 				s.dangerouslyDisableAuth = bool;
 				await plugin.saveSettings();
 				if (bool) {
-					new Notice('⚠️ authentication disabled! Your vault is accessible without credentials.');
+					new Notice('⚠️ Authentication disabled! Your vault is accessible without credentials.');
 				} else {
 					new Notice('✅ Authentication enabled. API key required for access.');
 				}
